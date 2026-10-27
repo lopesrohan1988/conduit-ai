@@ -13,18 +13,23 @@ import {
   AlertTriangle,
   Activity,
   Radio,
+  Users,
+  Wrench,
 } from "lucide-react";
 import {
   AgentTimelineStep,
   InferenceMode,
   ModelServiceHealth,
   ScenarioDataset,
+  UserLensMode,
 } from "@/types/conduit";
 
 interface WorkbenchHeaderProps {
   scenarios: ScenarioDataset[];
   selectedScenario: ScenarioDataset;
   onSelectScenario: (id: string) => void;
+  userLens: UserLensMode;
+  onChangeUserLens: (lens: UserLensMode) => void;
   inferenceMode: InferenceMode;
   onToggleInferenceMode: (mode: InferenceMode) => void;
   modelStack: ModelServiceHealth[];
@@ -41,6 +46,8 @@ export default function WorkbenchHeader({
   scenarios,
   selectedScenario,
   onSelectScenario,
+  userLens,
+  onChangeUserLens,
   inferenceMode,
   onToggleInferenceMode,
   modelStack,
@@ -56,25 +63,29 @@ export default function WorkbenchHeader({
     (s) => s.status === "completed" || s.status === "alert"
   ).length;
 
+  const isGuided = userLens === "guided_collab";
+
   return (
     <header className="border-b border-slate-800 bg-slate-950/95 backdrop-blur sticky top-0 z-30">
-      {/* Row 1: Brand Emblem + Mode Switch + Primary Autonomous Cutover CTA */}
+      {/* Row 1: Brand Emblem + Role Lens Switcher + AI Runtime + Primary CTA */}
       <div className="max-w-[1600px] mx-auto px-4 lg:px-6 py-3 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80">
         {/* Brand Identity */}
-        <div className="flex items-center gap-3">
-          <div className="relative flex items-center justify-center w-10 h-10 rounded-md bg-slate-900 border border-emerald-500/40 shadow-[0_0_20px_rgba(16,185,129,0.12)]">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="relative flex items-center justify-center w-10 h-10 rounded-md bg-slate-900 border border-emerald-500/40 shadow-[0_0_20px_rgba(16,185,129,0.12)] shrink-0">
             <ShieldCheck className="w-5 h-5 text-emerald-400" />
             <span className="absolute -bottom-1 -right-1 px-1 py-[1px] text-[9px] font-mono font-bold bg-emerald-500 text-slate-950 rounded">
               SL4
             </span>
           </div>
-          <div>
-            <div className="flex items-center gap-2.5">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-100">
                 Conduit<span className="text-emerald-400">AI</span>
               </h1>
-              <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-slate-900 text-slate-300 border border-slate-800">
-                IEC 62443 SL-4 Autonomous Data Diode Workbench
+              <span className="hidden md:inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-slate-900 text-slate-300 border border-slate-800">
+                {isGuided
+                  ? "Guided Data Diode Quoting & Cutover Co-Pilot"
+                  : "IEC 62443 SL-4 Autonomous Data Diode Workbench"}
               </span>
               <span
                 className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono border ${
@@ -85,7 +96,7 @@ export default function WorkbenchHeader({
                 title={
                   backendConnected
                     ? "Connected to FastAPI + LangGraph Backend (:8000)"
-                    : "Running with Deterministic 6-Vertical Ground-Truth Cache (Backend :8000 Offline)"
+                    : "Running with Deterministic 6-Vertical Ground-Truth Cache"
                 }
               >
                 <span
@@ -98,16 +109,56 @@ export default function WorkbenchHeader({
                 {backendConnected ? "API LIVE :8000" : "OFFLINE TWIN READY"}
               </span>
             </div>
-            <p className="text-xs text-slate-400 font-mono mt-0.5">
-              Out-of-Band OT Isolation Sizing · SAM 3.1 Physical Fit · TX/RX
-              Pull-to-Push Reversal · Modal{" "}
-              <code className="text-slate-300">os.pipe()</code> Verification
+            <p className="text-xs text-slate-300 mt-0.5 truncate">
+              {isGuided ? (
+                "Turn Site Photos & Read-Only Network Logs into a Verified Data Diode Quote & Zero-Downtime Cutover Plan in 60 Seconds"
+              ) : (
+                <span className="font-mono text-slate-400">
+                  Out-of-Band OT Isolation Sizing · SAM 3.1 Physical Fit · TX/RX
+                  Pull-to-Push Reversal · Modal{" "}
+                  <code className="text-slate-300">os.pipe()</code> Verification
+                </span>
+              )}
             </p>
           </div>
         </div>
 
-        {/* Right Controls: Runtime Mode Toggle + Primary CTA */}
-        <div className="flex flex-wrap items-center gap-2.5">
+        {/* Right Controls: Role Lens Toggle + Runtime Mode Toggle + Primary CTA */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Role Lens Switcher: Guided (Sales + Engineer) vs Engineer Deep-Dive */}
+          <div
+            className="inline-flex rounded-md bg-slate-900 p-0.5 border border-slate-800"
+            role="group"
+            aria-label="User Experience Lens"
+          >
+            <button
+              type="button"
+              onClick={() => onChangeUserLens("guided_collab")}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-semibold transition-colors ${
+                isGuided
+                  ? "bg-emerald-500/20 text-emerald-200 border border-emerald-500/50"
+                  : "text-slate-400 hover:text-slate-200 border border-transparent"
+              }`}
+              title="Plain-English explanations, Sales talking points, and step-by-step collaboration"
+            >
+              <Users className="w-3.5 h-3.5 text-emerald-400" />
+              <span>🤝 Guided Mode (Sales + Engineer)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onChangeUserLens("engineer_deep")}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-semibold transition-colors ${
+                !isGuided
+                  ? "bg-sky-500/20 text-sky-200 border border-sky-500/50"
+                  : "text-slate-400 hover:text-slate-200 border border-transparent"
+              }`}
+              title="Full protocol, VLAN, packet SQL, and CLI telemetry upfront"
+            >
+              <Wrench className="w-3.5 h-3.5 text-sky-400" />
+              <span>🛠️ Engineer Deep-Dive</span>
+            </button>
+          </div>
+
           {/* Runtime Mode Segmented Toggle */}
           <div
             className="inline-flex rounded-md bg-slate-900 p-0.5 border border-slate-800"
@@ -122,12 +173,10 @@ export default function WorkbenchHeader({
                   ? "bg-sky-500/15 text-sky-300 border border-sky-500/40"
                   : "text-slate-400 hover:text-slate-200 border border-transparent"
               }`}
+              title="Uses Meta SAM 3.1, Muse Spark, Muse Wonder & Baseten Cloud APIs"
             >
               <Cloud className="w-3.5 h-3.5" />
               <span>☁️ Cloud Frontier</span>
-              <span className="hidden xl:inline text-[10px] font-mono text-sky-400/80">
-                (Muse Spark + Wonder)
-              </span>
             </button>
             <button
               type="button"
@@ -137,12 +186,10 @@ export default function WorkbenchHeader({
                   ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/40"
                   : "text-slate-400 hover:text-slate-200 border border-transparent"
               }`}
+              title="Runs on private open-weights Muse Glimmer 30B so sensitive site logs never leave customer premises"
             >
               <Lock className="w-3.5 h-3.5" />
               <span>🔒 Air-Gapped On-Prem</span>
-              <span className="hidden xl:inline text-[10px] font-mono text-emerald-400/80">
-                (Muse Glimmer 30B)
-              </span>
             </button>
           </div>
 
@@ -151,7 +198,7 @@ export default function WorkbenchHeader({
             type="button"
             onClick={onRunAssessment}
             disabled={isAssessing}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-xs sm:text-sm font-semibold tracking-tight transition-all border ${
+            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-md text-xs sm:text-sm font-semibold tracking-tight transition-all border ${
               isAssessing
                 ? "bg-amber-500/20 text-amber-200 border-amber-500/50 cursor-wait"
                 : "bg-emerald-500 hover:bg-emerald-400 text-slate-950 border-emerald-400 shadow-[0_0_24px_rgba(16,185,129,0.28)] active:scale-[0.99]"
@@ -161,24 +208,28 @@ export default function WorkbenchHeader({
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
                 <span>
-                  Running Pipeline ({completedSteps}/{timelineSteps.length})...
+                  Analyzing Site ({completedSteps}/{timelineSteps.length})...
                 </span>
               </>
             ) : (
               <>
                 <Zap className="w-4 h-4 fill-slate-950" />
-                <span>⚡ Run Autonomous Cutover Assessment</span>
+                <span>
+                  {isGuided
+                    ? "⚡ Re-Run 60s Site Assessment"
+                    : "⚡ Run Autonomous Cutover Assessment"}
+                </span>
               </>
             )}
           </button>
         </div>
       </div>
 
-      {/* Row 2: 1-Click Critical Infrastructure Scenario Bar (6 Verticals) */}
+      {/* Row 2: 1-Click Critical Infrastructure Scenario Bar (6 Customer Sites) */}
       <div className="max-w-[1600px] mx-auto px-4 lg:px-6 py-2 border-b border-slate-800/80 bg-zinc-950/70">
         <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
-          <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500 shrink-0 mr-1">
-            6-Vertical Benchmark:
+          <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 shrink-0 mr-1">
+            {isGuided ? "Customer Site:" : "6-Vertical Benchmark:"}
           </span>
           {scenarios.map((sc) => {
             const active = sc.id === selectedScenario.id;
@@ -224,7 +275,7 @@ export default function WorkbenchHeader({
         <div className="flex items-center gap-1.5 overflow-x-auto">
           <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-slate-500 shrink-0 mr-1">
             <Radio className="w-3 h-3 text-emerald-400" />
-            Model Stack:
+            AI Engines:
           </span>
           {modelStack.map((m) => {
             const dotClass =
@@ -259,11 +310,12 @@ export default function WorkbenchHeader({
         >
           <Activity className="w-3.5 h-3.5 text-emerald-400" />
           <span>
-            Agent Trace ({completedSteps}/{timelineSteps.length})
+            {isGuided ? "AI Step Progress" : "Agent Trace"} ({completedSteps}/
+            {timelineSteps.length})
           </span>
           {assessmentCompleted && !isAssessing && (
             <span className="px-1.5 py-[1px] rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px]">
-              VERIFIED
+              READY
             </span>
           )}
           {timelineExpanded ? (
@@ -278,22 +330,22 @@ export default function WorkbenchHeader({
       {timelineExpanded && (
         <div className="border-t border-slate-800 bg-zinc-950/95">
           <div className="max-w-[1600px] mx-auto px-4 lg:px-6 py-3">
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
               <div className="flex items-center gap-2 text-xs font-mono text-slate-300">
                 <span className="uppercase tracking-wider text-slate-400">
-                  LangGraph Multi-Agent Cutover Execution Trace
+                  {isGuided
+                    ? "7-Step Automated Site Inspection & Verification Progress"
+                    : "LangGraph Multi-Agent Cutover Execution Trace"}
                 </span>
                 <span className="text-slate-600">|</span>
                 <span className="text-emerald-400">
                   {inferenceMode === "airgapped_glimmer"
-                    ? "Mode: Air-Gapped On-Prem (Muse Glimmer 30B Enclave)"
-                    : "Mode: Cloud Frontier (Muse Spark + Muse Wonder + SAM 3.1)"}
+                    ? "Private On-Prem Mode (Muse Glimmer 30B)"
+                    : "Cloud Frontier Mode (Muse Spark + Wonder + SAM 3.1)"}
                 </span>
               </div>
               <span className="text-[11px] font-mono text-slate-400">
-                Target: {selectedScenario.conduitId} (
-                {selectedScenario.preCutoverSl} → {selectedScenario.postCutoverSl}
-                )
+                Site: {selectedScenario.facilityName}
               </span>
             </div>
 

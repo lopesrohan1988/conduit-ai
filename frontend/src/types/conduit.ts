@@ -1,6 +1,9 @@
 export type InferenceMode = "cloud_frontier" | "airgapped_glimmer";
 
+export type UserLensMode = "guided_collab" | "engineer_deep";
+
 export type WorkbenchTabId =
+  | "site_setup"
   | "intake_vision"
   | "purdue_topology"
   | "cutover_matrix"
