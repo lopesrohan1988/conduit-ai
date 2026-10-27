@@ -1,0 +1,1288 @@
+{
+  "benchmark_metadata": {
+    "benchmark_id": "CONDUITAI_ENTERPRISE_OT_6VERTICAL_V1",
+    "schema_version": "1.0.0",
+    "generated_date": "2026-10-25",
+    "description": "Deterministic ground-truth evaluation suite for ConduitAI across 6 Critical Infrastructure OT Verticals (183,000 binary libpcap packets, 120,000 firewall traffic rows, 264 active L2/L3 endpoints, and 13 undocumented Shadow OT / Stealth Air-Gap Bypass assets).",
+    "aggregate_totals": {
+      "scenario_count": 6,
+      "total_pcap_packets": 183000,
+      "total_firewall_csv_rows": 120000,
+      "total_discovered_assets": 264,
+      "total_documented_assets": 251,
+      "total_undocumented_shadow_assets": 13
+    },
+    "evaluation_dimensions": [
+      "asset_reconciliation_recall_and_precision",
+      "shadow_ot_and_rogue_bypass_detection",
+      "conduit_bandwidth_sizing_accuracy",
+      "protocol_flow_tier_classification_f1",
+      "hardware_bom_archetype_and_mounting_accuracy",
+      "regulatory_compliance_citation_coverage"
+    ]
+  },
+  "scenarios": {
+    "scenario_1_manufacturing": {
+      "scenario_id": "scenario_1_manufacturing",
+      "vertical": "Automotive Discrete Manufacturing",
+      "facility_name": "Apex Automotive Stamping Plant",
+      "diagram_visual_style": "Crisp Visio Purdue L0-L4 Architectural Diagram",
+      "files": {
+        "pcap": "scenarios/scenario_1_manufacturing/boundary_capture.pcap",
+        "firewall_csv": "scenarios/scenario_1_manufacturing/fortigate_traffic_24h.csv",
+        "switch_dump": "scenarios/scenario_1_manufacturing/switch_show_arp_mac.txt",
+        "asset_inventory_csv": "scenarios/scenario_1_manufacturing/asset_inventory.csv",
+        "topology_diagram": "scenarios/scenario_1_manufacturing/legacy_purdue_diagram.png",
+        "site_photos": [
+          "scenarios/scenario_1_manufacturing/plc_cabinet_din_rail.jpg",
+          "scenarios/scenario_1_manufacturing/whiteboard_factory_sketch.jpg"
+        ]
+      },
+      "telemetry_metrics": {
+        "pcap_packet_count": 30000,
+        "firewall_vendor": "Fortinet FortiGate",
+        "firewall_row_count": 20000,
+        "peak_bandwidth_mbps": 85.0,
+        "sized_bandwidth_with_1_25x_headroom_mbps": 106.25
+      },
+      "total_discovered_assets": 48,
+      "documented_assets": 45,
+      "undocumented_shadow_assets": [
+        {
+          "ip_address": "192.168.10.15",
+          "mac_address": "00:1B:1B:9F:10:15",
+          "oui_prefix": "00:1B:1B",
+          "vendor": "Siemens AG",
+          "model": "SIMATIC S7-1200 CPU 1214C",
+          "hostname": "s7-1200-diecushion-temp",
+          "purdue_level": "L1",
+          "vlan": 10,
+          "discovery_sources": ["boundary_capture.pcap", "switch_show_arp_mac.txt", "fortigate_traffic_24h.csv"],
+          "anomaly_type": "UNDOCUMENTED_SHADOW_PLC",
+          "description": "Unregistered die-cushion retrofit S7-1200 PLC polled via S7comm (TCP/102) and Modbus TCP (TCP/502), absent from Visio diagram and asset_inventory.csv."
+        },
+        {
+          "ip_address": "192.168.10.16",
+          "mac_address": "00:1B:1B:9F:10:16",
+          "oui_prefix": "00:1B:1B",
+          "vendor": "Siemens AG",
+          "model": "SIMATIC S7-1200 CPU 1212C",
+          "hostname": "s7-1200-scrapconv-02",
+          "purdue_level": "L1",
+          "vlan": 10,
+          "discovery_sources": ["boundary_capture.pcap", "switch_show_arp_mac.txt", "fortigate_traffic_24h.csv"],
+          "anomaly_type": "UNDOCUMENTED_SHADOW_PLC",
+          "description": "Unregistered scrap-conveyor S7-1200 PLC discovered on Stratix port Gi1/0/16 via ARP/LLDP and S7comm/Modbus polling."
+        },
+        {
+          "ip_address": "192.168.10.17",
+          "mac_address": "00:00:BC:9F:10:17",
+          "oui_prefix": "00:00:BC",
+          "vendor": "Rockwell Automation / Allen-Bradley",
+          "model": "CompactLogix 5380 L306ER",
+          "hostname": "compactlogix-blankwash-03",
+          "purdue_level": "L1",
+          "vlan": 10,
+          "discovery_sources": ["boundary_capture.pcap", "switch_show_arp_mac.txt", "fortigate_traffic_24h.csv"],
+          "anomaly_type": "UNDOCUMENTED_SHADOW_PLC",
+          "description": "Unregistered blank-washer CompactLogix 5380 PLC discovered on Stratix port Gi1/0/17 and polled over Modbus TCP/502."
+        }
+      ],
+      "conduits": [
+        {
+          "conduit_id": "C-MFG-01",
+          "name": "Stamping OT & Vision QC (VLAN 10/20) to Enterprise IT / SOC (VLAN 50)",
+          "source_zones": ["OT_Control_Zone (VLAN 10)", "OT_Vision_Zone (VLAN 20)"],
+          "target_zones": ["Enterprise_IT_Zone (VLAN 50)", "Enterprise_SOC_Zone (VLAN 50)"],
+          "requires_8021q_vlan_trunk": true,
+          "peak_mbps": 85.0,
+          "sized_mbps_with_headroom": 106.25,
+          "pre_cutover_iec62443_sl": "SL-1",
+          "target_post_cutover_iec62443_sl": "SL-4"
+        }
+      ],
+      "flow_classifications": [
+        {
+          "flow_id": "S1-F01",
+          "src_ip": "192.168.10.30",
+          "dst_ip": "10.50.1.10",
+          "dst_port": 4840,
+          "transport": "TCP",
+          "protocol": "OPC-UA",
+          "function_detail": "OPN/MSG ReadResponse outbound telemetry push",
+          "direction": "OT_TO_IT",
+          "classification": "GREEN",
+          "catalog_protocol_id": "OPC_UA",
+          "prescribed_cutover_action": "Route unidirectionally across ARCH_C TX -> RX OPC-UA Shadow Server."
+        },
+        {
+          "flow_id": "S1-F02",
+          "src_ip": "192.168.20.10-12",
+          "dst_ip": "10.50.1.40",
+          "dst_port": 8443,
+          "transport": "TCP",
+          "protocol": "HTTPS_PUSH",
+          "function_detail": "SIMATIC MV550 high-resolution coil defect batch sync (85 Mbps peak)",
+          "direction": "OT_TO_IT",
+          "classification": "GREEN",
+          "catalog_protocol_id": "HTTPS_PUSH",
+          "prescribed_cutover_action": "Terminate outbound HTTPS POST on ARCH_C TX and re-emit from RX to SAP MES."
+        },
+        {
+          "flow_id": "S1-F03",
+          "src_ip": "192.168.10.20,192.168.10.2,192.168.20.20,192.168.10.4",
+          "dst_ip": "10.50.2.100",
+          "dst_port": 514,
+          "transport": "UDP",
+          "protocol": "SYSLOG_UDP",
+          "function_detail": "Outbound OT security & press cycle Syslog export to Splunk SIEM",
+          "direction": "OT_TO_IT",
+          "classification": "GREEN",
+          "catalog_protocol_id": "SYSLOG_UDP",
+          "prescribed_cutover_action": "Forward UDP/514 one-way across ARCH_C TX -> RX listener."
+        },
+        {
+          "flow_id": "S1-F04",
+          "src_ip": "10.50.1.15",
+          "dst_ip": "192.168.10.11-16",
+          "dst_port": 102,
+          "transport": "TCP",
+          "protocol": "S7COMM",
+          "function_detail": "Inbound Siemens S7comm Job Read Var (DB1/DB2 diagnostics, including Shadow PLCs .15 & .16)",
+          "direction": "IT_TO_OT",
+          "classification": "AMBER",
+          "catalog_protocol_id": "OPC_UA_INBOUND_SUBSCRIPTION",
+          "prescribed_cutover_action": "Aggregate S7-1500/1200 DB tags locally via Softing uaGate / KEPServerEX into OPC-UA and replicate one-way across ARCH_C TX -> RX."
+        },
+        {
+          "flow_id": "S1-F05",
+          "src_ip": "10.50.1.10",
+          "dst_ip": "192.168.10.11,192.168.10.12,192.168.10.15,192.168.10.16,192.168.10.17,192.168.10.32",
+          "dst_port": 502,
+          "transport": "TCP",
+          "protocol": "MODBUS_TCP",
+          "function_detail": "FC 03 Read Holding Registers (inbound PI Historian polling including Shadow PLCs .15, .16, .17)",
+          "direction": "IT_TO_OT",
+          "classification": "AMBER",
+          "catalog_protocol_id": "MODBUS_TCP_INBOUND_READ",
+          "prescribed_cutover_action": "Reverse pull-to-push: configure ARCH_C TX Inner Poller to poll PLCs locally on VLAN 10 and expose RX Modbus Replica to PI Historian."
+        },
+        {
+          "flow_id": "S1-F06",
+          "src_ip": "10.50.1.25",
+          "dst_ip": "192.168.10.50",
+          "dst_port": 1433,
+          "transport": "TCP",
+          "protocol": "MS_TDS_SQL",
+          "function_detail": "Inbound SQL SELECT query against OT Historian",
+          "direction": "IT_TO_OT",
+          "classification": "AMBER",
+          "catalog_protocol_id": "SQL_INBOUND_SELECT_POLL",
+          "prescribed_cutover_action": "Replace inbound SQL SELECT with scheduled OT CDC/insert push across ARCH_C SQL_REPLICATION_PUSH proxy."
+        },
+        {
+          "flow_id": "S1-F07",
+          "src_ip": "10.50.1.40",
+          "dst_ip": "192.168.10.30",
+          "dst_port": 135,
+          "ephemeral_port": 49155,
+          "transport": "TCP",
+          "protocol": "OPC_DA_DCOM",
+          "function_detail": "Microsoft DCE/RPC Endpoint Mapper TCP/135 + dynamic high port TCP/49155",
+          "direction": "IT_TO_OT",
+          "classification": "RED_BLOCKER",
+          "catalog_protocol_id": "OPC_DA_DCOM",
+          "prescribed_cutover_action": "Deploy OT-local OPC-DA-to-OPC-UA wrapper on 192.168.10.30 converting dynamic DCOM to static TCP/4840 OPC-UA before diode TX."
+        },
+        {
+          "flow_id": "S1-F08",
+          "src_ip": "10.50.3.12",
+          "dst_ip": "192.168.10.20",
+          "dst_port": 445,
+          "transport": "TCP",
+          "protocol": "SMBV1",
+          "function_detail": "Legacy NT LM 0.12 SMBv1 Tree Connect to \\\\192.168.10.20\\STAMPING_RECIPES$",
+          "direction": "IT_TO_OT",
+          "classification": "RED_BLOCKER",
+          "catalog_protocol_id": "SMBV1",
+          "prescribed_cutover_action": "Physically sever TCP/445 and replace shared drive mounts with unidirectional SFTP file relay."
+        },
+        {
+          "flow_id": "S1-F09",
+          "src_ip": "10.50.3.88",
+          "dst_ip": "192.168.10.20",
+          "dst_port": 3389,
+          "transport": "TCP",
+          "protocol": "RDP",
+          "function_detail": "Inbound interactive Remote Desktop session from contractor IT workstation to SCADA HMI",
+          "direction": "IT_TO_OT",
+          "classification": "CRITICAL_VIOLATION",
+          "catalog_protocol_id": "RDP",
+          "prescribed_cutover_action": "Physically sever inbound TCP/3389 via Layer-1/2 hardware diode."
+        },
+        {
+          "flow_id": "S1-F10",
+          "src_ip": "10.50.4.99",
+          "dst_ip": "192.168.10.11",
+          "dst_port": 502,
+          "transport": "TCP",
+          "protocol": "MODBUS_TCP_WRITE",
+          "function_detail": "Unauthorized inbound Modbus FC 16 (0x10) Write Multiple Registers overwriting press tonnage registers 200-207",
+          "direction": "IT_TO_OT",
+          "classification": "CRITICAL_VIOLATION",
+          "catalog_protocol_id": "UNAUTHORIZED_MODBUS_OR_IEC104_WRITE",
+          "prescribed_cutover_action": "Block 100% physically at Layer 1/2 via unidirectional hardware diode."
+        }
+      ],
+      "expected_hardware_bom": {
+        "primary_recommendation": [
+          {
+            "archetype_id": "ARCH_C_ENTERPRISE_1U_DIODE",
+            "name": "1U Enterprise Rackmount Protocol-Breaking Diode",
+            "quantity": 1,
+            "mounting_option": "1U_19INCH_RACK",
+            "unit_cost_usd": 21000,
+            "extended_cost_usd": 21000
+          }
+        ],
+        "total_hardware_bom_cost_usd": 21000,
+        "physical_mounting_constraint_note": "plc_cabinet_din_rail.jpg shows only DIN-rail space inside the stamping press field enclosure; per hardware_catalog.json Rule #2, mount ARCH_C_ENTERPRISE_1U_DIODE in the Level 3 OT Control Room 19-inch rack (or add a 2U 19-inch wall-mount bracket kit at the boundary).",
+        "sizing_justification": "85.0 Mbps peak * 1.25 headroom = 106.25 Mbps exceeds ARCH_A's 80 Mbps sustained ceiling, and multi-VLAN 802.1Q trunking (VLAN 10 + VLAN 20) plus OPC-UA, SQL replication, Modbus TCP, and HTTPS Vision Push require ARCH_C_ENTERPRISE_1U_DIODE (850 Mbps sustained, 16 VLANs)."
+      },
+      "expected_compliance_citations": {
+        "finding_codes": [
+          "UNDOCUMENTED_SHADOW_OT_ASSET",
+          "INBOUND_IT_TO_OT_POLLING",
+          "LEGACY_OPC_DA_DCOM_BOUNDARY",
+          "SMBV1_FILE_SHARE_EXPOSURE",
+          "UNAUTHORIZED_REMOTE_ADMIN_ACCESS",
+          "UNAUTHORIZED_INBOUND_OT_WRITE",
+          "SOFTWARE_FIREWALL_ONLY_BOUNDARY"
+        ],
+        "control_ids": [
+          "IEC 62443-3-3 SR 5.1 RE 1/2/3",
+          "IEC 62443-3-3 SR 5.2 RE 1/3",
+          "IEC 62443-3-3 SR 3.2 RE 1",
+          "IEC 62443-3-3 SR 6.2 RE 1",
+          "NIST SP 800-82 Rev. 3 Section 5.2",
+          "NCIIPC CII Guidelines & IT Act Sec 70A/70B"
+        ]
+      }
+    },
+
+    "scenario_2_substation": {
+      "scenario_id": "scenario_2_substation",
+      "vertical": "Electric Power Transmission (220kV BES Substation)",
+      "facility_name": "GridCore 220kV North Transmission Substation",
+      "diagram_visual_style": "Substation One-Line / SCADA 220kV Busbar, Breaker & NERC CIP ESP Diagram",
+      "files": {
+        "pcap": "scenarios/scenario_2_substation/boundary_capture.pcap",
+        "firewall_csv": "scenarios/scenario_2_substation/paloalto_traffic_24h.csv",
+        "switch_dump": "scenarios/scenario_2_substation/hirschmann_switch_dump.txt",
+        "asset_inventory_csv": "scenarios/scenario_2_substation/asset_inventory.csv",
+        "topology_diagram": "scenarios/scenario_2_substation/substation_network_diagram.png",
+        "site_photos": [
+          "scenarios/scenario_2_substation/server_rack_open_1u.jpg"
+        ]
+      },
+      "telemetry_metrics": {
+        "pcap_packet_count": 30000,
+        "firewall_vendor": "Palo Alto Networks PAN-OS",
+        "firewall_row_count": 20000,
+        "peak_bandwidth_mbps": 42.0,
+        "sized_bandwidth_with_1_25x_headroom_mbps": 52.5
+      },
+      "total_discovered_assets": 36,
+      "documented_assets": 34,
+      "undocumented_shadow_assets": [
+        {
+          "ip_address": "10.220.10.29",
+          "mac_address": "00:30:A7:99:10:29",
+          "oui_prefix": "00:30:A7",
+          "vendor": "Schweitzer Engineering Laboratories (SEL)",
+          "model": "SEL-751 Feeder Protection Relay",
+          "hostname": "SEL751-COMM-BAY4-TEMP",
+          "purdue_level": "L1",
+          "vlan": 220,
+          "discovery_sources": ["boundary_capture.pcap", "hirschmann_switch_dump.txt", "paloalto_traffic_24h.csv"],
+          "anomaly_type": "UNDOCUMENTED_COMMISSIONING_RELAY",
+          "description": "Temporary Bay 4 tie commissioning SEL-751 relay left active on Hirschmann Station Bus and polled over DNP3 TCP/20000, violating NERC CIP-010/CIP-005 ESP baseline."
+        },
+        {
+          "ip_address": "10.220.10.49",
+          "mac_address": "00:09:91:99:10:49",
+          "oui_prefix": "00:09:91",
+          "vendor": "GE Vernova / GE Multilin",
+          "model": "Multilin T60 Transformer Management Relay",
+          "hostname": "MULTILIN-T60-COMM-TEMP",
+          "purdue_level": "L1",
+          "vlan": 220,
+          "discovery_sources": ["boundary_capture.pcap", "hirschmann_switch_dump.txt", "paloalto_traffic_24h.csv"],
+          "anomaly_type": "UNDOCUMENTED_COMMISSIONING_RELAY",
+          "description": "Unregistered GE Multilin T60 commissioning relay active on VLAN 220 and responding to DNP3 Class 0/1/2 polls."
+        }
+      ],
+      "conduits": [
+        {
+          "conduit_id": "C-SUB-01",
+          "name": "Substation ESP Station Bus (VLAN 220) to Regional EMS / Utility WAN (VLAN 100)",
+          "source_zones": ["ESP_Station_Bus (VLAN 220)", "ESP_Protection_Zone (VLAN 220)"],
+          "target_zones": ["Control_Center_WAN (VLAN 100)", "Enterprise_WAN (VLAN 100)"],
+          "requires_8021q_vlan_trunk": false,
+          "peak_mbps": 42.0,
+          "sized_mbps_with_headroom": 52.5,
+          "pre_cutover_iec62443_sl": "SL-2",
+          "target_post_cutover_iec62443_sl": "SL-4"
+        }
+      ],
+      "flow_classifications": [
+        {
+          "flow_id": "S2-F01",
+          "src_ip": "10.220.10.10",
+          "dst_ip": "10.100.5.20",
+          "dst_port": 2404,
+          "transport": "TCP",
+          "protocol": "IEC_60870_5_104",
+          "function_detail": "Spontaneous TypeID 36 (M_ME_TF_1) measured IEEE-754 float kV/MW telemetry push",
+          "direction": "OT_TO_IT",
+          "classification": "GREEN",
+          "catalog_protocol_id": "IEC_104",
+          "prescribed_cutover_action": "Stream spontaneous IEC-104 ASDUs unidirectionally across ARCH_A TX -> RX slave replica."
+        },
+        {
+          "flow_id": "S2-F02",
+          "src_ip": "10.220.10.10,10.220.10.1,10.220.10.2,10.220.10.23",
+          "dst_ip": "10.100.5.100",
+          "dst_port": 514,
+          "transport": "UDP",
+          "protocol": "SYSLOG_UDP",
+          "function_detail": "Outbound NERC CIP-007 ESP security event logs to utility SOC SIEM",
+          "direction": "OT_TO_IT",
+          "classification": "GREEN",
+          "catalog_protocol_id": "SYSLOG_UDP",
+          "prescribed_cutover_action": "Forward UDP/514 one-way across ARCH_A TX -> RX."
+        },
+        {
+          "flow_id": "S2-F03",
+          "src_ip": "10.100.5.20",
+          "dst_ip": "10.220.10.11,10.220.10.31",
+          "dst_port": 2404,
+          "transport": "TCP",
+          "protocol": "IEC_60870_5_104",
+          "function_detail": "Inbound EMS STARTDT & General Interrogation polling standby RTU560 and SIPROTEC 5",
+          "direction": "IT_TO_OT",
+          "classification": "AMBER",
+          "catalog_protocol_id": "IEC_104_INBOUND_INTERROGATION",
+          "prescribed_cutover_action": "Configure ARCH_A TX as local IEC-104 master inside ESP and point Regional EMS to ARCH_A RX replica."
+        },
+        {
+          "flow_id": "S2-F04",
+          "src_ip": "10.100.5.21",
+          "dst_ip": "10.220.10.21-23,10.220.10.27,10.220.10.29,10.220.10.41-42,10.220.10.49",
+          "dst_port": 20000,
+          "transport": "TCP",
+          "protocol": "DNP3",
+          "function_detail": "Inbound DNP3 FC 0x01 Class 0/1/2 Read & COMTRADE fault sync (including Shadow Relays .29 & .49)",
+          "direction": "IT_TO_OT",
+          "classification": "AMBER",
+          "catalog_protocol_id": "DNP3_INBOUND_POLL",
+          "prescribed_cutover_action": "Configure ARCH_A TX local DNP3 master poller on VLAN 220 and expose RX DNP3 outstation emulator to SCADA."
+        },
+        {
+          "flow_id": "S2-F05",
+          "src_ip": "10.100.5.30",
+          "dst_ip": "10.220.10.35,10.220.10.36,10.220.10.51",
+          "dst_port": 502,
+          "transport": "TCP",
+          "protocol": "MODBUS_TCP",
+          "function_detail": "Inbound Modbus FC 03 Read Holding Registers for 250MVA transformer dissolved gas analysis (DGA)",
+          "direction": "IT_TO_OT",
+          "classification": "AMBER",
+          "catalog_protocol_id": "MODBUS_TCP_INBOUND_READ",
+          "prescribed_cutover_action": "Poll SITRAM DGA & ION8650 meters locally via ARCH_A TX and serve replica registers on RX."
+        },
+        {
+          "flow_id": "S2-F06",
+          "src_ip": "10.100.88.44",
+          "dst_ip": "10.220.10.11,10.220.10.31",
+          "dst_port": 2404,
+          "transport": "TCP",
+          "protocol": "IEC_104_BREAKER_TRIP",
+          "function_detail": "Unauthorized inbound IEC-104 TypeID 45 (C_SC_NA_1) Single Command breaker trip (Industroyer2 pattern) from corporate MPLS host",
+          "direction": "IT_TO_OT",
+          "classification": "CRITICAL_VIOLATION",
+          "catalog_protocol_id": "UNAUTHORIZED_MODBUS_OR_IEC104_WRITE",
+          "prescribed_cutover_action": "Physically eliminate inbound command injection path at Layer 1/2 using ARCH_A_FIELD_DIODE."
+        },
+        {
+          "flow_id": "S2-F07",
+          "src_ip": "10.100.88.44",
+          "dst_ip": "10.220.10.1,10.220.10.31",
+          "dst_port": 22,
+          "transport": "TCP",
+          "protocol": "SSH_INBOUND",
+          "function_detail": "Unauthorized direct SSH interactive login attempts from corporate WAN into Hirschmann switch & bay relay",
+          "direction": "IT_TO_OT",
+          "classification": "CRITICAL_VIOLATION",
+          "catalog_protocol_id": "SSH_INBOUND",
+          "prescribed_cutover_action": "Physically sever inbound TCP/22 across ESP boundary via ARCH_A_FIELD_DIODE."
+        }
+      ],
+      "expected_hardware_bom": {
+        "primary_recommendation": [
+          {
+            "archetype_id": "ARCH_A_FIELD_DIODE",
+            "name": "Industrial Field Protocol Diode",
+            "quantity": 1,
+            "mounting_option": "DIN_RAIL",
+            "unit_cost_usd": 4500,
+            "extended_cost_usd": 4500
+          }
+        ],
+        "total_hardware_bom_cost_usd": 4500,
+        "physical_mounting_constraint_note": "Mounts natively on substation marshalling DIN-rail or via a passive 1U DIN-rail tray in the open 1U slot visible in server_rack_open_1u.jpg.",
+        "sizing_justification": "42.0 Mbps peak * 1.25 headroom = 52.5 Mbps fits comfortably under ARCH_A_FIELD_DIODE's 80 Mbps sustained ceiling (100 Mbps max), <= 32 polled OT IEDs/RTUs, single station bus VLAN 220, and ARCH_A natively supports all 4 required substation protocols (IEC_104, DNP3, MODBUS_TCP, SYSLOG_UDP) for SL-4 isolation at minimal cost ($4,500)."
+      },
+      "expected_compliance_citations": {
+        "finding_codes": [
+          "UNDOCUMENTED_SHADOW_OT_ASSET",
+          "INBOUND_IT_TO_OT_POLLING",
+          "UNAUTHORIZED_INBOUND_OT_WRITE",
+          "UNAUTHORIZED_REMOTE_ADMIN_ACCESS",
+          "SOFTWARE_FIREWALL_ONLY_BOUNDARY"
+        ],
+        "control_ids": [
+          "NERC CIP-005-7 R1 (Part 1.1, 1.2, 1.3)",
+          "NERC CIP-005-7 R2 (Part 2.1, 2.2)",
+          "CEA Cyber Security Guidelines 2021 — Articles 9 & 10",
+          "IEC 62443-3-3 SR 5.1 RE 1/3",
+          "IEC 62443-3-3 SR 5.2 RE 1/3",
+          "NIST SP 800-82 Rev. 3 Section 5.2"
+        ]
+      }
+    },
+
+    "scenario_3_smart_building": {
+      "scenario_id": "scenario_3_smart_building",
+      "vertical": "Smart Commercial Building & High-Density IP Surveillance",
+      "facility_name": "MetroCorp HQ Smart Tower",
+      "diagram_visual_style": "Smart Building Multi-VLAN Architectural Riser Diagram",
+      "files": {
+        "pcap": "scenarios/scenario_3_smart_building/boundary_capture.pcap",
+        "firewall_csv": "scenarios/scenario_3_smart_building/fortigate_traffic_24h.csv",
+        "switch_dump": "scenarios/scenario_3_smart_building/aruba_switch_dump.txt",
+        "asset_inventory_csv": "scenarios/scenario_3_smart_building/asset_inventory.csv",
+        "topology_diagram": "scenarios/scenario_3_smart_building/smart_building_vlan_diagram.png",
+        "site_photos": [
+          "scenarios/scenario_3_smart_building/server_rack_open_1u.jpg",
+          "scenarios/scenario_3_smart_building/whiteboard_factory_sketch.jpg"
+        ]
+      },
+      "telemetry_metrics": {
+        "pcap_packet_count": 35000,
+        "firewall_vendor": "Fortinet FortiGate",
+        "firewall_row_count": 20000,
+        "peak_bandwidth_mbps": 420.0,
+        "sized_bandwidth_with_1_25x_headroom_mbps": 525.0
+      },
+      "total_discovered_assets": 66,
+      "documented_assets": 64,
+      "undocumented_shadow_assets": [
+        {
+          "ip_address": "172.16.40.56",
+          "mac_address": "BC:AD:28:40:01:38",
+          "oui_prefix": "BC:AD:28",
+          "vendor": "Hikvision Digital Technology",
+          "model": "DS-2CD2T87G2 ColorVu PoE Camera",
+          "hostname": "HIK-CAM-47",
+          "purdue_level": "L1",
+          "vlan": 40,
+          "discovery_sources": ["boundary_capture.pcap", "aruba_switch_dump.txt", "fortigate_traffic_24h.csv"],
+          "anomaly_type": "UNDOCUMENTED_SHADOW_IP_CAMERA",
+          "description": "Unregistered loading-dock Hikvision PoE camera streaming RTSP/RTP on VLAN 40, omitted from the 46-camera architectural schedule."
+        },
+        {
+          "ip_address": "172.16.40.57",
+          "mac_address": "BC:AD:28:40:01:39",
+          "oui_prefix": "BC:AD:28",
+          "vendor": "Hikvision Digital Technology",
+          "model": "DS-2CD2T87G2 ColorVu PoE Camera",
+          "hostname": "HIK-CAM-48",
+          "purdue_level": "L1",
+          "vlan": 40,
+          "discovery_sources": ["boundary_capture.pcap", "aruba_switch_dump.txt", "fortigate_traffic_24h.csv"],
+          "anomaly_type": "UNDOCUMENTED_SHADOW_IP_CAMERA",
+          "description": "Unregistered freight-elevator Hikvision PoE camera discovered on Aruba PoE switch port 1/1/48."
+        }
+      ],
+      "conduits": [
+        {
+          "conduit_id": "C-BLDG-01",
+          "name": "CCTV PoE (VLAN 40) & Smart BMS (VLAN 30) 802.1Q Trunk to Corporate VMS / Cloud (VLAN 80)",
+          "source_zones": ["CCTV_Surveillance_VLAN40", "Smart_BMS_VLAN30"],
+          "target_zones": ["Corporate_SOC_VLAN80"],
+          "requires_8021q_vlan_trunk": true,
+          "peak_mbps": 420.0,
+          "sized_mbps_with_headroom": 525.0,
+          "pre_cutover_iec62443_sl": "SL-1",
+          "target_post_cutover_iec62443_sl": "SL-4"
+        }
+      ],
+      "flow_classifications": [
+        {
+          "flow_id": "S3-F01",
+          "src_ip": "172.16.40.10-57",
+          "dst_ip": "10.80.10.20",
+          "dst_port": 554,
+          "transport": "TCP/UDP",
+          "protocol": "RTSP",
+          "function_detail": "48x Hikvision RTSP DESCRIBE/SETUP/PLAY + continuous H.264 RTP video streams (420 Mbps sustained)",
+          "direction": "OT_LOCAL_PROXY_PULL",
+          "classification": "GREEN",
+          "catalog_protocol_id": "RTSP",
+          "prescribed_cutover_action": "ARCH_B TX pulls 48 RTSP streams locally on VLAN 40, splices raw RTP media frames one-way across Layer 1/2 barrier, and RX restreams virtual ONVIF/RTSP feeds to Milestone VMS."
+        },
+        {
+          "flow_id": "S3-F02",
+          "src_ip": "172.16.30.10-16",
+          "dst_ip": "10.80.10.30",
+          "dst_port": 47808,
+          "transport": "UDP",
+          "protocol": "BACNET_TELEMETRY",
+          "function_detail": "BACnet/IP BVLC UnconfirmedCOVNotification HVAC/chiller point telemetry",
+          "direction": "OT_TO_IT",
+          "classification": "GREEN",
+          "catalog_protocol_id": "BACNET_TELEMETRY",
+          "prescribed_cutover_action": "Subscribe to BACnet COV locally on ARCH_B TX (VLAN 30) and forward read-only telemetry to corporate PropTech cloud."
+        },
+        {
+          "flow_id": "S3-F03",
+          "src_ip": "172.16.30.30-31",
+          "dst_ip": "10.80.10.30",
+          "dst_port": 1883,
+          "transport": "TCP",
+          "protocol": "MQTT",
+          "function_detail": "IAQ CO2, occupancy & chiller kW MQTT PUBLISH telemetry",
+          "direction": "OT_TO_IT",
+          "classification": "GREEN",
+          "catalog_protocol_id": "MQTT",
+          "prescribed_cutover_action": "Publish to ARCH_B TX embedded MQTT broker and relay unidirectionally to corporate broker."
+        },
+        {
+          "flow_id": "S3-F04",
+          "src_ip": "172.16.40.1,172.16.30.10",
+          "dst_ip": "10.80.20.100",
+          "dst_port": 514,
+          "transport": "UDP",
+          "protocol": "SYSLOG_UDP",
+          "function_detail": "Aruba PoE switch & Niagara4 BMS audit Syslog export",
+          "direction": "OT_TO_IT",
+          "classification": "GREEN",
+          "catalog_protocol_id": "SYSLOG_UDP",
+          "prescribed_cutover_action": "Forward UDP/514 unidirectionally across ARCH_B."
+        },
+        {
+          "flow_id": "S3-F05",
+          "src_ip": "172.16.40.33",
+          "dst_ip": "172.16.30.10,172.16.30.21,10.80.10.20,10.80.10.45",
+          "dst_port": 445,
+          "additional_ports": [22, 502],
+          "transport": "TCP",
+          "protocol": "COMPROMISED_CAMERA_LATERAL_PIVOT",
+          "function_detail": "Compromised Hikvision camera (172.16.40.33) scanning SMB/445, SSH/22 & Modbus/502 into BMS Chiller PLC and Corporate Badge SQL",
+          "direction": "CAMERA_TO_BMS_AND_CORP",
+          "classification": "CRITICAL_VIOLATION",
+          "catalog_protocol_id": "SMBV1",
+          "prescribed_cutover_action": "Enforce strict inter-VLAN isolation on Aruba Core (deny VLAN 40 -> VLAN 30) and place ARCH_B_VIDEO_IOT_DIODE at the corporate boundary so camera firmware exploits cannot pivot via SMB/SSH."
+        },
+        {
+          "flow_id": "S3-F06",
+          "src_ip": "10.80.99.51",
+          "dst_ip": "172.16.30.10",
+          "dst_port": 3389,
+          "transport": "TCP",
+          "protocol": "RDP",
+          "function_detail": "Unauthorized inbound corporate contractor RDP session to Tridium Niagara4 BMS supervisor",
+          "direction": "IT_TO_OT",
+          "classification": "CRITICAL_VIOLATION",
+          "catalog_protocol_id": "RDP",
+          "prescribed_cutover_action": "Physically sever inbound RDP via ARCH_B_VIDEO_IOT_DIODE."
+        }
+      ],
+      "expected_hardware_bom": {
+        "primary_recommendation": [
+          {
+            "archetype_id": "ARCH_B_VIDEO_IOT_DIODE",
+            "name": "Edge Video & IoT Unidirectional Proxy Diode",
+            "quantity": 1,
+            "mounting_option": "1U_HALF_RACK",
+            "unit_cost_usd": 8500,
+            "extended_cost_usd": 8500
+          }
+        ],
+        "total_hardware_bom_cost_usd": 8500,
+        "physical_mounting_constraint_note": "server_rack_open_1u.jpg shows an available 1U 19-inch rack slot in the building MDF closet, accommodating 1x ARCH_B_VIDEO_IOT_DIODE (1U_HALF_RACK).",
+        "sizing_justification": "420.0 Mbps sustained video * 1.25 headroom = 525.0 Mbps fits inside ARCH_B_VIDEO_IOT_DIODE's 800 Mbps sustained ceiling (1000 Mbps max), 48 cameras <= 64 1080p stream limit, 2 VLANs <= 4 802.1Q VLAN limit, and ARCH_B natively supports RTSP, ONVIF_STREAM, BACNET_TELEMETRY, MQTT, and SYSLOG_UDP at $8,500 (saving $12,500 vs ARCH_C)."
+      },
+      "expected_compliance_citations": {
+        "finding_codes": [
+          "UNISOLATED_IP_CCTV_OR_BMS_VLAN",
+          "UNDOCUMENTED_SHADOW_OT_ASSET",
+          "SMBV1_FILE_SHARE_EXPOSURE",
+          "UNAUTHORIZED_REMOTE_ADMIN_ACCESS",
+          "SOFTWARE_FIREWALL_ONLY_BOUNDARY"
+        ],
+        "control_ids": [
+          "IEC 62443-3-3 SR 5.1 RE 1/2",
+          "IEC 62443-3-3 SR 5.2 RE 1",
+          "IEC 62443-3-3 SR 3.2 RE 1",
+          "NIST SP 800-82 Rev. 3 Section 5.2"
+        ]
+      }
+    },
+
+    "scenario_4_water_treatment": {
+      "scenario_id": "scenario_4_water_treatment",
+      "vertical": "Municipal Water Treatment & Chemical Dosing (SWaT)",
+      "facility_name": "AquaPure Municipal Water Treatment Facility",
+      "diagram_visual_style": "Aged/Faded Scanned Paper Blueprint (Nov 2019 Archive Copy)",
+      "files": {
+        "pcap": "scenarios/scenario_4_water_treatment/boundary_capture.pcap",
+        "firewall_csv": "scenarios/scenario_4_water_treatment/fortigate_traffic_24h.csv",
+        "switch_dump": "scenarios/scenario_4_water_treatment/stratix_water_switch_dump.txt",
+        "asset_inventory_csv": "scenarios/scenario_4_water_treatment/asset_inventory.csv",
+        "topology_diagram": "scenarios/scenario_4_water_treatment/water_treatment_blueprint_diagram.png",
+        "site_photos": [
+          "scenarios/scenario_4_water_treatment/plc_cabinet_din_rail.jpg",
+          "scenarios/scenario_4_water_treatment/rogue_5g_modem_bypass.jpg"
+        ]
+      },
+      "telemetry_metrics": {
+        "pcap_packet_count": 30000,
+        "firewall_vendor": "Fortinet FortiGate",
+        "firewall_row_count": 20000,
+        "peak_bandwidth_mbps": 65.0,
+        "sized_bandwidth_with_1_25x_headroom_mbps": 81.25
+      },
+      "total_discovered_assets": 38,
+      "documented_assets": 36,
+      "undocumented_shadow_assets": [
+        {
+          "ip_address": "192.168.25.254",
+          "mac_address": "00:90:E8:99:88:77",
+          "oui_prefix": "00:90:E8",
+          "vendor": "Moxa Technologies Co., Ltd.",
+          "model": "OnCell G4302-LTE4/5G Cellular Gateway",
+          "hostname": "rogue-5g-cell-modem",
+          "purdue_level": "L2",
+          "vlan": 25,
+          "discovery_sources": ["boundary_capture.pcap", "stratix_water_switch_dump.txt", "rogue_5g_modem_bypass.jpg"],
+          "anomaly_type": "STEALTH_ROGUE_5G_AIRGAP_BYPASS",
+          "description": "CRITICAL PHYSICAL AIR-GAP BYPASS: Unauthorized contractor Moxa OnCell 5G cellular modem plugged directly into Stratix 5700 port Gi1/24 inside VLAN 25, completely invisible in FortiGate perimeter CSV logs while injecting inbound VNC (5900) to Chemical HMI .30 and Modbus FC 06 NaOCl chlorine setpoint override (11100 ppm!) to Dosing PLC .21."
+        },
+        {
+          "ip_address": "192.168.25.28",
+          "mac_address": "00:00:BC:77:25:1C",
+          "oui_prefix": "00:00:BC",
+          "vendor": "Rockwell Automation / Allen-Bradley",
+          "model": "CompactLogix 5370 UV Filtration Skid PLC",
+          "hostname": "compactlogix-uv-skid99",
+          "purdue_level": "L1",
+          "vlan": 25,
+          "discovery_sources": ["boundary_capture.pcap", "stratix_water_switch_dump.txt", "fortigate_traffic_24h.csv"],
+          "anomaly_type": "UNDOCUMENTED_SHADOW_PLC",
+          "description": "Undocumented UV disinfection skid CompactLogix PLC added post-2019, polled via EtherNet/IP CIP (TCP/44818) and absent from scanned paper blueprint and asset_inventory.csv."
+        }
+      ],
+      "conduits": [
+        {
+          "conduit_id": "C-WTR-01",
+          "name": "SWaT Process & Chemical Dosing (VLAN 25) to Municipal Water Authority IT / EPA (VLAN 60)",
+          "source_zones": ["SWaT_Process_VLAN25", "Chemical_Dosing_Skid (VLAN 25)"],
+          "target_zones": ["Municipal_IT_VLAN60"],
+          "requires_8021q_vlan_trunk": false,
+          "peak_mbps": 65.0,
+          "sized_mbps_with_headroom": 81.25,
+          "pre_cutover_iec62443_sl": "SL-1",
+          "target_post_cutover_iec62443_sl": "SL-4"
+        },
+        {
+          "conduit_id": "C-WTR-ROGUE-5G",
+          "name": "ILLEGAL SHADOW CONDUIT: Rogue 5G Cellular WAN Bypass on VLAN 25 (MUST SEVER PHYSICALLY)",
+          "source_zones": ["Untrusted_Public_5G_Carrier_WAN"],
+          "target_zones": ["SWaT_Process_VLAN25", "Chemical_Dosing_Skid (VLAN 25)"],
+          "requires_8021q_vlan_trunk": false,
+          "peak_mbps": 12.0,
+          "sized_mbps_with_headroom": 0.0,
+          "pre_cutover_iec62443_sl": "SL-0 (Bypassed)",
+          "target_post_cutover_iec62443_sl": "PHYSICALLY_DISCONNECTED_PORT_SHUTDOWN"
+        }
+      ],
+      "flow_classifications": [
+        {
+          "flow_id": "S4-F01",
+          "src_ip": "192.168.25.65",
+          "dst_ip": "10.60.1.20",
+          "dst_port": 8443,
+          "transport": "TCP",
+          "protocol": "HTTPS_PUSH",
+          "function_detail": "Outbound Safe Drinking Water Act turbidity & chlorine compliance batch push (65 Mbps peak)",
+          "direction": "OT_TO_IT",
+          "classification": "GREEN",
+          "catalog_protocol_id": "HTTPS_PUSH",
+          "prescribed_cutover_action": "Route outbound HTTPS compliance batches across DIN-rail diode TX -> RX."
+        },
+        {
+          "flow_id": "S4-F02",
+          "src_ip": "192.168.25.2,192.168.25.40,192.168.25.55",
+          "dst_ip": "10.60.2.100",
+          "dst_port": 514,
+          "transport": "UDP",
+          "protocol": "SYSLOG_UDP",
+          "function_detail": "Outbound Stratix switch & Yokogawa Chlorine Scrubber SIS alarms to Municipal SIEM",
+          "direction": "OT_TO_IT",
+          "classification": "GREEN",
+          "catalog_protocol_id": "SYSLOG_UDP",
+          "prescribed_cutover_action": "Forward UDP/514 unidirectionally across diode TX -> RX."
+        },
+        {
+          "flow_id": "S4-F03",
+          "src_ip": "10.60.1.10",
+          "dst_ip": "192.168.25.11-16,192.168.25.28",
+          "dst_port": 44818,
+          "transport": "TCP",
+          "protocol": "ETHERNET_IP_CIP",
+          "function_detail": "Inbound Rockwell EtherNet/IP CIP tag reads across SWaT P1-P6 + Shadow UV Skid .28",
+          "direction": "IT_TO_OT",
+          "classification": "AMBER",
+          "catalog_protocol_id": "OPC_UA_INBOUND_SUBSCRIPTION",
+          "prescribed_cutover_action": "Convert CIP tags locally via Moxa/Advantech OT gateway to Modbus/HTTPS push and reverse pull-to-push across DIN-rail diode."
+        },
+        {
+          "flow_id": "S4-F04",
+          "src_ip": "10.60.1.30",
+          "dst_ip": "192.168.25.21-25,192.168.25.60",
+          "dst_port": 502,
+          "transport": "TCP",
+          "protocol": "MODBUS_TCP",
+          "function_detail": "Inbound Municipal LIMS Modbus FC 03 Read Holding Registers on chemical dosing skids",
+          "direction": "IT_TO_OT",
+          "classification": "AMBER",
+          "catalog_protocol_id": "MODBUS_TCP_INBOUND_READ",
+          "prescribed_cutover_action": "Configure ARCH_A TX local Modbus poller on VLAN 25 and expose RX replica to Municipal LIMS."
+        },
+        {
+          "flow_id": "S4-F05",
+          "src_ip": "192.168.25.254",
+          "dst_ip": "192.168.25.30",
+          "dst_port": 5900,
+          "transport": "TCP",
+          "protocol": "VNC",
+          "function_detail": "Oldsmar-pattern interactive RFB/VNC remote GUI control session entering via Rogue 5G Cellular Modem (.254) directly to Chemical Dosing HMI (.30)",
+          "direction": "ROGUE_5G_TO_OT",
+          "classification": "CRITICAL_VIOLATION",
+          "catalog_protocol_id": "VNC",
+          "prescribed_cutover_action": "Physically confiscate Rogue 5G modem (192.168.25.254) from Stratix Gi1/24, enable 802.1X/port-security MAC lock, and enforce hardware diode isolation."
+        },
+        {
+          "flow_id": "S4-F06",
+          "src_ip": "192.168.25.254",
+          "dst_ip": "192.168.25.21",
+          "dst_port": 502,
+          "transport": "TCP",
+          "protocol": "MODBUS_FC06_DOSING_OVERRIDE",
+          "function_detail": "Unauthorized Modbus FC 06 Write Single Register (reg 401, value 11100) attempting dangerous NaOCl/caustic dosing setpoint spike via Rogue 5G bypass",
+          "direction": "ROGUE_5G_TO_OT",
+          "classification": "CRITICAL_VIOLATION",
+          "catalog_protocol_id": "UNAUTHORIZED_MODBUS_OR_IEC104_WRITE",
+          "prescribed_cutover_action": "Disconnect Rogue 5G gateway immediately and isolate chemical dosing telemetry behind OS-less DIN-rail hardware diode."
+        }
+      ],
+      "expected_hardware_bom": {
+        "primary_recommendation": [
+          {
+            "archetype_id": "ARCH_A_FIELD_DIODE",
+            "name": "Industrial Field Protocol Diode",
+            "quantity": 1,
+            "mounting_option": "DIN_RAIL",
+            "unit_cost_usd": 4500,
+            "extended_cost_usd": 4500
+          },
+          {
+            "archetype_id": "ARCH_B_VIDEO_IOT_DIODE",
+            "name": "Edge Video & IoT Unidirectional Proxy Diode",
+            "quantity": 1,
+            "mounting_option": "DIN_RAIL",
+            "unit_cost_usd": 8500,
+            "extended_cost_usd": 8500
+          }
+        ],
+        "total_hardware_bom_cost_usd": 13000,
+        "accepted_alternative_boms": [
+          {
+            "description": "2x ARCH_A_FIELD_DIODE load-split across Modbus dosing & telemetry conduits (2 * 80 Mbps = 160 Mbps sustained >= 81.25 Mbps, DIN_RAIL 130mm total)",
+            "items": [
+              {
+                "archetype_id": "ARCH_A_FIELD_DIODE",
+                "quantity": 2,
+                "mounting_option": "DIN_RAIL",
+                "total_cost_usd": 9000
+              }
+            ]
+          }
+        ],
+        "physical_mounting_constraint_note": "plc_cabinet_din_rail.jpg and blueprint title block confirm DIN-rail-only field cabinet mounting (zero 19-inch server rack space); ARCH_C (1U_19INCH_RACK only) is prohibited without a cabinet upgrade.",
+        "sizing_justification": "65.0 Mbps peak * 1.25 headroom = 81.25 Mbps slightly exceeds a single ARCH_A_FIELD_DIODE's 80.0 Mbps sustained ceiling, AND Scenario 4 requires both MODBUS_TCP PLC register polling (ARCH_A) and high-rate HTTPS_PUSH EPA compliance streaming (ARCH_B, DIN_RAIL 110mm, 800 Mbps sustained) while respecting DIN-rail physical constraints."
+      },
+      "expected_compliance_citations": {
+        "finding_codes": [
+          "DUAL_HOMED_BYPASS_ASSET",
+          "UNDOCUMENTED_SHADOW_OT_ASSET",
+          "UNAUTHORIZED_REMOTE_ADMIN_ACCESS",
+          "UNAUTHORIZED_INBOUND_OT_WRITE",
+          "INBOUND_IT_TO_OT_POLLING",
+          "SOFTWARE_FIREWALL_ONLY_BOUNDARY"
+        ],
+        "control_ids": [
+          "IEC 62443-3-3 SR 5.1 RE 1/2/3",
+          "IEC 62443-3-3 SR 5.2 RE 1/2/3",
+          "NIST SP 800-82 Rev. 3 Section 5.2 (Prohibition of Unmonitored Wireless/Dual-Homed Bypass)",
+          "NCIIPC CII Guidelines & IT Act Sec 70A/70B"
+        ]
+      }
+    },
+
+    "scenario_5_oil_gas_pipeline": {
+      "scenario_id": "scenario_5_oil_gas_pipeline",
+      "vertical": "Midstream Oil & Gas Pipeline Compressor Station",
+      "facility_name": "PermianStream Compressor Station CS-04",
+      "diagram_visual_style": "Dark-Mode AutoCAD P&ID / Ku-Band VSAT SCADA Diagram",
+      "files": {
+        "pcap": "scenarios/scenario_5_oil_gas_pipeline/boundary_capture.pcap",
+        "firewall_csv": "scenarios/scenario_5_oil_gas_pipeline/paloalto_traffic_24h.csv",
+        "switch_dump": "scenarios/scenario_5_oil_gas_pipeline/moxa_pipeline_switch_dump.txt",
+        "asset_inventory_csv": "scenarios/scenario_5_oil_gas_pipeline/asset_inventory.csv",
+        "topology_diagram": "scenarios/scenario_5_oil_gas_pipeline/pipeline_scada_autocad_diagram.png",
+        "site_photos": [
+          "scenarios/scenario_5_oil_gas_pipeline/plc_cabinet_din_rail.jpg",
+          "scenarios/scenario_5_oil_gas_pipeline/whiteboard_pipeline_topology.jpg"
+        ]
+      },
+      "telemetry_metrics": {
+        "pcap_packet_count": 28000,
+        "firewall_vendor": "Palo Alto Networks PAN-OS",
+        "firewall_row_count": 20000,
+        "peak_bandwidth_mbps": 28.0,
+        "sized_bandwidth_with_1_25x_headroom_mbps": 35.0
+      },
+      "total_discovered_assets": 34,
+      "documented_assets": 32,
+      "undocumented_shadow_assets": [
+        {
+          "ip_address": "10.185.30.29",
+          "mac_address": "00:E0:C4:85:30:1D",
+          "oui_prefix": "00:E0:C4",
+          "vendor": "Yokogawa Electric Corporation",
+          "model": "STARDOM FCN-RTU Pig-Launcher Skid Controller",
+          "hostname": "STARDOM-PIG-LAUNCHER",
+          "purdue_level": "L1",
+          "vlan": 30,
+          "discovery_sources": ["boundary_capture.pcap", "moxa_pipeline_switch_dump.txt", "paloalto_traffic_24h.csv"],
+          "anomaly_type": "UNDOCUMENTED_SHADOW_RTU_SKID",
+          "description": "Unregistered Yokogawa pig-launcher RTU skid active on Moxa TurboRing port Eth9 and polled via DNP3 TCP/20000, missing from 2022 AutoCAD baseline and asset_inventory.csv."
+        },
+        {
+          "ip_address": "10.185.30.48",
+          "mac_address": "00:80:A3:85:30:30",
+          "oui_prefix": "00:80:A3",
+          "vendor": "Lantronix, Inc.",
+          "model": "XPort Mercaptan Odorizer RS-485 Serial Server",
+          "hostname": "LANTRONIX-ODORIZER99",
+          "purdue_level": "L1",
+          "vlan": 30,
+          "discovery_sources": ["boundary_capture.pcap", "moxa_pipeline_switch_dump.txt", "paloalto_traffic_24h.csv"],
+          "anomaly_type": "UNDOCUMENTED_SERIAL_GATEWAY_WITH_CLEARTEXT_TELNET",
+          "description": "Unregistered Lantronix serial server on mercaptan odorizer skid exposed to cleartext Telnet (TCP/23) administrative login from Houston IT."
+        }
+      ],
+      "conduits": [
+        {
+          "conduit_id": "C-OG-01",
+          "name": "Compressor Pad OT (VLAN 30) over Ku-Band VSAT to Houston Gas Control WAN (VLAN 120)",
+          "source_zones": ["Compressor_Pad_VLAN30", "Custody_Metering_VLAN30", "Safety_SIS_VLAN30"],
+          "target_zones": ["Houston_Gas_Control_WAN (VLAN 120)"],
+          "requires_8021q_vlan_trunk": false,
+          "peak_mbps": 28.0,
+          "sized_mbps_with_headroom": 35.0,
+          "pre_cutover_iec62443_sl": "SL-2",
+          "target_post_cutover_iec62443_sl": "SL-4"
+        }
+      ],
+      "flow_classifications": [
+        {
+          "flow_id": "S5-F01",
+          "src_ip": "10.185.30.40",
+          "dst_ip": "10.120.20.50",
+          "dst_port": 22,
+          "transport": "TCP",
+          "protocol": "SFTP",
+          "function_detail": "Outbound API MPMS custody-transfer fiscal metering batch file push (28 Mbps VSAT burst)",
+          "direction": "OT_TO_IT",
+          "classification": "GREEN",
+          "catalog_protocol_id": "SFTP",
+          "prescribed_cutover_action": "Push custody batch files unidirectionally from OT flow computer across diode TX -> RX landing server."
+        },
+        {
+          "flow_id": "S5-F02",
+          "src_ip": "10.185.30.2,10.185.30.20,10.185.30.30",
+          "dst_ip": "10.120.30.100",
+          "dst_port": 514,
+          "transport": "UDP",
+          "protocol": "SYSLOG_UDP",
+          "function_detail": "Outbound Triconex ESD & Moxa switch TSA Security Directive telemetry to Houston SIEM",
+          "direction": "OT_TO_IT",
+          "classification": "GREEN",
+          "catalog_protocol_id": "SYSLOG_UDP",
+          "prescribed_cutover_action": "Forward UDP/514 unidirectionally across ARCH_A TX -> RX."
+        },
+        {
+          "flow_id": "S5-F03",
+          "src_ip": "10.120.10.20",
+          "dst_ip": "10.185.30.11-16,10.185.30.29",
+          "dst_port": 20000,
+          "transport": "TCP",
+          "protocol": "DNP3",
+          "function_detail": "Inbound Houston Gas Control DNP3 Class 0/1/2 polling of ROC800/SCADAPack RTUs & Shadow Pig-Launcher .29",
+          "direction": "IT_TO_OT",
+          "classification": "AMBER",
+          "catalog_protocol_id": "DNP3_INBOUND_POLL",
+          "prescribed_cutover_action": "Reverse pull-to-push via ARCH_A_FIELD_DIODE TX local DNP3 master and RX outstation replica."
+        },
+        {
+          "flow_id": "S5-F04",
+          "src_ip": "10.120.10.21",
+          "dst_ip": "10.185.30.20-21,10.185.30.31-36",
+          "dst_port": 502,
+          "transport": "TCP",
+          "protocol": "MODBUS_TCP",
+          "function_detail": "Inbound Modbus FC 03 Read Holding Registers from Triconex ESD SIS (read-only) & Daniel Gas Chromatographs",
+          "direction": "IT_TO_OT",
+          "classification": "AMBER",
+          "catalog_protocol_id": "MODBUS_TCP_INBOUND_READ",
+          "prescribed_cutover_action": "Configure ARCH_A TX local Modbus poller on VLAN 30 and expose read-only RX replica to Houston Gas Control."
+        },
+        {
+          "flow_id": "S5-F05",
+          "src_ip": "10.120.30.100",
+          "dst_ip": "10.185.30.2,10.185.30.3",
+          "dst_port": 161,
+          "transport": "UDP",
+          "protocol": "SNMP_POLL",
+          "function_detail": "Inbound SNMPv2c GetRequest switch health polling over cleartext community string",
+          "direction": "IT_TO_OT",
+          "classification": "AMBER",
+          "catalog_protocol_id": "SYSLOG_UDP",
+          "prescribed_cutover_action": "Replace inbound UDP/161 SNMP polling with outbound SNMP Trap / Syslog UDP push across ARCH_A."
+        },
+        {
+          "flow_id": "S5-F06",
+          "src_ip": "10.120.88.19",
+          "dst_ip": "10.185.30.40",
+          "dst_port": 445,
+          "transport": "TCP",
+          "protocol": "SMBV1",
+          "function_detail": "Legacy Windows SMBv1 mount to \\\\10.185.30.40\\METERING_LOGS$ (Colonial Pipeline ransomware vector)",
+          "direction": "IT_TO_OT",
+          "classification": "RED_BLOCKER",
+          "catalog_protocol_id": "SMBV1",
+          "prescribed_cutover_action": "Physically sever TCP/445 and consolidate all metering exports onto unidirectional batch push."
+        },
+        {
+          "flow_id": "S5-F07",
+          "src_ip": "10.120.88.19",
+          "dst_ip": "10.185.30.45,10.185.30.46,10.185.30.48",
+          "dst_port": 23,
+          "transport": "TCP",
+          "protocol": "TELNET",
+          "function_detail": "Cleartext Telnet (TCP/23) administrative login sending plaintext root credentials to Lantronix serial servers (including Shadow Odorizer .48)",
+          "direction": "IT_TO_OT",
+          "classification": "CRITICAL_VIOLATION",
+          "catalog_protocol_id": "TELNET",
+          "prescribed_cutover_action": "Physically sever inbound TCP/23 via ARCH_A_FIELD_DIODE and disable Telnet on all Lantronix serial gateways."
+        }
+      ],
+      "expected_hardware_bom": {
+        "primary_recommendation": [
+          {
+            "archetype_id": "ARCH_A_FIELD_DIODE",
+            "name": "Industrial Field Protocol Diode",
+            "quantity": 1,
+            "mounting_option": "DIN_RAIL",
+            "unit_cost_usd": 4500,
+            "extended_cost_usd": 4500
+          }
+        ],
+        "total_hardware_bom_cost_usd": 4500,
+        "accepted_alternative_boms": [
+          {
+            "description": "1x ARCH_C_ENTERPRISE_1U_DIODE ($21,000) ONLY if native SFTP file proxy is prioritized alongside a NEMA-4X 19-inch rack enclosure upgrade",
+            "items": [
+              {
+                "archetype_id": "ARCH_C_ENTERPRISE_1U_DIODE",
+                "quantity": 1,
+                "mounting_option": "1U_19INCH_RACK",
+                "total_cost_usd": 21000
+              }
+            ]
+          }
+        ],
+        "physical_mounting_constraint_note": "plc_cabinet_din_rail.jpg and AutoCAD NEMA-4X specification confirm ruggedized DIN-rail (-40 to +75C) compressor house cabinet mounting, matching ARCH_A_FIELD_DIODE.",
+        "sizing_justification": "28.0 Mbps VSAT peak * 1.25 headroom = 35.0 Mbps <= 80 Mbps sustained ceiling of ARCH_A_FIELD_DIODE, <= 32 OT RTUs/PLCs on single VLAN 30, ruggedized -40 to +75C DIN-rail form factor, natively supporting DNP3, MODBUS_TCP, and SYSLOG_UDP at $4,500."
+      },
+      "expected_compliance_citations": {
+        "finding_codes": [
+          "UNDOCUMENTED_SHADOW_OT_ASSET",
+          "UNAUTHORIZED_REMOTE_ADMIN_ACCESS",
+          "SMBV1_FILE_SHARE_EXPOSURE",
+          "INBOUND_IT_TO_OT_POLLING",
+          "SOFTWARE_FIREWALL_ONLY_BOUNDARY"
+        ],
+        "control_ids": [
+          "IEC 62443-3-3 SR 5.1 RE 1/2/3",
+          "IEC 62443-3-3 SR 5.2 RE 1/3",
+          "IEC 62443-3-3 SR 3.2 RE 1",
+          "NIST SP 800-82 Rev. 3 Section 5.2",
+          "NCIIPC CII Guidelines & IT Act Sec 70A/70B"
+        ]
+      }
+    },
+
+    "scenario_6_pharma_cleanroom": {
+      "scenario_id": "scenario_6_pharma_cleanroom",
+      "vertical": "Pharmaceutical Sterile Biologics Cleanroom (GMP / ISA-95)",
+      "facility_name": "BioVance Sterile Biologics Plant",
+      "diagram_visual_style": "Cleanroom GMP ISA-95 / FDA 21 CFR Part 11 Validated Architecture",
+      "files": {
+        "pcap": "scenarios/scenario_6_pharma_cleanroom/boundary_capture.pcap",
+        "firewall_csv": "scenarios/scenario_6_pharma_cleanroom/fortigate_traffic_24h.csv",
+        "switch_dump": "scenarios/scenario_6_pharma_cleanroom/cisco_ie4000_switch_dump.txt",
+        "asset_inventory_csv": "scenarios/scenario_6_pharma_cleanroom/asset_inventory.csv",
+        "topology_diagram": "scenarios/scenario_6_pharma_cleanroom/pharma_cleanroom_gmp_diagram.png",
+        "site_photos": [
+          "scenarios/scenario_6_pharma_cleanroom/server_rack_open_1u.jpg",
+          "scenarios/scenario_6_pharma_cleanroom/pharma_stainless_cabinet.jpg"
+        ]
+      },
+      "telemetry_metrics": {
+        "pcap_packet_count": 30000,
+        "firewall_vendor": "Fortinet FortiGate",
+        "firewall_row_count": 20000,
+        "peak_bandwidth_mbps": 190.0,
+        "sized_bandwidth_with_1_25x_headroom_mbps": 237.5
+      },
+      "total_discovered_assets": 42,
+      "documented_assets": 40,
+      "undocumented_shadow_assets": [
+        {
+          "ip_address": "192.168.60.38",
+          "mac_address": "00:01:05:60:00:26",
+          "oui_prefix": "00:01:05",
+          "vendor": "Beckhoff Automation GmbH",
+          "model": "TwinCAT CX2030 Single-Use Mixer Skid",
+          "hostname": "twincat-mab-mixer38",
+          "purdue_level": "L1",
+          "vlan": 60,
+          "discovery_sources": ["boundary_capture.pcap", "cisco_ie4000_switch_dump.txt", "fortigate_traffic_24h.csv"],
+          "anomaly_type": "UNVALIDATED_GMP_SHADOW_SKID",
+          "description": "Unvalidated MAb Line 3 Beckhoff TwinCAT single-use mixer skid streaming OPC-UA (TCP/4840) on VLAN 60 without FDA 21 CFR Part 11 IQ/OQ Computer System Validation documentation."
+        },
+        {
+          "ip_address": "192.168.60.39",
+          "mac_address": "00:A0:45:60:00:27",
+          "oui_prefix": "00:A0:45",
+          "vendor": "Phoenix Contact GmbH",
+          "model": "PLCnext WFI Loop Skid Controller",
+          "hostname": "plcnext-wfi-skid39",
+          "purdue_level": "L1",
+          "vlan": 60,
+          "discovery_sources": ["boundary_capture.pcap", "cisco_ie4000_switch_dump.txt", "fortigate_traffic_24h.csv"],
+          "anomaly_type": "UNVALIDATED_GMP_SHADOW_SKID",
+          "description": "Unvalidated Water-for-Injection (WFI) PLCnext skid discovered on Cisco IE-4000 switch ARP table and OPC-UA stream, missing from validated GMP asset inventory."
+        }
+      ],
+      "conduits": [
+        {
+          "conduit_id": "C-PHM-01",
+          "name": "GMP Bioreactor & Batch Execution (VLAN 60) <-> Enterprise Werum PAS-X MES & LIMS (VLAN 90)",
+          "source_zones": ["ISO5_Bioreactor_VLAN60", "GMP_Batch_SCADA_L3 (VLAN 60)"],
+          "target_zones": ["Enterprise_GMP_IT_VLAN90"],
+          "requires_8021q_vlan_trunk": true,
+          "requires_controlled_reverse_recipe_dispatch": true,
+          "peak_mbps": 145.0,
+          "sized_mbps_with_headroom": 181.25,
+          "pre_cutover_iec62443_sl": "SL-2",
+          "target_post_cutover_iec62443_sl": "SL-3 (SL-4 with X.509 payload signing & dual hardware guard)"
+        },
+        {
+          "conduit_id": "C-PHM-02",
+          "name": "ISO-5 Grade-A Cleanroom EMS Particle Counters (VLAN 65) -> Enterprise PI & Cloud Broker (VLAN 90)",
+          "source_zones": ["ISO5_EMS_VLAN65"],
+          "target_zones": ["Enterprise_GMP_IT_VLAN90"],
+          "requires_8021q_vlan_trunk": true,
+          "requires_controlled_reverse_recipe_dispatch": false,
+          "peak_mbps": 45.0,
+          "sized_mbps_with_headroom": 56.25,
+          "pre_cutover_iec62443_sl": "SL-2",
+          "target_post_cutover_iec62443_sl": "SL-4"
+        }
+      ],
+      "flow_classifications": [
+        {
+          "flow_id": "S6-F01",
+          "src_ip": "192.168.60.30,192.168.65.10,192.168.60.38,192.168.60.39",
+          "dst_ip": "10.90.10.20",
+          "dst_port": 4840,
+          "transport": "TCP",
+          "protocol": "OPC-UA",
+          "function_detail": "High-rate 21 CFR Part 11 bioreactor dissolved-oxygen/pH & cleanroom OPC-UA telemetry push (including Shadow Skids .38 & .39)",
+          "direction": "OT_TO_IT",
+          "classification": "GREEN",
+          "catalog_protocol_id": "OPC_UA",
+          "prescribed_cutover_action": "Stream OPC-UA Electronic Batch Record tags outward via hardware-isolated OPC-UA proxy."
+        },
+        {
+          "flow_id": "S6-F02",
+          "src_ip": "192.168.65.11-15",
+          "dst_ip": "10.90.10.30",
+          "dst_port": 1883,
+          "transport": "TCP",
+          "protocol": "MQTT",
+          "function_detail": "ISO-5 Grade-A laser particle counter (0.5um/5.0um) & differential-pressure continuous MQTT telemetry",
+          "direction": "OT_TO_IT",
+          "classification": "GREEN",
+          "catalog_protocol_id": "MQTT",
+          "prescribed_cutover_action": "Publish cleanroom environmental MQTT streams one-way across hardware isolation barrier."
+        },
+        {
+          "flow_id": "S6-F03",
+          "src_ip": "192.168.60.2,192.168.60.20,192.168.65.10",
+          "dst_ip": "10.90.40.100",
+          "dst_port": 514,
+          "transport": "UDP",
+          "protocol": "SYSLOG_UDP",
+          "function_detail": "Immutable FDA 21 CFR Part 11 e-signature & audit-trail Syslog export",
+          "direction": "OT_TO_IT",
+          "classification": "GREEN",
+          "catalog_protocol_id": "SYSLOG_UDP",
+          "prescribed_cutover_action": "Forward UDP/514 audit trail unidirectionally to GMP SIEM."
+        },
+        {
+          "flow_id": "S6-F04",
+          "src_ip": "10.90.10.25",
+          "dst_ip": "192.168.60.50",
+          "dst_port": 1433,
+          "transport": "TCP",
+          "protocol": "MS_TDS_SQL",
+          "function_detail": "Inbound LabWare QA LIMS SQL SELECT query polling Electronic Batch Record staging DB",
+          "direction": "IT_TO_OT",
+          "classification": "AMBER",
+          "catalog_protocol_id": "SQL_INBOUND_SELECT_POLL",
+          "prescribed_cutover_action": "Replace inbound SQL SELECT with OT-originated SQL_REPLICATION_PUSH CDC deltas to DMZ LIMS replica."
+        },
+        {
+          "flow_id": "S6-F05",
+          "src_ip": "10.90.20.10",
+          "dst_ip": "192.168.60.20",
+          "dst_port": 8443,
+          "additional_ports": [4840],
+          "transport": "TCP",
+          "protocol": "SIGNED_RECIPE_DISPATCH",
+          "function_detail": "Legitimate operationally mandatory Werum PAS-X MES X.509-signed ISA-88 Master Batch Recipe download (HTTPS/8443 + OPC-UA LoadMasterRecipe Method Call) to Batch Executive",
+          "direction": "IT_TO_OT",
+          "classification": "AMBER",
+          "catalog_protocol_id": "AUTHORIZED_CLOSED_LOOP_WRITE",
+          "prescribed_cutover_action": "Pure one-way diodes (ARCH_A/B/C) would break mandatory closed-loop MES batch dispatch; deploy ARCH_D_BIDIRECTIONAL_GATEWAY with TCP SYN locked strictly to the OT side, DMZ passive recipe staging queue, and X.509/JSON/XSD schema validation."
+        },
+        {
+          "flow_id": "S6-F06",
+          "src_ip": "10.90.30.15",
+          "dst_ip": "192.168.60.45",
+          "dst_port": 445,
+          "transport": "TCP",
+          "protocol": "SMBV1",
+          "function_detail": "Legacy Windows SMBv1 mount to \\\\192.168.60.45\\CHROMATOGRAM_RAW$ exposing Protein-A chromatography NAS to IT ransomware",
+          "direction": "IT_TO_OT",
+          "classification": "RED_BLOCKER",
+          "catalog_protocol_id": "SMBV1",
+          "prescribed_cutover_action": "Sever TCP/445 completely and push completed chromatogram files outward via SFTP relay."
+        },
+        {
+          "flow_id": "S6-F07",
+          "src_ip": "10.90.99.77",
+          "dst_ip": "192.168.60.22",
+          "dst_port": 3389,
+          "transport": "TCP",
+          "protocol": "RDP",
+          "function_detail": "Unauthorized vendor VPN Remote Desktop session directly into Lyophilizer WinCC Operator Console",
+          "direction": "IT_TO_OT",
+          "classification": "CRITICAL_VIOLATION",
+          "catalog_protocol_id": "RDP",
+          "prescribed_cutover_action": "Physically block inbound TCP/3389; ARCH_D enforces allows_inbound_it_tcp_syn = false."
+        }
+      ],
+      "expected_hardware_bom": {
+        "primary_recommendation": [
+          {
+            "archetype_id": "ARCH_D_BIDIRECTIONAL_GATEWAY",
+            "name": "Dual-Stage Controlled Bi-Directional Gateway",
+            "quantity": 1,
+            "mounting_option": "1U_19INCH_RACK",
+            "unit_cost_usd": 29500,
+            "extended_cost_usd": 29500
+          },
+          {
+            "archetype_id": "ARCH_C_ENTERPRISE_1U_DIODE",
+            "name": "1U Enterprise Rackmount Protocol-Breaking Diode",
+            "quantity": 1,
+            "mounting_option": "1U_19INCH_RACK",
+            "unit_cost_usd": 21000,
+            "extended_cost_usd": 21000
+          }
+        ],
+        "total_hardware_bom_cost_usd": 50500,
+        "accepted_alternative_boms": [
+          {
+            "description": "Consolidated single 1U appliance: 1x ARCH_D_BIDIRECTIONAL_GATEWAY ($29,500) carrying both 237.5 Mbps forward OPC-UA/MQTT/SQL/Syslog (<= 800 Mbps sustained) across 802.1Q VLANs 60 & 65 AND OT-polled signed PAS-X MES recipe dispatch",
+            "items": [
+              {
+                "archetype_id": "ARCH_D_BIDIRECTIONAL_GATEWAY",
+                "quantity": 1,
+                "mounting_option": "1U_19INCH_RACK",
+                "total_cost_usd": 29500
+              }
+            ]
+          }
+        ],
+        "physical_mounting_constraint_note": "server_rack_open_1u.jpg confirms standard 19-inch cleanroom interstitial server rack space supporting 1U_19INCH_RACK appliances (ARCH_D and ARCH_C).",
+        "sizing_justification": "190.0 Mbps peak * 1.25 headroom = 237.5 Mbps forward telemetry + operationally mandatory Werum PAS-X MES signed ISA-88 recipe download. ARCH_D_BIDIRECTIONAL_GATEWAY is mandatory for C-PHM-01 (SIGNED_RECIPE_DISPATCH with OT-originated TCP SYN lock), paired with ARCH_C_ENTERPRISE_1U_DIODE for pure optical SL-4 isolation of ISO-5 Grade-A EMS particle monitoring (C-PHM-02) — or consolidated on 1x ARCH_D ($29,500)."
+      },
+      "expected_compliance_citations": {
+        "finding_codes": [
+          "UNDOCUMENTED_SHADOW_OT_ASSET",
+          "INBOUND_IT_TO_OT_POLLING",
+          "SMBV1_FILE_SHARE_EXPOSURE",
+          "UNAUTHORIZED_REMOTE_ADMIN_ACCESS",
+          "SOFTWARE_FIREWALL_ONLY_BOUNDARY"
+        ],
+        "control_ids": [
+          "IEC 62443-3-3 SR 5.1 RE 1/2/3",
+          "IEC 62443-3-3 SR 5.2 RE 1/3",
+          "IEC 62443-3-3 SR 3.2 RE 1",
+          "IEC 62443-3-3 SR 6.2 RE 1",
+          "IEC 62443-3-3 SL-3 / SL-4 (Controlled Gateway w/ Cryptographic Payload Signing)",
+          "NIST SP 800-82 Rev. 3 Section 5.2"
+        ]
+      }
+    }
+  }
+}

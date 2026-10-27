@@ -1,0 +1,33 @@
+asset_id,hostname,ip_address,mac_address,vendor,model,purdue_level,iec62443_zone,vlan,role,criticality,last_verified_date
+PIPE-FW-01,PA450-VSAT-COMP04,10.185.30.1,00:1B:17:85:30:01,Palo Alto Networks,PA-450 Rugged VSAT Firewall,L3.5,VSAT_DMZ,30,PA-450 Rugged VSAT Firewall,HIGH,2024-11-30
+PIPE-SW-01,MOXA-EDS516-RING01,10.185.30.2,00:90:E8:85:30:02,"Moxa Technologies Co., Ltd.",EDS-G516E TurboRing Master,L2,Compressor_OT_VLAN30,30,EDS-G516E TurboRing Master,HIGH,2024-11-30
+PIPE-SW-02,MOXA-EDS516-RING02,10.185.30.3,00:90:E8:85:30:03,"Moxa Technologies Co., Ltd.",EDS-G516E Metering Skid Switch,L2,Compressor_OT_VLAN30,30,EDS-G516E Metering Skid Switch,HIGH,2024-11-30
+PIPE-RTU-01,RTU-TURBINE-UNIT01,10.185.30.11,00:0E:8C:85:30:0B,ABB Automation,ABB Totalflow XFC G5 RTU #1,L1,Compressor_OT_VLAN30,30,ABB Totalflow XFC G5 RTU #1,HIGH,2024-11-30
+PIPE-RTU-02,RTU-TURBINE-UNIT02,10.185.30.12,00:0E:8C:85:30:0C,ABB Automation,ABB Totalflow XFC G5 RTU #2,L1,Compressor_OT_VLAN30,30,ABB Totalflow XFC G5 RTU #2,HIGH,2024-11-30
+PIPE-RTU-03,RTU-TURBINE-UNIT03,10.185.30.13,00:0E:8C:85:30:0D,ABB Automation,ABB Totalflow XFC G5 RTU #3,L1,Compressor_OT_VLAN30,30,ABB Totalflow XFC G5 RTU #3,HIGH,2024-11-30
+PIPE-RTU-04,RTU-BLOCKVALVE-MLV14,10.185.30.14,00:00:BC:85:30:0E,Rockwell Automation / Allen-Bradley,ControlLogix Mainline Valve 14,L1,Compressor_OT_VLAN30,30,ControlLogix Mainline Valve 14,HIGH,2024-11-30
+PIPE-RTU-05,RTU-BLOCKVALVE-MLV15,10.185.30.15,00:00:BC:85:30:0F,Rockwell Automation / Allen-Bradley,ControlLogix Mainline Valve 15,L1,Compressor_OT_VLAN30,30,ControlLogix Mainline Valve 15,HIGH,2024-11-30
+PIPE-SIS-01,SIS-ESD-STATION04,10.185.30.16,00:E0:C4:85:30:10,Yokogawa Electric Corporation,ProSafe-RS Emergency Shutdown SIS,L1,Pipeline_SIS_Zone,30,ProSafe-RS Emergency Shutdown SIS,HIGH,2024-11-30
+PIPE-SIS-02,SIS-HIPPS-SUCTION,10.185.30.17,00:E0:C4:85:30:11,Yokogawa Electric Corporation,ProSafe-RS High-Integrity Pressure SIS,L1,Pipeline_SIS_Zone,30,ProSafe-RS High-Integrity Pressure SIS,HIGH,2024-11-30
+PIPE-SIS-03,SIS-FIRE-GAS-DET,10.185.30.18,00:1D:9C:85:30:12,Honeywell Process Solutions,Safety Manager Fire & LEL Gas,L1,Pipeline_SIS_Zone,30,Safety Manager Fire & LEL Gas,HIGH,2024-11-30
+PIPE-FC-01,FLOWCOMP-CUSTODY-01,10.185.30.21,00:90:E8:85:30:15,"Moxa Technologies Co., Ltd.",MGate 5105 Ultrasonic Custody Run 1,L1,Custody_Metering_Skid,30,MGate 5105 Ultrasonic Custody Run 1,HIGH,2024-11-30
+PIPE-FC-02,FLOWCOMP-CUSTODY-02,10.185.30.22,00:90:E8:85:30:16,"Moxa Technologies Co., Ltd.",MGate 5105 Ultrasonic Custody Run 2,L1,Custody_Metering_Skid,30,MGate 5105 Ultrasonic Custody Run 2,HIGH,2024-11-30
+PIPE-FC-03,FLOWCOMP-CUSTODY-03,10.185.30.23,00:90:E8:85:30:17,"Moxa Technologies Co., Ltd.",MGate 5105 Ultrasonic Custody Run 3,L1,Custody_Metering_Skid,30,MGate 5105 Ultrasonic Custody Run 3,HIGH,2024-11-30
+PIPE-FC-04,GC-CHROMATOGRAPH-01,10.185.30.24,00:1B:1B:85:30:18,Siemens AG,SITRANS CV BTU Gas Chromatograph 1,L1,Custody_Metering_Skid,30,SITRANS CV BTU Gas Chromatograph 1,HIGH,2024-11-30
+PIPE-FC-05,GC-CHROMATOGRAPH-02,10.185.30.25,00:1B:1B:85:30:19,Siemens AG,SITRANS CV BTU Gas Chromatograph 2,L1,Custody_Metering_Skid,30,SITRANS CV BTU Gas Chromatograph 2,HIGH,2024-11-30
+PIPE-VIB-01,VIB-TURBINE-BENTLY1,10.185.30.26,00:09:91:85:30:1A,GE Vernova / GE Multilin,Mark VIe / Bently Bearing Monitor,L1,Compressor_OT_VLAN30,30,Mark VIe / Bently Bearing Monitor,HIGH,2024-11-30
+PIPE-HMI-01,COMP04-LOCAL-SCADA,10.185.30.30,F8:B1:56:85:30:1E,Dell Inc.,Rugged Station HMI & SMB Map Host,L2,Compressor_SCADA_L2,30,Rugged Station HMI & SMB Map Host,HIGH,2024-11-30
+PIPE-HMI-02,PVPLUS-TURBINE-BAY1,10.185.30.31,F4:54:33:85:30:1F,Rockwell Automation / Allen-Bradley,PanelView Plus 7 Skid Console,L2,Compressor_SCADA_L2,30,PanelView Plus 7 Skid Console,HIGH,2024-11-30
+PIPE-SFTP-01,CUSTODY-BATCH-SFTP01,10.185.30.40,00:D0:C9:85:30:28,"Advantech Co., Ltd.",UNO-2484G API-MPMS Custody SFTP Push,L3,Compressor_SCADA_L2,30,UNO-2484G API-MPMS Custody SFTP Push,HIGH,2024-11-30
+PIPE-SER-01,LANTRONIX-UDS-SER01,10.185.30.45,00:80:A3:85:30:2D,Lantronix,UDS2100 RS-485 Serial Tunnel #1,L1,Compressor_OT_VLAN30,30,UDS2100 RS-485 Serial Tunnel #1,HIGH,2024-11-30
+PIPE-SER-02,LANTRONIX-UDS-SER02,10.185.30.46,00:80:A3:85:30:2E,Lantronix,UDS2100 RS-485 Serial Tunnel #2,L1,Compressor_OT_VLAN30,30,UDS2100 RS-485 Serial Tunnel #2,HIGH,2024-11-30
+PIPE-PWR-01,UPS-SOLAR-RECT01,10.185.30.51,00:00:54:85:30:33,Schneider Electric,PowerLogic Cathodic Rectifier Meter,L1,Compressor_OT_VLAN30,30,PowerLogic Cathodic Rectifier Meter,HIGH,2024-11-30
+PIPE-IO-01,PLCNEXT-CATHODIC-02,10.185.30.52,00:A0:45:85:30:34,Phoenix Contact GmbH,PLCnext Cathodic Protection I/O,L1,Compressor_OT_VLAN30,30,PLCnext Cathodic Protection I/O,HIGH,2024-11-30
+PIPE-CAM-01,AXIS-FLARE-THERMAL1,10.185.30.60,AC:CC:8E:85:30:3C,Axis Communications AB,AXIS Q1942-E Methane/Flare Thermal,L1,Compressor_OT_VLAN30,30,AXIS Q1942-E Methane/Flare Thermal,HIGH,2024-11-30
+HOUS-WAN-01,HOUSTON-VSAT-HUB01,10.120.0.1,00:1A:A1:78:00:01,"Cisco Systems, Inc.",ASR1001-X Houston VSAT MPLS Hub,L3.5,Houston_Control_WAN,120,ASR1001-X Houston VSAT MPLS Hub,HIGH,2024-11-30
+HOUS-SCADA-1,HOUS-GASCTRL-DNP01,10.120.10.20,00:50:56:78:0A:14,"VMware, Inc.",CygNet / OASyS Pipeline DNP3 Master,L4,Houston_Control_WAN,120,CygNet / OASyS Pipeline DNP3 Master,HIGH,2024-11-30
+HOUS-MEAS-01,HOUS-FLOW-MODBUS01,10.120.10.25,00:50:56:78:0A:19,"VMware, Inc.",FLOWCAL Gas Measurement Poller,L4,Houston_Control_WAN,120,FLOWCAL Gas Measurement Poller,HIGH,2024-11-30
+HOUS-SFTP-01,HOUS-CUSTODY-SFTP01,10.120.20.50,3C:D9:2B:78:14:32,Hewlett Packard Enterprise (HPE),Custody Settlement SFTP Landing,L4,Houston_Corp_IT,120,Custody Settlement SFTP Landing,HIGH,2024-11-30
+HOUS-NMS-01,HOUS-SOLARWINDS-NMS,10.120.30.15,00:50:56:78:1E:0F,"VMware, Inc.",Corporate SNMPv2 Network Poller,L4,Houston_Corp_IT,120,Corporate SNMPv2 Network Poller,HIGH,2024-11-30
+HOUS-SMB-01,HOUS-ENG-FILESRV01,10.120.40.12,00:50:56:78:28:0C,"VMware, Inc.",Pipeline Engineering SMB Share,L4,Houston_Corp_IT,120,Pipeline Engineering SMB Share,HIGH,2024-11-30
+HOUS-IT-ADM,HOUS-IT-ADMIN-WK19,10.120.88.19,00:50:56:78:58:13,"VMware, Inc.",Houston IT Jump Host (Telnet TCP/23!),L4,Houston_Corp_IT,120,Houston IT Jump Host (Telnet TCP/23!),HIGH,2024-11-30

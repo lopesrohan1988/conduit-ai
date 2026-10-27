@@ -1,0 +1,88 @@
+# ==============================================================================
+# Device: Hirschmann MACH1040-16TX-L3P (HiOS-3S-08.7.02)
+# System Name: MACH1040-220kV-SW01 | GridCore 220kV North Transmission Substation
+# ==============================================================================
+
+MACH1040-220kV-SW01# show arp
+IP Address       MAC Address        Interface   VLAN   Type
+---------------  -----------------  ----------  -----  -------
+10.220.10.1      00:60:78:22:10:01  1/1         220    dynamic  (MACH1040-220kV-SW01)
+10.220.10.2      00:60:78:22:10:02  1/2         220    dynamic  (RSP25-220kV-SW02)
+10.220.10.3      00:60:78:22:10:03  1/3         220    dynamic  (BOBCAT-BAY-SW03)
+10.220.10.254    00:1B:17:22:10:FE  1/4         220    dynamic  (PA850-SUB220-ESP01)
+10.220.10.10     00:0E:8C:56:10:10  1/5         220    dynamic  (SUB220-RTU560-01)
+10.220.10.11     00:0E:8C:56:10:11  1/6         220    dynamic  (SUB220-RTU560-02)
+10.220.10.15     00:1B:1B:88:10:15  1/7         220    dynamic  (SICAM-PAS-HMI01)
+10.220.10.16     28:63:36:88:10:16  1/8         220    dynamic  (SICAM-SCC-CONSOLE02)
+10.220.10.21     00:30:A7:45:10:21  1/9         220    dynamic  (SEL451-FDR01)
+10.220.10.22     00:30:A7:48:10:22  1/10        220    dynamic  (SEL487E-BUS01)
+10.220.10.23     00:30:A7:35:10:23  1/11        220    dynamic  (SEL3555-RTAC01)
+10.220.10.24     00:30:A7:42:10:24  1/12        220    dynamic  (SEL421-LINE01)
+10.220.10.25     00:30:A7:41:10:25  1/13        220    dynamic  (SEL411L-DIFF02)
+10.220.10.26     00:30:A7:78:10:26  1/14        220    dynamic  (SEL787-XFMR01)
+10.220.10.27     00:21:C1:67:10:27  1/15        220    dynamic  (ABB-RED670-BAY02)
+10.220.10.28     00:21:C1:67:10:28  1/16        220    dynamic  (ABB-REB670-BUS02)
+10.220.10.29     00:30:A7:99:10:29  2/1         220    dynamic  (SEL751-COMM-BAY4-TEMP) [UNREGISTERED COMMISSIONING RELAY!]
+10.220.10.30     00:21:C1:67:10:30  2/2         220    dynamic  (ABB-RET670-XFMR02)
+10.220.10.31     00:1B:1B:7A:10:31  2/3         220    dynamic  (SIPROTEC5-BAY01)
+10.220.10.32     00:1B:1B:7A:10:32  2/4         220    dynamic  (SIPROTEC5-DIST02)
+10.220.10.33     00:1B:1B:7A:10:33  2/5         220    dynamic  (SIPROTEC5-SYNC03)
+10.220.10.35     00:1B:1B:7D:10:35  2/6         220    dynamic  (SITRAM-DGA-TX01)
+10.220.10.36     00:1B:1B:7D:10:36  2/7         220    dynamic  (SITRAM-DGA-TX02)
+10.220.10.41     00:09:91:60:10:41  2/8         220    dynamic  (MULTILIN-D60-L3)
+10.220.10.42     00:09:91:30:10:42  2/9         220    dynamic  (MULTILIN-B30-BUS3)
+10.220.10.43     00:09:91:60:10:43  2/10        220    dynamic  (MULTILIN-F60-FDR3)
+10.220.10.44     00:09:91:60:10:44  2/11        220    dynamic  (MULTILIN-C60-BKR4)
+10.220.10.49     00:09:91:99:10:49  2/12        220    dynamic  (MULTILIN-T60-COMM-TEMP) [UNREGISTERED COMMISSIONING RELAY!]
+10.220.10.51     00:00:54:86:10:51  2/13        220    dynamic  (ION8650-REV-MTR01)
+10.220.10.52     00:00:54:86:10:52  2/14        220    dynamic  (ION8650-REV-MTR02)
+10.220.10.55     00:90:E8:22:10:55  2/15        220    dynamic  (MGATE-IEC104-AUX)
+10.100.5.20      00:50:56:A2:05:14  1/1         100    dynamic  (RCC-EMS-MASTER01)
+10.100.5.21      00:50:56:A2:05:15  1/1         100    dynamic  (RCC-SOE-DNP3-01)
+10.100.5.30      00:50:56:A2:05:1E  1/1         100    dynamic  (ASSET-DGA-POLL01)
+10.100.5.100     00:50:56:A2:05:64  1/1         100    dynamic  (NERC-SIEM-COL01)
+10.100.88.44     00:50:56:A2:58:2C  1/1         100    dynamic  (CORP-MPLS-WKSTN44)
+
+MACH1040-220kV-SW01# show mac-address-table
+VLAN  MAC Address        Port   Status    Vendor_Hint
+----  -----------------  -----  --------  ----------------------------
+220   00:60:78:22:10:01  1/1    learned   Hirschmann Automation and Co
+220   00:60:78:22:10:02  1/2    learned   Hirschmann Automation and Co
+220   00:60:78:22:10:03  1/3    learned   Hirschmann Automation and Co
+220   00:1B:17:22:10:FE  1/4    learned   Palo Alto Networks
+220   00:0E:8C:56:10:10  1/5    learned   ABB Automation
+220   00:0E:8C:56:10:11  1/6    learned   ABB Automation
+220   00:1B:1B:88:10:15  1/7    learned   Siemens AG
+220   28:63:36:88:10:16  1/8    learned   Siemens AG
+220   00:30:A7:45:10:21  1/9    learned   Schweitzer Engineering Labor
+220   00:30:A7:48:10:22  1/10   learned   Schweitzer Engineering Labor
+220   00:30:A7:35:10:23  1/11   learned   Schweitzer Engineering Labor
+220   00:30:A7:42:10:24  1/12   learned   Schweitzer Engineering Labor
+220   00:30:A7:41:10:25  1/13   learned   Schweitzer Engineering Labor
+220   00:30:A7:78:10:26  1/14   learned   Schweitzer Engineering Labor
+220   00:21:C1:67:10:27  1/15   learned   ABB Oy
+220   00:21:C1:67:10:28  1/16   learned   ABB Oy
+220   00:30:A7:99:10:29  2/1    learned   Schweitzer Engineering Labor
+220   00:21:C1:67:10:30  2/2    learned   ABB Oy
+220   00:1B:1B:7A:10:31  2/3    learned   Siemens AG
+220   00:1B:1B:7A:10:32  2/4    learned   Siemens AG
+220   00:1B:1B:7A:10:33  2/5    learned   Siemens AG
+220   00:1B:1B:7D:10:35  2/6    learned   Siemens AG
+220   00:1B:1B:7D:10:36  2/7    learned   Siemens AG
+220   00:09:91:60:10:41  2/8    learned   GE Vernova / GE Multilin
+220   00:09:91:30:10:42  2/9    learned   GE Vernova / GE Multilin
+220   00:09:91:60:10:43  2/10   learned   GE Vernova / GE Multilin
+220   00:09:91:60:10:44  2/11   learned   GE Vernova / GE Multilin
+220   00:09:91:99:10:49  2/12   learned   GE Vernova / GE Multilin
+220   00:00:54:86:10:51  2/13   learned   Schneider Electric
+220   00:00:54:86:10:52  2/14   learned   Schneider Electric
+220   00:90:E8:22:10:55  2/15   learned   Moxa Technologies Co., Ltd.
+100   00:50:56:A2:05:14  1/1    learned   VMware, Inc.
+100   00:50:56:A2:05:15  1/1    learned   VMware, Inc.
+100   00:50:56:A2:05:1E  1/1    learned   VMware, Inc.
+100   00:50:56:A2:05:64  1/1    learned   VMware, Inc.
+100   00:50:56:A2:58:2C  1/1    learned   VMware, Inc.
+
+MACH1040-220kV-SW01# show vlan brief
+100  ESP_FIREWALL_TRANSIT     1/1
+220  SUBSTATION_STATION_BUS   1/2-3/16

@@ -1,0 +1,274 @@
+{
+  "catalog_metadata": {
+    "catalog_id": "CONDUITAI_GLOBAL_OT_COMPLIANCE_MATRIX_V1",
+    "schema_version": "1.0.0",
+    "last_updated": "2026-10-25",
+    "supported_frameworks": [
+      "IEC 62443-3-3 (System Security Requirements and Security Levels)",
+      "NIST SP 800-82 Rev. 3 (Guide to Operational Technology Security)",
+      "NERC CIP-005-7 (Cyber Security — Electronic Security Perimeter(s))",
+      "India CEA (Cyber Security in Power Sector) Guidelines 2021 & NCIIPC CII Directives"
+    ]
+  },
+  "iec62443_security_levels": {
+    "SL-1": {
+      "target_level": "Security Level 1 — Protection Against Casual or Coincidental Violation",
+      "adversary_profile": "Non-malicious operator error, accidental misrouting, or broadcast storms.",
+      "minimum_boundary_mechanism": "VLAN logical segmentation (IEEE 802.1Q) and basic Layer 3 ACLs.",
+      "software_firewall_sufficient": true,
+      "hardware_diode_required": false
+    },
+    "SL-2": {
+      "target_level": "Security Level 2 — Protection Against Intentional Violation Using Simple Means",
+      "adversary_profile": "Opportunistic cybercriminals or insiders with low resources, commodity malware, and generic network scanning tools.",
+      "minimum_boundary_mechanism": "Industrial Stateful Firewall / Next-Gen Firewall (NGFW) in Purdue Level 3.5 DMZ with explicit allow-listing.",
+      "software_firewall_sufficient": true,
+      "why_software_firewalls_cap_at_sl2": "Software firewalls run complex multi-million-line OS kernels and stateful packet-inspection engines over bidirectional Ethernet PHYs. They remain vulnerable to zero-day firewall OS CVEs, stolen admin credentials, misconfigured bi-directional rules (e.g., opening TCP 135/445/502 inward), and encrypted command-and-control return channels.",
+      "hardware_diode_required": false
+    },
+    "SL-3": {
+      "target_level": "Security Level 3 — Protection Against Sophisticated Means & IACS-Specific Skills",
+      "adversary_profile": "Organized ransomware syndicates and targeted OT threat groups possessing ICS protocol payloads (Modbus/IEC-104/DNP3 injectors), stolen IT domain admin credentials, and NGFW bypass techniques.",
+      "minimum_boundary_mechanism": "Physical Layer-1/2 Hardware Data Diode (ARCH_A, ARCH_B, ARCH_C) for telemetry conduits, or Dual-Stage Hardware-Isolated Controlled Gateway with mandatory OT-originated session lock and deterministic command whitelisting (ARCH_D) where closed-loop dispatch is operationally mandatory.",
+      "software_firewall_sufficient": false,
+      "hardware_diode_required": true,
+      "engineering_justification": "Eliminates IP routing and TCP session pass-through across the IT/OT boundary. Even full compromise of the Corporate IT Active Directory and DMZ Replica Server yields zero inbound network path into Level 0–3 OT control assets."
+    },
+    "SL-4": {
+      "target_level": "Security Level 4 — Protection Against State-Sponsored Actors with Extended Resources",
+      "adversary_profile": "Nation-state APT actors with custom zero-day firewall firmware exploits, supply-chain implants, and physical-consequence sabotage objectives (grid blackout, safety system override).",
+      "minimum_boundary_mechanism": "Pure Unidirectional Layer-1/2 Hardware Data Diode (ARCH_A, ARCH_B, ARCH_C) enforcing one-way physical transmission (OS-less FPGA / optical coupling with physically absent return transmit circuitry).",
+      "software_firewall_sufficient": false,
+      "hardware_diode_required": true,
+      "engineering_justification": "Enforces unidirectionality via laws of physics at Layer 1/2 rather than software policy. No software vulnerability, kernel exploit, or misconfiguration on the IT side can transmit a single bit backward across the physical isolation barrier."
+    }
+  },
+  "framework_controls": {
+    "IEC_62443_3_3": {
+      "standard_name": "ISA/IEC 62443-3-3: System Security Requirements and Security Levels",
+      "requirements": [
+        {
+          "control_id": "IEC 62443-3-3 SR 5.1",
+          "title": "Network Segmentation",
+          "base_requirement": "The control system shall logically segment control system networks from non-control system networks and logically segment critical control system networks from other control system networks.",
+          "requirement_enhancements": {
+            "SR 5.1 RE 1": "Physical network segmentation — Physically segment control system networks from non-control system (Corporate IT) networks (Required for SL-2+).",
+            "SR 5.1 RE 2": "Independence from non-control system networks — Ensure the control system operates independently without reliance on Corporate IT network services (DNS, AD, SMB) across the boundary (Required for SL-3/SL-4).",
+            "SR 5.1 RE 3": "Logical and physical isolation of critical networks — Physically isolate safety-critical and high-consequence OT zones from all untrusted networks (Required for SL-4)."
+          },
+          "diode_satisfaction_statement": "Deploying Hardware Isolation Archetypes A/B/C/D physically terminates Layer 2/Layer 3 Ethernet switching and IP routing between OT and IT, achieving SR 5.1 RE 1, RE 2, and RE 3."
+        },
+        {
+          "control_id": "IEC 62443-3-3 SR 5.2",
+          "title": "Zone Boundary Protection",
+          "base_requirement": "The control system shall monitor and control communications at zone boundaries to enforce the compartmentalization defined in the risk-based zone and conduit model.",
+          "requirement_enhancements": {
+            "SR 5.2 RE 1": "Deny by default, allow by exception — Block all cross-zone traffic by default and permit only explicitly defined application payloads.",
+            "SR 5.2 RE 2": "Island mode — Provide the capability to prevent any communication through the zone boundary during cyber emergencies without disrupting local OT control.",
+            "SR 5.2 RE 3": "Fail close — Ensure boundary protection devices fail in a closed state prohibiting unauthorized packet forwarding upon power loss or fault (Required for SL-3/SL-4)."
+          },
+          "diode_satisfaction_statement": "OS-less Layer-1/2 hardware barriers block 100% of inbound packets unconditionally, terminate TCP sessions on dedicated TX/RX proxies, and inherently fail closed on power loss without degrading local OT PLC polling."
+        },
+        {
+          "control_id": "IEC 62443-3-3 SR 3.2",
+          "title": "Malicious Code Protection",
+          "base_requirement": "The control system shall provide protection mechanisms to prevent, detect, and mitigate the effects of malicious code at all entry and exit points (conduits).",
+          "requirement_enhancements": {
+            "SR 3.2 RE 1": "Malicious code protection on entry and exit points — Enforce deterministic payload sanitization and block executable/ransomware propagation across conduits."
+          },
+          "diode_satisfaction_statement": "Severing SMBv1/RDP/DCOM and enforcing unidirectional protocol-breaking TX->RX serialization physically prevents IT ransomware (WannaCry, LockBit, Industroyer2) from traversing into OT zones."
+        },
+        {
+          "control_id": "IEC 62443-3-3 SR 6.2",
+          "title": "Continuous Monitoring",
+          "base_requirement": "The control system shall provide the capability to continuously monitor all security mechanism performance and export audit/telemetry events safely.",
+          "requirement_enhancements": {
+            "SR 6.2 RE 1": "Zero-exposure telemetry export — Export Syslog, IDS/SPAN alerts, and Historian metrics to enterprise SOC/SIEM without opening inbound SOC-to-OT firewall rules."
+          },
+          "diode_satisfaction_statement": "UDP Syslog and SPAN telemetry traverse one-way across Diode TX -> RX to enterprise SIEM collectors with zero return path."
+        }
+      ]
+    },
+    "NIST_SP_800_82_REV3": {
+      "standard_name": "NIST Special Publication 800-82 Rev. 3: Guide to Operational Technology (OT) Security",
+      "requirements": [
+        {
+          "control_id": "NIST SP 800-82 Rev. 3 Section 5.2",
+          "title": "OT Network Architecture, DMZ & Unidirectional Gateways",
+          "summary": "Recommends strict separation of OT and corporate IT networks using an Industrial DMZ (Purdue Level 3.5) and explicitly highlights optical/hardware Unidirectional Gateways (Data Diodes) paired with DMZ Replica Servers for high-impact OT environments.",
+          "key_mandates": [
+            "Prohibit direct connections from Corporate IT (Level 4) into OT Control Zones (Levels 0–3); all shared data must terminate in a DMZ replica.",
+            "Eliminate dual-homed hosts (servers with two NICs bridging IT and OT subnets) as they completely bypass perimeter boundary enforcement.",
+            "Use hardware-enforced Unidirectional Gateways where TX agents poll OT controllers locally and replicate state one-way to DMZ Historians, preventing inbound polling and exploit propagation."
+          ],
+          "related_nist_800_53_r5_controls": [
+            "SC-7(4) Boundary Protection — External Telecommunications Services",
+            "SC-7(21) Isolation of System Components",
+            "AC-4(4) Information Flow Enforcement — Hardware Unidirectional Flow Control"
+          ]
+        }
+      ]
+    },
+    "NERC_CIP_005_7": {
+      "standard_name": "NERC CIP-005-7: Cyber Security — Electronic Security Perimeter(s) (North American Bulk Electric System)",
+      "requirements": [
+        {
+          "control_id": "NERC CIP-005-7 R1",
+          "title": "Electronic Security Perimeter (ESP) & Access Point Justification",
+          "parts": {
+            "Part 1.1": "All applicable BES Cyber Systems shall reside within a defined Electronic Security Perimeter (ESP).",
+            "Part 1.2": "All External Routable Connectivity must pass through an identified Electronic Access Point (EAP).",
+            "Part 1.3": "Require explicit inbound and outbound access permissions and documented operational justification for every permitted port/protocol; deny all other traffic by default."
+          },
+          "diode_impact": "Replacing bidirectional EAP firewall rules with a Layer-1/2 Hardware Data Diode (ARCH_A / ARCH_C) eliminates inbound External Routable Connectivity entirely, substantially reducing NERC CIP audit scope and inbound attack surface."
+        },
+        {
+          "control_id": "NERC CIP-005-7 R2",
+          "title": "Interactive Remote Access (IRA) Management",
+          "parts": {
+            "Part 2.1": "Utilize an Intermediate System such that the Cyber Asset initiating Interactive Remote Access does not directly access an applicable BES Cyber Asset.",
+            "Part 2.2": "Enforce encryption and multi-factor authentication for all permitted Interactive Remote Access; prohibit unauthorized direct RDP/SSH/Telnet/VNC into the ESP."
+          },
+          "diode_impact": "Physically severs unauthorized inbound RDP (3389), SSH (22), Telnet (23), and VNC (5900) sessions at Layer 1/2."
+        }
+      ]
+    },
+    "INDIA_CEA_AND_NCIIPC": {
+      "standard_name": "India Central Electricity Authority (CEA) Cyber Security in Power Sector Guidelines (2021) & NCIIPC Protected System Directives",
+      "requirements": [
+        {
+          "control_id": "CEA Cyber Security Guidelines 2021 — Articles 9 & 10",
+          "title": "Mandatory Unidirectional Gateway / Data Diode Isolation for OT/SCADA",
+          "summary": "Mandates that Responsible Entities operating Generation, Transmission (220kV/400kV/765kV substations), Distribution, and Load Despatch Centres (SLDC/RLDC/NLDC) isolate OT/SCADA/SAS networks from Corporate IT networks.",
+          "key_mandates": [
+            "Any data transfer between the OT/SCADA Electronic Security Perimeter and external Corporate IT or enterprise reporting networks MUST pass through a hardware-enforced Unidirectional Security Gateway (Data Diode) where one-way visibility suffices.",
+            "Strict prohibition on dual-homed workstations, split-tunnel VPNs, and unauthorized internet/IT bridges connected to Substation Automation Systems (IEC-104 / IEC-61850 / DNP3).",
+            "One-way security log forwarding from OT switches/relays to centralized SOC/CSIRT for CERT-In compliance without opening inbound SOC-to-OT ports."
+          ]
+        },
+        {
+          "control_id": "NCIIPC CII Guidelines & IT Act Sec 70A/70B",
+          "title": "Protection of National Critical Information Infrastructure (Power, Energy, Water, Manufacturing, Transport)",
+          "summary": "Requires deterministic defense-in-depth architecture, physical zone segregation of critical control loops, elimination of legacy unauthenticated protocols across boundaries, and verifiable pre-cutover testing."
+        }
+      ]
+    }
+  },
+  "finding_to_control_mappings": [
+    {
+      "finding_code": "INBOUND_IT_TO_OT_POLLING",
+      "severity": "HIGH",
+      "cutover_tier": "AMBER",
+      "description": "Corporate IT or DMZ host initiates TCP SYN connections inward into OT VLANs to poll PLCs, RTUs, or OPC servers (e.g., Modbus FC 03/04, IEC-104 interrogation, SQL SELECT).",
+      "violated_controls": [
+        "IEC 62443-3-3 SR 5.1 RE 1/2",
+        "IEC 62443-3-3 SR 5.2",
+        "NIST SP 800-82 Rev. 3 Sec 5.2",
+        "NERC CIP-005-7 R1.3",
+        "CEA Cyber Security Guidelines 2021 Art. 9"
+      ],
+      "remediation_statement": "Reverse polling direction via Hardware Data Diode TX Inner Proxy (polls OT devices locally on OT LAN) and RX Replica Server (serves read-only replica to IT Historian with zero inbound OT packets)."
+    },
+    {
+      "finding_code": "LEGACY_OPC_DA_DCOM_BOUNDARY",
+      "severity": "CRITICAL",
+      "cutover_tier": "RED",
+      "description": "Legacy Microsoft OPC Classic (DCOM TCP 135 + dynamic ephemeral ports 49152–65535) traversing the IT/OT boundary, forcing wide-open firewall pinholes.",
+      "violated_controls": [
+        "IEC 62443-3-3 SR 5.2 RE 1",
+        "NIST SP 800-82 Rev. 3 Sec 5.2",
+        "NERC CIP-005-7 R1.3"
+      ],
+      "remediation_statement": "Deploy an OT-local OPC-DA-to-OPC-UA wrapper adjacent to the legacy OPC server, converting dynamic DCOM traffic to static TCP 4840 OPC-UA fed into Hardware Diode TX Proxy."
+    },
+    {
+      "finding_code": "SMBV1_FILE_SHARE_EXPOSURE",
+      "severity": "CRITICAL",
+      "cutover_tier": "RED",
+      "description": "Cross-zone Windows SMB/CIFS file sharing (TCP 445/139) enabling direct ransomware worm propagation between Corporate IT and OT servers.",
+      "violated_controls": [
+        "IEC 62443-3-3 SR 3.2 RE 1",
+        "IEC 62443-3-3 SR 5.1 RE 2",
+        "NIST SP 800-82 Rev. 3 Sec 5.2",
+        "NCIIPC CII Guidelines"
+      ],
+      "remediation_statement": "Physically sever TCP 445/139 via Hardware Data Diode and migrate batch CSV/recipe log transfers to unidirectional SFTP push relay across Diode TX -> RX."
+    },
+    {
+      "finding_code": "DUAL_HOMED_BYPASS_ASSET",
+      "severity": "CRITICAL",
+      "cutover_tier": "RED",
+      "description": "Server or engineering workstation equipped with dual network interfaces bridging both an OT control VLAN and Corporate IT VLAN, completely bypassing the perimeter firewall.",
+      "violated_controls": [
+        "IEC 62443-3-3 SR 5.1 RE 1/3",
+        "NIST SP 800-82 Rev. 3 Sec 5.2",
+        "NERC CIP-005-7 R1.2",
+        "CEA Cyber Security Guidelines 2021 Art. 10"
+      ],
+      "remediation_statement": "Disconnect the IT-facing NIC immediately and route all Historian/SCADA data extraction exclusively through the Hardware Data Diode conduit."
+    },
+    {
+      "finding_code": "UNAUTHORIZED_REMOTE_ADMIN_ACCESS",
+      "severity": "CRITICAL",
+      "cutover_tier": "RED",
+      "description": "Inbound interactive administrative sessions (RDP 3389, SSH 22, Telnet 23, VNC 5900, TeamViewer) originating from Corporate IT into OT assets.",
+      "violated_controls": [
+        "IEC 62443-3-3 SR 5.1",
+        "IEC 62443-3-3 SR 5.2 RE 1",
+        "NERC CIP-005-7 R2.1/R2.2",
+        "CEA Cyber Security Guidelines 2021 Art. 10"
+      ],
+      "remediation_statement": "Physically sever all inbound interactive remote access at Layer 1/2 via Hardware Data Diode; restrict engineering changes to supervised local OT consoles."
+    },
+    {
+      "finding_code": "UNAUTHORIZED_INBOUND_OT_WRITE",
+      "severity": "CRITICAL",
+      "cutover_tier": "RED",
+      "description": "Inbound actuation or register-write function codes (Modbus FC 05/06/15/16, IEC-104 C_SC_NA_1) sent from untrusted IT hosts to Level 1 PLCs/RTUs.",
+      "violated_controls": [
+        "IEC 62443-3-3 SR 5.2 RE 1/3",
+        "IEC 62443-3-3 SL-4",
+        "NIST SP 800-82 Rev. 3 Sec 5.2",
+        "NCIIPC CII Guidelines"
+      ],
+      "remediation_statement": "Enforce Layer-1/2 physical unidirectionality (ARCH_A or ARCH_C) to make inbound register overwrites physically impossible; if verified closed-loop MES/AGC dispatch is required, isolate on ARCH_D with OT-originated session lock and strict register whitelisting."
+    },
+    {
+      "finding_code": "UNDOCUMENTED_SHADOW_OT_ASSET",
+      "severity": "HIGH",
+      "cutover_tier": "AMBER",
+      "description": "Active PLC, camera, or gateway discovered in switch ARP/MAC tables or packet captures that is absent from the facility's official network architecture diagram.",
+      "violated_controls": [
+        "IEC 62443-2-1 Asset Inventory",
+        "IEC 62443-3-3 SR 6.2",
+        "NERC CIP-005-7 R1.1",
+        "CEA Cyber Security Guidelines 2021"
+      ],
+      "remediation_statement": "Incorporate shadow asset into the reconciled Purdue L0–L5 asset inventory, assign to an explicit IEC 62443 Security Zone, and route external telemetry through the sized Hardware Data Diode."
+    },
+    {
+      "finding_code": "UNISOLATED_IP_CCTV_OR_BMS_VLAN",
+      "severity": "HIGH",
+      "cutover_tier": "GREEN",
+      "description": "High-bandwidth IP CCTV cameras (RTSP/ONVIF) or BACnet HVAC controllers with vulnerable embedded firmware routed through corporate switches to IT NVR/VMS servers.",
+      "violated_controls": [
+        "IEC 62443-3-3 SR 5.1 RE 1",
+        "IEC 62443-3-3 SR 5.2",
+        "NIST SP 800-82 Rev. 3 Sec 5.2"
+      ],
+      "remediation_statement": "Isolate camera/BMS VLAN behind ARCH_B_VIDEO_IOT_DIODE (1 Gbps unidirectional media/IoT proxy), streaming RTSP/BACnet one-way to corporate VMS while blocking camera-pivot lateral movement."
+    },
+    {
+      "finding_code": "SOFTWARE_FIREWALL_ONLY_BOUNDARY",
+      "severity": "MEDIUM",
+      "cutover_tier": "AMBER",
+      "description": "Critical OT zone relies solely on a stateful software firewall (capped at IEC 62443 SL-2) rather than physical Layer-1/2 unidirectional isolation.",
+      "violated_controls": [
+        "IEC 62443-3-3 SL-3 / SL-4",
+        "NIST SP 800-82 Rev. 3 Sec 5.2",
+        "CEA Cyber Security Guidelines 2021 Art. 9"
+      ],
+      "remediation_statement": "Upgrade critical IT/OT conduits from software-only firewall filtering (SL-2) to OS-less Layer-1/2 Hardware Data Diodes (SL-4)."
+    }
+  ]
+}

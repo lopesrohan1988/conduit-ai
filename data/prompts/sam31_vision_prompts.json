@@ -1,0 +1,395 @@
+{
+  "prompt_pack_metadata": {
+    "pack_id": "CONDUITAI_SAM31_DUAL_VISION_V1",
+    "target_model": "meta/sam-3.1",
+    "companion_vlm": "meta/muse-spark",
+    "schema_version": "1.0.0",
+    "last_updated": "2026-10-25",
+    "description": "Dual-mode text-prompted segmentation configurations, geometric sizing heuristics, UI overlay palettes, few-shot examples, and strict JSON output schemas for Meta SAM 3.1 in ConduitAI."
+  },
+  "mode_1_network_diagram": {
+    "mode_id": "DIAGRAM_AND_WHITEBOARD_PARSER",
+    "purpose": "Segments security zone boundaries, Purdue swimlanes, industrial/IT device icons, and cross-zone conduit lines from legacy PDF/PNG diagrams or smartphone whiteboard sketches.",
+    "inference_parameters": {
+      "box_confidence_threshold": 0.32,
+      "mask_iou_nms_threshold": 0.55,
+      "crop_padding_px_for_ocr": 14,
+      "return_polygon_masks": true
+    },
+    "sam31_text_prompts": [
+      {
+        "prompt_text": "security zone boundary box or dashed network region",
+        "semantic_class": "ZONE_CONTAINER",
+        "hud_color_hex": "#38BDF8"
+      },
+      {
+        "prompt_text": "Purdue level horizontal swimlane banner",
+        "semantic_class": "PURDUE_SWIMLANE",
+        "hud_color_hex": "#818CF8"
+      },
+      {
+        "prompt_text": "firewall icon or brick wall symbol",
+        "semantic_class": "FIREWALL_BOUNDARY_NODE",
+        "hud_color_hex": "#F97316"
+      },
+      {
+        "prompt_text": "PLC controller or industrial automation module icon",
+        "semantic_class": "OT_CONTROLLER_ICON",
+        "hud_color_hex": "#10B981"
+      },
+      {
+        "prompt_text": "server tower or database historian cylinder icon",
+        "semantic_class": "SERVER_OR_HISTORIAN_ICON",
+        "hud_color_hex": "#A855F7"
+      },
+      {
+        "prompt_text": "network switch box with arrows",
+        "semantic_class": "NETWORK_SWITCH_ICON",
+        "hud_color_hex": "#14B8A6"
+      },
+      {
+        "prompt_text": "security camera or CCTV dome icon",
+        "semantic_class": "CCTV_OR_IOT_ICON",
+        "hud_color_hex": "#FACC15"
+      },
+      {
+        "prompt_text": "workstation monitor or operator HMI screen icon",
+        "semantic_class": "WORKSTATION_HMI_ICON",
+        "hud_color_hex": "#60A5FA"
+      },
+      {
+        "prompt_text": "connecting network line or directional conduit arrow",
+        "semantic_class": "NETWORK_CONDUIT_EDGE",
+        "hud_color_hex": "#94A3B8"
+      },
+      {
+        "prompt_text": "IP address subnet or VLAN text annotation label",
+        "semantic_class": "IP_VLAN_ANNOTATION",
+        "hud_color_hex": "#E2E8F0"
+      }
+    ],
+    "muse_spark_crop_extraction_prompt": "Given the full network diagram and the SAM 3.1 segmented bounding boxes (`ZONE_CONTAINER`, `OT_CONTROLLER_ICON`, `SERVER_OR_HISTORIAN_ICON`, `FIREWALL_BOUNDARY_NODE`), extract every labeled asset's hostname, IP address, VLAN tag, assigned zone, and intended interconnections into the `DiagramSegmentationResult` JSON schema. Flag any handwritten whiteboard notes or unclear legacy connections.",
+    "output_json_schema": {
+      "type": "object",
+      "required": ["source_image_type", "detected_zones", "detected_diagram_nodes", "detected_diagram_conduits"],
+      "properties": {
+        "source_image_type": {
+          "type": "string",
+          "enum": ["CAD_VISIO_DIAGRAM", "HANDDRAWN_WHITEBOARD_SKETCH", "SCANNED_PAPER_BLUEPRINT", "AUTOCAD_DARK_PID"]
+        },
+        "detected_zones": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["zone_box_id", "label", "inferred_purdue_level", "bbox_xyxy"],
+            "properties": {
+              "zone_box_id": { "type": "string" },
+              "label": { "type": "string" },
+              "inferred_purdue_level": { "type": "string" },
+              "bbox_xyxy": { "type": "array", "items": { "type": "number" }, "minItems": 4, "maxItems": 4 }
+            }
+          }
+        },
+        "detected_diagram_nodes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["node_id", "semantic_class", "extracted_label", "extracted_ip", "parent_zone_box_id", "confidence", "bbox_xyxy"],
+            "properties": {
+              "node_id": { "type": "string" },
+              "semantic_class": { "type": "string" },
+              "extracted_label": { "type": "string" },
+              "extracted_ip": { "type": ["string", "null"] },
+              "parent_zone_box_id": { "type": ["string", "null"] },
+              "confidence": { "type": "number" },
+              "bbox_xyxy": { "type": "array", "items": { "type": "number" }, "minItems": 4, "maxItems": 4 }
+            }
+          }
+        },
+        "detected_diagram_conduits": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["from_node_id", "to_node_id", "protocol_annotation"],
+            "properties": {
+              "from_node_id": { "type": "string" },
+              "to_node_id": { "type": "string" },
+              "protocol_annotation": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    },
+    "few_shot_example_output": {
+      "source_image_type": "CAD_VISIO_DIAGRAM",
+      "detected_zones": [
+        {
+          "zone_box_id": "ZBOX-1",
+          "label": "OT Cell VLAN 10",
+          "inferred_purdue_level": "L1",
+          "bbox_xyxy": [42, 410, 620, 760]
+        },
+        {
+          "zone_box_id": "ZBOX-2",
+          "label": "Corporate IT VLAN 50",
+          "inferred_purdue_level": "L4",
+          "bbox_xyxy": [42, 30, 620, 220]
+        }
+      ],
+      "detected_diagram_nodes": [
+        {
+          "node_id": "DNODE-1",
+          "semantic_class": "OT_CONTROLLER_ICON",
+          "extracted_label": "Stamping PLC-01 (Siemens S7)",
+          "extracted_ip": "192.168.10.11",
+          "parent_zone_box_id": "ZBOX-1",
+          "confidence": 0.94,
+          "bbox_xyxy": [95, 510, 210, 635]
+        },
+        {
+          "node_id": "DNODE-2",
+          "semantic_class": "FIREWALL_BOUNDARY_NODE",
+          "extracted_label": "FortiGate Perimeter FW",
+          "extracted_ip": "192.168.10.1",
+          "parent_zone_box_id": null,
+          "confidence": 0.97,
+          "bbox_xyxy": [275, 265, 385, 355]
+        }
+      ],
+      "detected_diagram_conduits": [
+        {
+          "from_node_id": "DNODE-1",
+          "to_node_id": "DNODE-2",
+          "protocol_annotation": "Modbus TCP 502"
+        }
+      ]
+    }
+  },
+  "mode_2_cabinet_rack_sizer": {
+    "mode_id": "PHYSICAL_CABINET_AND_PORT_SIZER",
+    "purpose": "Segments physical server racks and field PLC cabinets to detect empty 1U rack slots, available DIN-rail mounting track, and spare RJ45/SFP switch ports for day-one hardware diode fit verification.",
+    "inference_parameters": {
+      "box_confidence_threshold": 0.35,
+      "mask_iou_nms_threshold": 0.50,
+      "return_polygon_masks": true
+    },
+    "sam31_text_prompts": [
+      {
+        "prompt_text": "19-inch server rack vertical mounting rails",
+        "semantic_class": "RACK_19INCH_FRAME",
+        "hud_color_hex": "#64748B"
+      },
+      {
+        "prompt_text": "empty 1U server rack slot or removable blanking panel",
+        "semantic_class": "EMPTY_1U_RACK_SLOT",
+        "hud_color_hex": "#22C55E"
+      },
+      {
+        "prompt_text": "mounted 1U rack network switch or patch panel",
+        "semantic_class": "OCCUPIED_1U_APPLIANCE",
+        "hud_color_hex": "#3B82F6"
+      },
+      {
+        "prompt_text": "metal DIN rail mounting track",
+        "semantic_class": "DIN_RAIL_TRACK",
+        "hud_color_hex": "#94A3B8"
+      },
+      {
+        "prompt_text": "unoccupied empty space on metal DIN rail",
+        "semantic_class": "EMPTY_DIN_RAIL_SEGMENT",
+        "hud_color_hex": "#10B981"
+      },
+      {
+        "prompt_text": "empty unplugged RJ45 ethernet switch port",
+        "semantic_class": "FREE_RJ45_PORT",
+        "hud_color_hex": "#4ADE80"
+      },
+      {
+        "prompt_text": "occupied RJ45 ethernet port with plugged patch cable",
+        "semantic_class": "OCCUPIED_RJ45_PORT",
+        "hud_color_hex": "#F59E0B"
+      },
+      {
+        "prompt_text": "empty unplugged SFP fiber cage slot",
+        "semantic_class": "FREE_SFP_PORT",
+        "hud_color_hex": "#2DD4BF"
+      },
+      {
+        "prompt_text": "industrial DIN-rail PLC or 24V DC power supply module",
+        "semantic_class": "DIN_MOUNTED_MODULE",
+        "hud_color_hex": "#6366F1"
+      },
+      {
+        "prompt_text": "cellular LTE 5G router box with paddle antennas inside cabinet",
+        "semantic_class": "ROGUE_CELLULAR_BYPASS_MODEM",
+        "hud_color_hex": "#EF4444"
+      },
+      {
+        "prompt_text": "unauthorized crossover ethernet patch cable bridging cellular modem to switch",
+        "semantic_class": "ROGUE_BYPASS_CABLE",
+        "hud_color_hex": "#F43F5E"
+      }
+    ],
+    "geometric_sizing_rules": {
+      "1u_slot_estimation": "Calibrate 1U reference height in pixels from detected `OCCUPIED_1U_APPLIANCE` (standard 19-inch switch width = 482.6mm, 1U height = 44.45mm; aspect ratio ~10.85:1). Divide each `EMPTY_1U_RACK_SLOT` height by calibrated `px_per_1u` and floor to integer contiguous U count.",
+      "din_rail_width_estimation": "Calibrate `mm_per_px` using standard 35mm top-hat DIN rail height (`DIN_RAIL_TRACK` vertical height = 35mm). Multiply `EMPTY_DIN_RAIL_SEGMENT` horizontal pixel span by `mm_per_px` (`>= 65mm` fits `ARCH_A_FIELD_DIODE`; `>= 110mm` fits `ARCH_B_VIDEO_IOT_DIODE`).",
+      "switch_port_readiness": "Each Hardware Data Diode requires at least 1–2 free OT-side switch ports (TX uplink + optional SPAN mirror). If `free_rj45_ports + free_sfp_ports < 2`, set `requires_aggregation_switch: true`."
+    },
+    "output_json_schema": {
+      "type": "object",
+      "required": [
+        "enclosure_type",
+        "has_19inch_rack",
+        "empty_1u_slots",
+        "din_rail_available_mm",
+        "occupied_rj45_ports",
+        "free_rj45_ports",
+        "free_sfp_ports",
+        "compatible_mounting_types",
+        "compatible_archetype_ids",
+        "requires_aggregation_switch",
+        "detections"
+      ],
+      "properties": {
+        "enclosure_type": {
+          "type": "string",
+          "enum": ["CONTROL_ROOM_19INCH_RACK", "INDUSTRIAL_DIN_RAIL_CABINET", "HYBRID_WALL_ENCLOSURE"]
+        },
+        "has_19inch_rack": { "type": "boolean" },
+        "empty_1u_slots": { "type": "integer", "minimum": 0 },
+        "din_rail_available_mm": { "type": "number", "minimum": 0 },
+        "occupied_rj45_ports": { "type": "integer", "minimum": 0 },
+        "free_rj45_ports": { "type": "integer", "minimum": 0 },
+        "free_sfp_ports": { "type": "integer", "minimum": 0 },
+        "compatible_mounting_types": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["1U_19INCH_RACK", "1U_HALF_RACK", "DIN_RAIL", "COMPACT_WALL"] }
+        },
+        "compatible_archetype_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "ARCH_A_FIELD_DIODE",
+              "ARCH_B_VIDEO_IOT_DIODE",
+              "ARCH_C_ENTERPRISE_1U_DIODE",
+              "ARCH_D_BIDIRECTIONAL_GATEWAY"
+            ]
+          }
+        },
+        "requires_aggregation_switch": { "type": "boolean" },
+        "detections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["detection_id", "semantic_class", "label", "confidence", "bbox_xyxy", "hud_color_hex"],
+            "properties": {
+              "detection_id": { "type": "string" },
+              "semantic_class": { "type": "string" },
+              "label": { "type": "string" },
+              "confidence": { "type": "number" },
+              "bbox_xyxy": { "type": "array", "items": { "type": "number" }, "minItems": 4, "maxItems": 4 },
+              "hud_color_hex": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "few_shot_examples": [
+      {
+        "scenario_label": "Control Room 19-Inch Server Rack (Scenario 1 — Apex Manufacturing)",
+        "expected_output": {
+          "enclosure_type": "CONTROL_ROOM_19INCH_RACK",
+          "has_19inch_rack": true,
+          "empty_1u_slots": 2,
+          "din_rail_available_mm": 0,
+          "occupied_rj45_ports": 18,
+          "free_rj45_ports": 6,
+          "free_sfp_ports": 2,
+          "compatible_mounting_types": ["1U_19INCH_RACK", "1U_HALF_RACK"],
+          "compatible_archetype_ids": [
+            "ARCH_B_VIDEO_IOT_DIODE",
+            "ARCH_C_ENTERPRISE_1U_DIODE",
+            "ARCH_D_BIDIRECTIONAL_GATEWAY"
+          ],
+          "requires_aggregation_switch": false,
+          "detections": [
+            {
+              "detection_id": "CAB-01",
+              "semantic_class": "EMPTY_1U_RACK_SLOT",
+              "label": "Open 1U Slot (RU-14) — Verified Fit for ARCH_C 1U Diode",
+              "confidence": 0.96,
+              "bbox_xyxy": [110, 290, 890, 362],
+              "hud_color_hex": "#22C55E"
+            },
+            {
+              "detection_id": "CAB-02",
+              "semantic_class": "FREE_RJ45_PORT",
+              "label": "6x Spare RJ45 Ports (Gi1/0/19–24)",
+              "confidence": 0.91,
+              "bbox_xyxy": [640, 212, 795, 248],
+              "hud_color_hex": "#4ADE80"
+            }
+          ]
+        }
+      },
+      {
+        "scenario_label": "Substation Field DIN-Rail Cabinet (Scenario 2 — GridCore 220kV)",
+        "expected_output": {
+          "enclosure_type": "INDUSTRIAL_DIN_RAIL_CABINET",
+          "has_19inch_rack": false,
+          "empty_1u_slots": 0,
+          "din_rail_available_mm": 185.0,
+          "occupied_rj45_ports": 12,
+          "free_rj45_ports": 4,
+          "free_sfp_ports": 1,
+          "compatible_mounting_types": ["DIN_RAIL", "COMPACT_WALL"],
+          "compatible_archetype_ids": [
+            "ARCH_A_FIELD_DIODE",
+            "ARCH_B_VIDEO_IOT_DIODE"
+          ],
+          "requires_aggregation_switch": false,
+          "detections": [
+            {
+              "detection_id": "CAB-10",
+              "semantic_class": "EMPTY_DIN_RAIL_SEGMENT",
+              "label": "185mm Free 35mm DIN-Rail Segment — Fits ARCH_A (65mm) or ARCH_B (110mm)",
+              "confidence": 0.95,
+              "bbox_xyxy": [420, 340, 760, 485],
+              "hud_color_hex": "#10B981"
+            },
+            {
+              "detection_id": "CAB-11",
+              "semantic_class": "FREE_RJ45_PORT",
+              "label": "4x Unplugged RJ45 Ports on Hirschmann Switch",
+              "confidence": 0.89,
+              "bbox_xyxy": [255, 390, 330, 445],
+              "hud_color_hex": "#4ADE80"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "mode_3_video_walkthrough_tracker": {
+    "mode_id": "RACK_AND_CABINET_VIDEO_OBJECT_TRACKER",
+    "purpose": "Exploits Meta SAM 3.1 zero-shot multi-frame video segmentation & persistent object ID tracking across handheld 24fps .mp4 rack/cabinet walkthrough scans to measure open 1U/DIN space without duplicate counting and spot physical rogue 5G air-gap bypass modems.",
+    "inference_parameters": {
+      "sample_stride_frames": 4,
+      "temporal_memory_bank_frames": 12,
+      "mask_propagation_iou_threshold": 0.60,
+      "track_persistence_min_frames": 8
+    },
+    "tracked_concept_prompts": [
+      { "prompt_text": "empty 1U server rack mounting slot with cage nut holes", "track_class": "EMPTY_1U_RACK_SLOT", "hud_color_hex": "#22C55E" },
+      { "prompt_text": "rackmount or DIN-rail managed ethernet switch faceplate", "track_class": "MANAGED_SWITCH", "hud_color_hex": "#3B82F6" },
+      { "prompt_text": "unoccupied bare 35mm metal DIN rail section", "track_class": "EMPTY_DIN_RAIL_SEGMENT", "hud_color_hex": "#10B981" },
+      { "prompt_text": "black cellular 4G 5G router with paddle antennas", "track_class": "ROGUE_CELLULAR_BYPASS_MODEM", "hud_color_hex": "#EF4444" },
+      { "prompt_text": "bright patch cable connecting cellular router to switch port", "track_class": "ROGUE_BYPASS_CABLE", "hud_color_hex": "#F43F5E" }
+    ],
+    "deduplication_and_alert_rules": {
+      "persistent_id_dedup": "Count each unique SAM 3.1 `object_track_id` once across the entire .mp4 pan trajectory so vertical camera sweep never double-counts 1U slots or switch ports.",
+      "physical_digital_correlation": "If `ROGUE_CELLULAR_BYPASS_MODEM` is tracked for >= 8 frames, emit `CRITICAL_PHYSICAL_BYPASS` finding (`MITRE ICS T0886 / IEC 62443-3-3 SR 5.2`) and cross-reference against switch ARP/MAC port table to identify the exact rogue gateway IP."
+    }
+  }
+}

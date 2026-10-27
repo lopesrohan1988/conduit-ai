@@ -1,0 +1,118 @@
+! ============================================================================
+! Hostname: Stratix5700-OT-CORE01 (Allen-Bradley 1783-BMS20CGP / Cisco IOS 15.2)
+! Facility: Apex Automotive Stamping Plant — 48 Active L2/L3 Endpoints
+! ============================================================================
+
+Stratix5700-OT-CORE01# show ip arp
+Protocol  Address          Age (min)  Hardware Addr   Type   Interface
+Internet  192.168.10.1            0   0009.0fa1.0001  ARPA   Vlan10          ! 00:09:0F:A1:00:01 (FW-PERIMETER-FG200F)
+Internet  192.168.10.2            1   f454.3301.1002  ARPA   Vlan10          ! F4:54:33:01:10:02 (Stratix5700-OT-CORE01)
+Internet  192.168.10.3            2   f454.3301.1003  ARPA   Vlan10          ! F4:54:33:01:10:03 (Stratix5700-OT-CELL02)
+Internet  192.168.10.4            3   2863.3601.1004  ARPA   Vlan10          ! 28:63:36:01:10:04 (SCALANCE-XC208-L1)
+Internet  192.168.10.11           4   001b.1b4a.1011  ARPA   Vlan10          ! 00:1B:1B:4A:10:11 (PLC-STAMP-L1)
+Internet  192.168.10.12           5   001b.1b4a.1012  ARPA   Vlan10          ! 00:1B:1B:4A:10:12 (PLC-STAMP-L2)
+Internet  192.168.10.13           6   001b.1b4a.1013  ARPA   Vlan10          ! 00:1B:1B:4A:10:13 (PLC-STAMP-L3)
+Internet  192.168.10.14           7   001b.1b4a.1014  ARPA   Vlan10          ! 00:1B:1B:4A:10:14 (PLC-STAMP-L4)
+Internet  192.168.10.15           8   001b.1b9f.1015  ARPA   Vlan10          ! 00:1B:1B:9F:10:15 (s7-1200-diecushion-temp)  ! UNREGISTERED RETROFIT NODE
+Internet  192.168.10.16           0   001b.1b9f.1016  ARPA   Vlan10          ! 00:1B:1B:9F:10:16 (s7-1200-scrapconv-02)  ! UNREGISTERED RETROFIT NODE
+Internet  192.168.10.17           1   0000.bc9f.1017  ARPA   Vlan10          ! 00:00:BC:9F:10:17 (compactlogix-blankwash-03)  ! UNREGISTERED RETROFIT NODE
+Internet  192.168.10.18           2   0000.bc44.1018  ARPA   Vlan10          ! 00:00:BC:44:10:18 (PLC-WELD-CELL01)
+Internet  192.168.10.19           3   0000.bc44.1019  ARPA   Vlan10          ! 00:00:BC:44:10:19 (PLC-WELD-CELL02)
+Internet  192.168.10.20           4   f454.3332.2020  ARPA   Vlan10          ! F4:54:33:32:20:20 (APEX-SCADA-HMI01)
+Internet  192.168.10.21           5   f454.3332.2021  ARPA   Vlan10          ! F4:54:33:32:20:21 (APEX-PVPLUS-L1)
+Internet  192.168.10.22           6   f454.3332.2022  ARPA   Vlan10          ! F4:54:33:32:20:22 (APEX-PVPLUS-L2)
+Internet  192.168.10.23           7   2863.3632.2023  ARPA   Vlan10          ! 28:63:36:32:20:23 (SIMATIC-TP1500-L3)
+Internet  192.168.10.24           8   2863.3632.2024  ARPA   Vlan10          ! 28:63:36:32:20:24 (SIMATIC-TP1500-L4)
+Internet  192.168.10.25           0   f8b1.5610.0025  ARPA   Vlan10          ! F8:B1:56:10:00:25 (OT-ENG-WS01)
+Internet  192.168.10.30           1   f8b1.5655.1030  ARPA   Vlan10          ! F8:B1:56:55:10:30 (APEX-OPC-SRV01)
+Internet  192.168.10.31           2   0006.7110.0031  ARPA   Vlan10          ! 00:06:71:10:00:31 (SOFTING-UAGATE-01)
+Internet  192.168.10.32           3   0080.f410.0032  ARPA   Vlan10          ! 00:80:F4:10:00:32 (PLC-TRANSFER-G1)
+Internet  192.168.10.33           4   0003.7a10.0033  ARPA   Vlan10          ! 00:03:7A:10:00:33 (PLC-PALLETIZER-01)
+Internet  192.168.10.34           5   0000.0a10.0034  ARPA   Vlan10          ! 00:00:0A:10:00:34 (PLC-SERVO-GANTRY)
+Internet  192.168.10.35           6   00a0.4510.0035  ARPA   Vlan10          ! 00:A0:45:10:00:35 (IO-SAFETY-CURTAIN1)
+Internet  192.168.10.36           7   0030.de10.0036  ARPA   Vlan10          ! 00:30:DE:10:00:36 (IO-LUBE-SKID01)
+Internet  192.168.10.37           8   0001.0510.0037  ARPA   Vlan10          ! 00:01:05:10:00:37 (IPC-LASER-MARK01)
+Internet  192.168.10.41           0   0080.f418.4041  ARPA   Vlan10          ! 00:80:F4:18:40:41 (VFD-PRESS-FEED01)
+Internet  192.168.10.42           1   0080.f418.4042  ARPA   Vlan10          ! 00:80:F4:18:40:42 (VFD-PRESS-FEED02)
+Internet  192.168.10.43           2   0080.f418.4043  ARPA   Vlan10          ! 00:80:F4:18:40:43 (VFD-PRESS-FEED03)
+Internet  192.168.10.44           3   0080.f418.4044  ARPA   Vlan10          ! 00:80:F4:18:40:44 (VFD-PRESS-FEED04)
+Internet  192.168.10.45           4   0000.5418.4045  ARPA   Vlan10          ! 00:00:54:18:40:45 (PM-SUBMETER-MAIN)
+Internet  192.168.10.50           5   f8b1.568a.1050  ARPA   Vlan10          ! F8:B1:56:8A:10:50 (APEX-OT-SQL01)
+Internet  192.168.20.10           6   001b.1b6c.2010  ARPA   Vlan20          ! 00:1B:1B:6C:20:10 (VISION-QC-CTRL01)
+Internet  192.168.20.11           7   001b.1b6c.2011  ARPA   Vlan20          ! 00:1B:1B:6C:20:11 (VISION-QC-CTRL02)
+Internet  192.168.20.12           8   001b.1b6c.2012  ARPA   Vlan20          ! 00:1B:1B:6C:20:12 (VISION-QC-CTRL03)
+Internet  192.168.20.15           0   00d0.c920.0015  ARPA   Vlan20          ! 00:D0:C9:20:00:15 (VISION-EDGE-IPC01)
+Internet  192.168.20.18           1   0002.a220.0018  ARPA   Vlan20          ! 00:02:A2:20:00:18 (NETTAP-PROFINET-01)
+Internet  192.168.20.20           2   0060.78b2.2020  ARPA   Vlan20          ! 00:60:78:B2:20:20 (HIRSCHMANN-RS20-VIS)
+Internet  10.50.0.2               3   001a.a150.0002  ARPA   Vlan50          ! 00:1A:A1:50:00:02 (CORP-CORE-SW01)
+Internet  10.50.1.10              4   0050.569b.0110  ARPA   Vlan50          ! 00:50:56:9B:01:10 (CORP-PI-HIST01)
+Internet  10.50.1.15              5   0050.569b.010f  ARPA   Vlan50          ! 00:50:56:9B:01:0F (CORP-TIA-DIAG01)
+Internet  10.50.1.25              6   0050.569b.0125  ARPA   Vlan50          ! 00:50:56:9B:01:25 (CORP-SQL-RPT01)
+Internet  10.50.1.40              7   3cd9.2b9b.0140  ARPA   Vlan50          ! 3C:D9:2B:9B:01:40 (CORP-MES-PROD01)
+Internet  10.50.2.100             8   0050.569b.0264  ARPA   Vlan50          ! 00:50:56:9B:02:64 (CORP-SIEM-COL01)
+Internet  10.50.3.12              0   0050.569b.030c  ARPA   Vlan50          ! 00:50:56:9B:03:0C (CORP-SMB-ENG01)
+Internet  10.50.3.88              1   0050.569b.0358  ARPA   Vlan50          ! 00:50:56:9B:03:58 (CORP-VENDOR-LAPTOP)
+Internet  10.50.4.99              2   0050.569b.0463  ARPA   Vlan50          ! 00:50:56:9B:04:63 (CORP-UNAUTH-WKSTN)
+
+Stratix5700-OT-CORE01# show mac address-table
+Vlan    Mac Address       Type        Ports
+----    -----------       --------    -----
+  10    0009.0fa1.0001    DYNAMIC     Gi1/0/1
+  10    f454.3301.1002    DYNAMIC     Gi1/0/2
+  10    f454.3301.1003    DYNAMIC     Gi1/0/3
+  10    2863.3601.1004    DYNAMIC     Gi1/0/4
+  10    001b.1b4a.1011    DYNAMIC     Gi1/0/5
+  10    001b.1b4a.1012    DYNAMIC     Gi1/0/6
+  10    001b.1b4a.1013    DYNAMIC     Gi1/0/7
+  10    001b.1b4a.1014    DYNAMIC     Gi1/0/8
+  10    001b.1b9f.1015    DYNAMIC     Gi1/0/9
+  10    001b.1b9f.1016    DYNAMIC     Gi1/0/10
+  10    0000.bc9f.1017    DYNAMIC     Gi1/0/11
+  10    0000.bc44.1018    DYNAMIC     Gi1/0/12
+  10    0000.bc44.1019    DYNAMIC     Gi1/0/13
+  10    f454.3332.2020    DYNAMIC     Gi1/0/14
+  10    f454.3332.2021    DYNAMIC     Gi1/0/15
+  10    f454.3332.2022    DYNAMIC     Gi1/0/16
+  10    2863.3632.2023    DYNAMIC     Gi1/0/17
+  10    2863.3632.2024    DYNAMIC     Gi1/0/18
+  10    f8b1.5610.0025    DYNAMIC     Gi1/0/19
+  10    f8b1.5655.1030    DYNAMIC     Gi1/0/20
+  10    0006.7110.0031    DYNAMIC     Gi1/0/21
+  10    0080.f410.0032    DYNAMIC     Gi1/0/22
+  10    0003.7a10.0033    DYNAMIC     Gi1/0/23
+  10    0000.0a10.0034    DYNAMIC     Gi1/0/24
+  10    00a0.4510.0035    DYNAMIC     Gi1/0/25
+  10    0030.de10.0036    DYNAMIC     Gi1/0/26
+  10    0001.0510.0037    DYNAMIC     Gi1/0/27
+  10    0080.f418.4041    DYNAMIC     Gi1/0/28
+  10    0080.f418.4042    DYNAMIC     Gi1/0/29
+  10    0080.f418.4043    DYNAMIC     Gi1/0/30
+  10    0080.f418.4044    DYNAMIC     Gi1/0/31
+  10    0000.5418.4045    DYNAMIC     Gi1/0/32
+  10    f8b1.568a.1050    DYNAMIC     Gi1/0/33
+  20    001b.1b6c.2010    DYNAMIC     Gi2/0/2
+  20    001b.1b6c.2011    DYNAMIC     Gi2/0/3
+  20    001b.1b6c.2012    DYNAMIC     Gi2/0/4
+  20    00d0.c920.0015    DYNAMIC     Gi2/0/5
+  20    0002.a220.0018    DYNAMIC     Gi2/0/6
+  20    0060.78b2.2020    DYNAMIC     Gi2/0/7
+  50    001a.a150.0002    DYNAMIC     Gi1/2
+  50    0050.569b.0110    DYNAMIC     Gi1/2
+  50    0050.569b.010f    DYNAMIC     Gi1/2
+  50    0050.569b.0125    DYNAMIC     Gi1/2
+  50    3cd9.2b9b.0140    DYNAMIC     Gi1/2
+  50    0050.569b.0264    DYNAMIC     Gi1/2
+  50    0050.569b.030c    DYNAMIC     Gi1/2
+  50    0050.569b.0358    DYNAMIC     Gi1/2
+  50    0050.569b.0463    DYNAMIC     Gi1/2
+Total Mac Addresses for this criterion: 48
+
+Stratix5700-OT-CORE01# show vlan brief
+VLAN Name                             Status    Ports
+10   OT_STAMPING_CONTROL              active    Gi1/0/1-36
+20   OT_QUALITY_VISION                active    Gi2/0/1-8
+50   IT_ENTERPRISE_TRANSIT            active    Gi1/2
+Stratix5700-OT-CORE01# show lldp neighbors detail
+Chassis id: 00:1B:1B:9F:10:15 | Port: Gi1/0/15 | SysName: s7-1200-diecushion-temp | IP: 192.168.10.15
+Chassis id: 00:1B:1B:9F:10:16 | Port: Gi1/0/16 | SysName: s7-1200-scrapconv-02 | IP: 192.168.10.16
+Chassis id: 00:00:BC:9F:10:17 | Port: Gi1/0/17 | SysName: compactlogix-blankwash-03 | IP: 192.168.10.17

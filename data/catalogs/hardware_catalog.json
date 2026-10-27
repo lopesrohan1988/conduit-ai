@@ -1,0 +1,444 @@
+{
+  "catalog_metadata": {
+    "catalog_id": "CONDUITAI_VENDOR_NEUTRAL_V1",
+    "schema_version": "1.0.0",
+    "catalog_mode": "VENDOR_NEUTRAL_ARCHETYPES",
+    "last_updated": "2026-10-25",
+    "description": "Pluggable vendor-neutral hardware isolation catalog defining four industry-standard OT Data Diode and Controlled Unidirectional/Bi-Directional Gateway archetypes, deterministic sizing ceilings, and Green/Amber/Red protocol cutover rules.",
+    "custom_sku_override_note": "To adapt ConduitAI for commercial post-assessment quoting, point HARDWARE_CATALOG_PATH to a private_vendor_catalog.json adhering to this schema."
+  },
+  "sizing_heuristics": {
+    "bandwidth_safety_margin_multiplier": 1.25,
+    "sustained_utilization_ceiling_ratio": 0.80,
+    "min_spare_switch_ports_per_diode_side": 2,
+    "rtsp_stream_bitrate_estimates_mbps": {
+      "1080p_h264_30fps": 8.0,
+      "1080p_h265_30fps": 4.5,
+      "4k_h264_30fps": 25.0,
+      "4k_h265_30fps": 14.0
+    },
+    "selection_priority_order": [
+      "1. Enforce directionality: Always prefer pure unidirectional hardware isolation (ARCH_A, ARCH_B, ARCH_C) for SL-4 air-gap enforcement unless verified operational closed-loop MES/EMS setpoints strictly require ARCH_D.",
+      "2. Match physical cabinet constraints from SAM 3.1 inspection: Do not place 1U_19INCH_RACK appliances into DIN-rail-only field enclosures unless a rack shelf/cabinet upgrade is explicitly added to the BoM.",
+      "3. Enforce hard protocol, PLC count, camera stream, VLAN trunk, and 1.25x peak Mbps headroom ceilings; split across multiple units or step up to ARCH_C when multi-VLAN aggregation is required."
+    ]
+  },
+  "archetypes": [
+    {
+      "archetype_id": "ARCH_A_FIELD_DIODE",
+      "name": "Industrial Field Protocol Diode",
+      "short_name": "Field Protocol Diode (100M DIN-Rail)",
+      "directionality": "UNIDIRECTIONAL_FORWARD_ONLY",
+      "hardware_isolation_layer": "Layer 1/2 Physical Unidirectional Hardware Barrier (OS-Less FPGA / Optical Coupling)",
+      "max_throughput_mbps": 100,
+      "recommended_sustained_mbps": 80,
+      "reverse_throughput_mbps": 0,
+      "capacity_limits": {
+        "max_concurrent_plcs": 32,
+        "max_polling_registers_per_sec": 10000,
+        "max_vlans": 2,
+        "supports_8021q_vlan_trunk": false,
+        "max_concurrent_proxy_flows": 64,
+        "max_rtsp_streams_1080p": 0,
+        "max_rtsp_streams_4k": 0
+      },
+      "mounting_options": [
+        "DIN_RAIL",
+        "COMPACT_WALL"
+      ],
+      "physical_requirements": {
+        "rack_units_u": 0,
+        "din_rail_width_mm": 65,
+        "tx_ot_interfaces": "2x 10/100Base-TX RJ45 (Auto-MDI/MDIX)",
+        "rx_it_interfaces": "2x 10/100Base-TX RJ45 (Auto-MDI/MDIX)",
+        "power_supply": "Dual Redundant 12-48V DC Industrial Terminal Block",
+        "operating_temp_c": "-40 to +75",
+        "enclosure_rating": "IP40 Fanless Ruggedized Aluminum"
+      },
+      "proxy_architecture": {
+        "architecture_pattern": "TX_LOCAL_REGISTER_POLLER_TO_RX_REPLICA",
+        "tx_inner_subsystem": "OS-less/embedded OT-side master poller & UDP listener; actively polls up to 32 Modbus TCP, IEC-104, or DNP3 slave PLCs/RTUs locally on the OT LAN and pushes deterministic register snapshots across the one-way hardware barrier.",
+        "rx_outer_subsystem": "IT/DMZ-side protocol replica server; maintains a real-time read-only state table so upstream SCADA, EMS, or Historians poll the RX Virtual IP normally with zero packets ever crossing back into OT.",
+        "terminates_tcp": true,
+        "supports_pull_to_push_reversal": true
+      },
+      "supported_protocols": [
+        "MODBUS_TCP",
+        "SYSLOG_UDP",
+        "DNP3",
+        "IEC_104"
+      ],
+      "max_iec62443_sl": "SL-4",
+      "estimated_bom_unit_cost_usd": 4500,
+      "target_environments": [
+        "Electric power substations (220kV/132kV marshalling cabinets)",
+        "Water & wastewater remote pump station PLC skids",
+        "Oil & gas pipeline RTU enclosures",
+        "Single-cell manufacturing lines without 19-inch server racks"
+      ]
+    },
+    {
+      "archetype_id": "ARCH_B_VIDEO_IOT_DIODE",
+      "name": "Edge Video & IoT Unidirectional Proxy Diode",
+      "short_name": "Edge Video & IoT Diode (1G Media/Telemetry)",
+      "directionality": "UNIDIRECTIONAL_FORWARD_ONLY",
+      "hardware_isolation_layer": "Layer 1/2 Physical Unidirectional Hardware Barrier with High-Speed RTP/UDP Frame Splicer",
+      "max_throughput_mbps": 1000,
+      "recommended_sustained_mbps": 800,
+      "reverse_throughput_mbps": 0,
+      "capacity_limits": {
+        "max_concurrent_plcs": 16,
+        "max_rtsp_streams_1080p": 64,
+        "max_rtsp_streams_4k": 24,
+        "max_mqtt_topics_per_sec": 25000,
+        "max_bacnet_devices": 128,
+        "max_vlans": 4,
+        "supports_8021q_vlan_trunk": true,
+        "max_concurrent_proxy_flows": 256
+      },
+      "mounting_options": [
+        "1U_HALF_RACK",
+        "DIN_RAIL"
+      ],
+      "physical_requirements": {
+        "rack_units_u": 1,
+        "din_rail_width_mm": 110,
+        "tx_ot_interfaces": "2x 10/100/1000Base-T RJ45 + 1x 1G SFP",
+        "rx_it_interfaces": "2x 10/100/1000Base-T RJ45 + 1x 1G SFP",
+        "power_supply": "12-48V DC Terminal or 100-240V AC Industrial Adapter",
+        "operating_temp_c": "-20 to +60",
+        "enclosure_rating": "IP30 Compact Half-Rack / DIN Chassis"
+      },
+      "proxy_architecture": {
+        "architecture_pattern": "TX_MEDIA_IOT_PULLER_TO_RX_RESTREAMER",
+        "tx_inner_subsystem": "Initiates RTSP/ONVIF stream sessions, BACnet COV subscriptions, and local MQTT broker ingestion strictly inside the isolated camera/BMS zone; strips TCP/IP framing and streams raw H.264/H.265/telemetry frames one-way.",
+        "rx_outer_subsystem": "Reconstructs virtual RTSP/ONVIF camera endpoints and publishes MQTT/HTTPS/Syslog feeds toward corporate VMS/NVR, AI video analytics, and smart-building cloud platforms.",
+        "terminates_tcp": true,
+        "supports_pull_to_push_reversal": true
+      },
+      "supported_protocols": [
+        "RTSP",
+        "ONVIF_STREAM",
+        "MQTT",
+        "BACNET_TELEMETRY",
+        "SYSLOG_UDP",
+        "HTTPS_PUSH"
+      ],
+      "max_iec62443_sl": "SL-4",
+      "estimated_bom_unit_cost_usd": 8500,
+      "target_environments": [
+        "IP CCTV & perimeter surveillance networks isolating vulnerable camera firmware",
+        "Smart commercial buildings & hospital BMS/HVAC BACnet telemetry",
+        "High-bandwidth IIoT vibration/vision quality-inspection gateways"
+      ]
+    },
+    {
+      "archetype_id": "ARCH_C_ENTERPRISE_1U_DIODE",
+      "name": "1U Enterprise Rackmount Protocol-Breaking Diode",
+      "short_name": "Enterprise 1U Rack Diode (1G 16-VLAN)",
+      "directionality": "UNIDIRECTIONAL_FORWARD_ONLY",
+      "hardware_isolation_layer": "Dual Independent TX/RX Proxy CPUs Separated by OS-Less Layer 1/2 Physical Unidirectional Hardware Barrier",
+      "max_throughput_mbps": 1000,
+      "recommended_sustained_mbps": 850,
+      "reverse_throughput_mbps": 0,
+      "capacity_limits": {
+        "max_concurrent_plcs": 256,
+        "max_opc_ua_tags_per_sec": 100000,
+        "max_vlans": 16,
+        "supports_8021q_vlan_trunk": true,
+        "max_concurrent_proxy_flows": 2048,
+        "max_rtsp_streams_1080p": 64,
+        "max_rtsp_streams_4k": 24,
+        "max_sftp_relays_per_min": 500
+      },
+      "mounting_options": [
+        "1U_19INCH_RACK"
+      ],
+      "physical_requirements": {
+        "rack_units_u": 1,
+        "din_rail_width_mm": 0,
+        "tx_ot_interfaces": "4x 1GbE RJ45 + 2x 1G/10G SFP+ (IEEE 802.1Q Trunk Capable)",
+        "rx_it_interfaces": "4x 1GbE RJ45 + 2x 1G/10G SFP+ (IEEE 802.1Q Trunk Capable)",
+        "power_supply": "Dual Redundant Hot-Swappable 100-240V AC PSUs",
+        "operating_temp_c": "0 to +55",
+        "enclosure_rating": "IP20 Standard 19-Inch 1U Control Room / Data Center Chassis"
+      },
+      "proxy_architecture": {
+        "architecture_pattern": "DUAL_CPU_MULTI_VLAN_PROTOCOL_BREAKING_PROXY",
+        "tx_inner_subsystem": "Dedicated OT-side proxy complex supporting up to 16 VLAN sub-interfaces; terminates OT TCP sessions locally, polls OPC-UA/Modbus servers, ingests SFTP/SQL Historian batches, strips all L2/L3/L4 headers, and transmits pure serialized payloads across the physical air-gap.",
+        "rx_outer_subsystem": "Dedicated IT/DMZ-side proxy complex; re-originates independent TCP/TLS sessions to enterprise PI/SQL Historians, cloud data lakes, SIEM collectors, and SFTP file repositories.",
+        "terminates_tcp": true,
+        "supports_pull_to_push_reversal": true
+      },
+      "supported_protocols": [
+        "OPC_UA",
+        "MQTT",
+        "SFTP",
+        "HTTPS_PUSH",
+        "SQL_REPLICATION_PUSH",
+        "SMTP",
+        "SYSLOG_UDP",
+        "MODBUS_TCP",
+        "RTSP"
+      ],
+      "max_iec62443_sl": "SL-4",
+      "estimated_bom_unit_cost_usd": 21000,
+      "target_environments": [
+        "Plant-wide Purdue Level 3 to Level 3.5/4 IT/OT DMZ boundaries",
+        "Multi-VLAN automotive, pharmaceutical, semiconductor & refinery sites",
+        "Enterprise OSIsoft PI / SQL Historian replication & SFTP batch file relays"
+      ]
+    },
+    {
+      "archetype_id": "ARCH_D_BIDIRECTIONAL_GATEWAY",
+      "name": "Dual-Stage Controlled Bi-Directional Gateway",
+      "short_name": "Controlled Bi-Directional Gateway (1G/100M)",
+      "directionality": "ASYMMETRIC_CONTROLLED_BIDIRECTIONAL",
+      "hardware_isolation_layer": "Tandem Dual-Isolation Non-Routable Hardware Pathways with Hardware-Enforced OT Session Lock",
+      "max_throughput_mbps": 1000,
+      "recommended_sustained_mbps": 800,
+      "reverse_throughput_mbps": 100,
+      "recommended_reverse_sustained_mbps": 50,
+      "capacity_limits": {
+        "max_concurrent_plcs": 128,
+        "max_vlans": 8,
+        "supports_8021q_vlan_trunk": true,
+        "max_concurrent_proxy_flows": 512,
+        "max_whitelisted_reverse_command_schemas": 64,
+        "allows_inbound_it_tcp_syn": false
+      },
+      "mounting_options": [
+        "1U_19INCH_RACK"
+      ],
+      "physical_requirements": {
+        "rack_units_u": 1,
+        "din_rail_width_mm": 0,
+        "tx_ot_interfaces": "4x 1GbE RJ45 + 2x 1G SFP",
+        "rx_it_interfaces": "4x 1GbE RJ45 + 2x 1G SFP",
+        "power_supply": "Dual Redundant Hot-Swappable 100-240V AC PSUs",
+        "operating_temp_c": "0 to +55",
+        "enclosure_rating": "IP20 Standard 19-Inch 1U Control Room / Data Center Chassis"
+      },
+      "proxy_architecture": {
+        "architecture_pattern": "OT_ORIGINATED_TANDEM_ISOLATION_WITH_SCHEMA_GUARD",
+        "tx_inner_subsystem": "Enforces strict session asymmetry: ALL TCP SYN connections MUST originate from the secure OT side. Polls the DMZ staging buffer on a deterministic schedule and validates reverse payloads against cryptographic signatures, XSD/JSON schemas, and Modbus/IEC-104 function-code/register-range whitelists.",
+        "rx_outer_subsystem": "Non-routable DMZ staging proxy; receives signed MES batch recipes or EMS dispatch setpoints into an isolated passive holding queue while streaming high-speed 1 Gbps OT telemetry outward.",
+        "terminates_tcp": true,
+        "ot_session_origin_mandatory": true,
+        "supports_pull_to_push_reversal": true,
+        "deterministic_command_whitelisting": true
+      },
+      "supported_protocols": [
+        "OPC_UA",
+        "MODBUS_TCP",
+        "IEC_104",
+        "DNP3",
+        "HTTPS_PUSH",
+        "SFTP",
+        "MQTT",
+        "SQL_REPLICATION_PUSH",
+        "SYSLOG_UDP",
+        "SIGNED_RECIPE_DISPATCH"
+      ],
+      "permitted_reverse_use_cases": [
+        "Signed MES-to-SCADA production batch recipe download",
+        "Utility EMS Automatic Generation Control (AGC) / load-shedding setpoint dispatch",
+        "OT-initiated pull of vendor-signed antivirus/patch bundles from DMZ staging",
+        "Authenticated request-response query where local replica caching is infeasible"
+      ],
+      "max_iec62443_sl": "SL-3 (SL-4 with cryptographic payload signing & dual hardware guard)",
+      "estimated_bom_unit_cost_usd": 29500,
+      "target_environments": [
+        "Automated discrete/batch manufacturing requiring live ERP/MES order dispatch",
+        "Bulk Electric System (BES) substations under active EMS AGC closed-loop control"
+      ]
+    }
+  ],
+  "protocol_compatibility_rules": {
+    "GREEN": {
+      "tier_label": "Drop-In Unidirectional Compatible",
+      "summary": "Flows initiated from the OT zone pushing outward to IT/DMZ, or streaming protocols natively handled by diode TX->RX proxies with zero inbound IT changes.",
+      "cutover_action": "AUTO_GENERATE_TX_RX_PROXY_ENTRY",
+      "protocols": [
+        {
+          "protocol_id": "SYSLOG_UDP",
+          "default_ports": [514, 1514],
+          "transport": "UDP",
+          "expected_initiator": "OT_TO_IT",
+          "proxy_behavior": "TX listens on UDP 514 inside OT VLAN; forwards datagrams across Layer 1/2 barrier; RX spoofs or relays UDP/TLS Syslog to IT SIEM."
+        },
+        {
+          "protocol_id": "RTSP",
+          "default_ports": [554, 8554],
+          "transport": "TCP/UDP",
+          "expected_initiator": "OT_LOCAL_PROXY_PULL",
+          "proxy_behavior": "Diode TX initiates RTSP PLAY locally to OT cameras; streams raw RTP video frames across hardware barrier; Diode RX exposes virtual RTSP stream to corporate VMS/NVR."
+        },
+        {
+          "protocol_id": "ONVIF_STREAM",
+          "default_ports": [80, 554, 8000],
+          "transport": "TCP/UDP",
+          "expected_initiator": "OT_LOCAL_PROXY_PULL",
+          "proxy_behavior": "Diode TX queries ONVIF media profile locally and pushes continuous media stream to RX virtual camera endpoint (blocks PTZ write-back)."
+        },
+        {
+          "protocol_id": "MQTT",
+          "default_ports": [1883, 8883],
+          "transport": "TCP",
+          "expected_initiator": "OT_TO_IT",
+          "proxy_behavior": "OT devices publish to Diode TX embedded MQTT broker; TX serializes topic payloads one-way; RX publishes to IT/Cloud MQTT broker."
+        },
+        {
+          "protocol_id": "SFTP",
+          "default_ports": [22, 2222],
+          "transport": "TCP",
+          "expected_initiator": "OT_TO_IT",
+          "proxy_behavior": "OT host uploads batch CSV/historian files to Diode TX SFTP dropbox; TX verifies file hash and streams bytes across hardware barrier; RX pushes via SFTP to IT landing server."
+        },
+        {
+          "protocol_id": "HTTPS_PUSH",
+          "default_ports": [443, 8443],
+          "transport": "TCP",
+          "expected_initiator": "OT_TO_IT",
+          "proxy_behavior": "TX terminates outbound REST/Webhook POST payload inside OT and re-emits fresh HTTPS POST from RX to IT API gateway."
+        },
+        {
+          "protocol_id": "SQL_REPLICATION_PUSH",
+          "default_ports": [1433, 5432, 3306],
+          "transport": "TCP",
+          "expected_initiator": "OT_TO_IT",
+          "proxy_behavior": "OT Historian pushes incremental row deltas/CDC logs into TX listener; RX replays deterministic INSERT/UPSERT batches into IT Replica DB."
+        },
+        {
+          "protocol_id": "SMTP",
+          "default_ports": [25, 587],
+          "transport": "TCP",
+          "expected_initiator": "OT_TO_IT",
+          "proxy_behavior": "OT alarm server sends outbound alert emails to TX SMTP relay; RX forwards to corporate mail gateway."
+        },
+        {
+          "protocol_id": "BACNET_TELEMETRY",
+          "default_ports": [47808],
+          "transport": "UDP",
+          "expected_initiator": "OT_TO_IT",
+          "proxy_behavior": "TX subscribes to local BACnet/IP Change-of-Value (COV) broadcasts and streams point telemetry one-way to RX BMS collector."
+        }
+      ]
+    },
+    "AMBER": {
+      "tier_label": "Inbound Poll — Requires Pull-to-Push Proxy Reversal",
+      "summary": "Flows where an IT/DMZ server currently initiates the TCP SYN inward to poll an OT PLC, RTU, OPC-UA server, or database for read-only telemetry, OR authorized closed-loop setpoint writes requiring controlled gateway evaluation.",
+      "cutover_action": "CONFIGURE_DIODE_TX_LOCAL_POLLER_AND_RX_REPLICA",
+      "protocols": [
+        {
+          "protocol_id": "MODBUS_TCP_INBOUND_READ",
+          "mapped_catalog_protocol": "MODBUS_TCP",
+          "default_ports": [502],
+          "function_codes": ["FC01_READ_COILS", "FC02_READ_DISCRETE_INPUTS", "FC03_READ_HOLDING_REGISTERS", "FC04_READ_INPUT_REGISTERS"],
+          "current_direction": "IT_TO_OT",
+          "remediation_pattern": "Configure Diode TX Inner Proxy to poll the OT PLC (port 502) locally on the OT LAN at the required scan rate (e.g., 500ms-1000ms) and push register maps across the hardware barrier to the Diode RX Replica IP. Re-point the IT Historian to poll the Diode RX Virtual IP instead of the OT PLC IP."
+        },
+        {
+          "protocol_id": "IEC_104_INBOUND_INTERROGATION",
+          "mapped_catalog_protocol": "IEC_104",
+          "default_ports": [2404],
+          "function_codes": ["C_IC_NA_1_GENERAL_INTERROGATION", "M_ME_NC_1_MEASURED_FLOAT", "M_SP_NA_1_SINGLE_POINT"],
+          "current_direction": "IT_TO_OT",
+          "remediation_pattern": "Diode TX acts as local IEC 60870-5-104 controlling station polling substation RTUs/IEDs and streaming spontaneous/interrogated ASDUs one-way to Diode RX slave replica for SLDC/EMS ingestion."
+        },
+        {
+          "protocol_id": "DNP3_INBOUND_POLL",
+          "mapped_catalog_protocol": "DNP3",
+          "default_ports": [20000],
+          "function_codes": ["FC01_READ_CLASS_0_1_2_3"],
+          "current_direction": "IT_TO_OT",
+          "remediation_pattern": "Diode TX polls DNP3 outstations locally inside the substation ESP and mirrors unsolicited/polled point state to the Diode RX DNP3 outstation emulator."
+        },
+        {
+          "protocol_id": "OPC_UA_INBOUND_SUBSCRIPTION",
+          "mapped_catalog_protocol": "OPC_UA",
+          "default_ports": [4840],
+          "function_codes": ["READ_REQUEST", "CREATE_MONITORED_ITEMS", "PUBLISH"],
+          "current_direction": "IT_TO_OT",
+          "remediation_pattern": "Diode TX OPC-UA Client connects locally to the OT OPC-UA Server, subscribes to monitored node IDs, and mirrors the address space one-way to the Diode RX Shadow OPC-UA Server."
+        },
+        {
+          "protocol_id": "SQL_INBOUND_SELECT_POLL",
+          "mapped_catalog_protocol": "SQL_REPLICATION_PUSH",
+          "default_ports": [1433, 5432, 1521],
+          "function_codes": ["SELECT_TELEMETRY_QUERY"],
+          "current_direction": "IT_TO_OT",
+          "remediation_pattern": "Replace inbound IT SQL SELECT queries with an OT-side scheduled CDC/query-push agent feeding Diode TX -> IT DMZ SQL Replica."
+        },
+        {
+          "protocol_id": "AUTHORIZED_CLOSED_LOOP_WRITE",
+          "mapped_catalog_protocol": "SIGNED_RECIPE_DISPATCH",
+          "default_ports": [502, 2404, 4840, 443],
+          "function_codes": ["MODBUS_FC06_FC16_AUTHORIZED_RECIPE", "IEC104_C_SE_NA_1_AGC_SETPOINT"],
+          "current_direction": "IT_TO_OT",
+          "remediation_pattern": "Pure one-way diodes block reverse writes. If verified operationally mandatory (MES recipe or utility AGC dispatch), deploy ARCH_D_BIDIRECTIONAL_GATEWAY with TCP SYN locked to OT side and strict register/schema whitelist; otherwise move recipe logic inside OT."
+        }
+      ]
+    },
+    "RED": {
+      "tier_label": "Protocol Blocker or Critical Security Violation",
+      "summary": "Legacy protocols using dynamic RPC ephemeral port negotiation that break across hardware proxies, stateful file-sharing protocols exploited by ransomware, or unauthorized interactive remote admin/write sessions from IT.",
+      "cutover_action": "DEPLOY_OT_PROTOCOL_WRAPPER_OR_SEVER_PHYSICALLY",
+      "protocols": [
+        {
+          "protocol_id": "OPC_DA_DCOM",
+          "default_ports": [135],
+          "ephemeral_port_range": "49152-65535",
+          "classification_subtype": "LEGACY_DYNAMIC_PORT_BLOCKER",
+          "why_it_breaks_diode": "Microsoft DCOM RPC negotiates random dynamic high ports bidirectionally and requires mutual stateful COM callbacks that cannot traverse a non-routable hardware data diode.",
+          "prescribed_remediation": "Deploy a lightweight local OPC-DA-to-OPC-UA Wrapper on the OT LAN adjacent to the legacy OPC server; convert DCOM tags to static single-port OPC-UA (TCP 4840) and feed into Diode TX Inner Proxy."
+        },
+        {
+          "protocol_id": "SMBV1",
+          "aliases": ["SMB_CIFS", "SMBV2_FILE_MOUNT"],
+          "default_ports": [445, 139],
+          "classification_subtype": "RANSOMWARE_VECTOR_AND_STATEFUL_BLOCKER",
+          "why_it_breaks_diode": "SMB requires chatter-heavy bidirectional locking/acknowledgments and is the #1 propagation vector for WannaCry/NotPetya/LockBit lateral movement into OT.",
+          "prescribed_remediation": "Sever TCP 445/139 completely at the zone boundary. Replace shared drive mounts with a local OT directory watcher that pushes completed CSV/log files unidirectionally via SFTP (TCP 2222) across Diode TX -> RX."
+        },
+        {
+          "protocol_id": "RDP",
+          "default_ports": [3389],
+          "classification_subtype": "CRITICAL_INTERACTIVE_ACCESS_VIOLATION",
+          "why_it_breaks_diode": "Interactive remote desktop from Corporate IT into OT violates IEC 62443-3-3 SR 5.1/5.2 and NERC CIP-005-7 R2; impossible across unidirectional hardware.",
+          "prescribed_remediation": "Physically sever inbound RDP via hardware diode. Require on-site engineering access or an out-of-band MFA jump host under explicit physical key-switch maintenance control."
+        },
+        {
+          "protocol_id": "SSH_INBOUND",
+          "default_ports": [22],
+          "classification_subtype": "CRITICAL_INTERACTIVE_ACCESS_VIOLATION",
+          "why_it_breaks_diode": "Inbound interactive shell access from IT to OT switches/PLCs provides direct command-execution lateral movement.",
+          "prescribed_remediation": "Physically sever inbound SSH at Layer 1/2 via hardware diode; confine CLI management strictly to an isolated OT Engineering Workstation (Purdue L3)."
+        },
+        {
+          "protocol_id": "TELNET",
+          "default_ports": [23],
+          "classification_subtype": "CRITICAL_CLEARTEXT_ADMIN_VIOLATION",
+          "why_it_breaks_diode": "Unencrypted interactive terminal session exposing OT credentials and direct PLC/RTU manipulation.",
+          "prescribed_remediation": "Physically sever inbound Telnet at Layer 1/2 via hardware diode and disable Telnet VTY lines on OT switches."
+        },
+        {
+          "protocol_id": "VNC",
+          "aliases": ["TEAMVIEWER", "ANYDESK"],
+          "default_ports": [5900, 5938, 7070],
+          "classification_subtype": "CRITICAL_SHADOW_REMOTE_ACCESS_VIOLATION",
+          "why_it_breaks_diode": "Interactive screen-sharing / shadow vendor remote access bypassing perimeter change control (e.g., Oldsmar water facility attack pattern).",
+          "prescribed_remediation": "Physically sever via hardware diode; stream read-only HMI screen/process replicas outward via web/RTSP telemetry proxy if remote viewing is needed."
+        },
+        {
+          "protocol_id": "UNAUTHORIZED_MODBUS_OR_IEC104_WRITE",
+          "default_ports": [502, 2404, 20000],
+          "function_codes": ["MODBUS_FC05_WRITE_SINGLE_COIL", "MODBUS_FC06_WRITE_SINGLE_REGISTER", "MODBUS_FC15_WRITE_MULTIPLE_COILS", "MODBUS_FC16_WRITE_MULTIPLE_REGISTERS", "IEC104_C_SC_NA_1_SINGLE_COMMAND"],
+          "classification_subtype": "CRITICAL_UNAUTHORIZED_ACTUATION_WRITE",
+          "why_it_breaks_diode": "Unverified IT subnet host sending physical actuation/register overwrite commands directly to Level 1 PLCs/RTUs.",
+          "prescribed_remediation": "Block 100% physically by deploying unidirectional hardware isolation (ARCH_A or ARCH_C), rendering inbound packet injection physically impossible."
+        }
+      ]
+    }
+  }
+}

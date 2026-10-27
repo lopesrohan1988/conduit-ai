@@ -1,0 +1,84 @@
+# ==============================================================================
+# Moxa EDS-G516E-4GSFP Managed Industrial Switch (Turbo Ring v2 — Firmware V5.7)
+# Site: PermianStream Midstream Compressor Station #04 (28 Mbps Ku-Band VSAT)
+# ==============================================================================
+
+MOXA-EDS516-RING01# show arp
+IP Address       MAC Address         VLAN      Port  Description
+--------------------------------------------------------------------------------
+10.185.30.1      00:1B:17:85:30:01   VLAN30    P1    (PA450-VSAT-COMP04)
+10.185.30.2      00:90:E8:85:30:02   VLAN30    P2    (MOXA-EDS516-RING01)
+10.185.30.3      00:90:E8:85:30:03   VLAN30    P3    (MOXA-EDS516-RING02)
+10.185.30.11     00:0E:8C:85:30:0B   VLAN30    P4    (RTU-TURBINE-UNIT01)
+10.185.30.12     00:0E:8C:85:30:0C   VLAN30    P5    (RTU-TURBINE-UNIT02)
+10.185.30.13     00:0E:8C:85:30:0D   VLAN30    P6    (RTU-TURBINE-UNIT03)
+10.185.30.14     00:00:BC:85:30:0E   VLAN30    P7    (RTU-BLOCKVALVE-MLV14)
+10.185.30.15     00:00:BC:85:30:0F   VLAN30    P8    (RTU-BLOCKVALVE-MLV15)
+10.185.30.16     00:E0:C4:85:30:10   VLAN30    P9    (SIS-ESD-STATION04)
+10.185.30.17     00:E0:C4:85:30:11   VLAN30    P10   (SIS-HIPPS-SUCTION)
+10.185.30.18     00:1D:9C:85:30:12   VLAN30    P11   (SIS-FIRE-GAS-DET)
+10.185.30.21     00:90:E8:85:30:15   VLAN30    P12   (FLOWCOMP-CUSTODY-01)
+10.185.30.22     00:90:E8:85:30:16   VLAN30    P13   (FLOWCOMP-CUSTODY-02)
+10.185.30.23     00:90:E8:85:30:17   VLAN30    P14   (FLOWCOMP-CUSTODY-03)
+10.185.30.24     00:1B:1B:85:30:18   VLAN30    P15   (GC-CHROMATOGRAPH-01)
+10.185.30.25     00:1B:1B:85:30:19   VLAN30    P1    (GC-CHROMATOGRAPH-02)
+10.185.30.26     00:09:91:85:30:1A   VLAN30    P2    (VIB-TURBINE-BENTLY1)
+10.185.30.29     00:E0:C4:85:30:1D   VLAN30    P3    (yokogawa-piglaunch-temp)  <-- UNDOCUMENTED FIELD SKID / SERIAL SERVER
+10.185.30.30     F8:B1:56:85:30:1E   VLAN30    P4    (COMP04-LOCAL-SCADA)
+10.185.30.31     F4:54:33:85:30:1F   VLAN30    P5    (PVPLUS-TURBINE-BAY1)
+10.185.30.40     00:D0:C9:85:30:28   VLAN30    P6    (CUSTODY-BATCH-SFTP01)
+10.185.30.45     00:80:A3:85:30:2D   VLAN30    P7    (LANTRONIX-UDS-SER01)
+10.185.30.46     00:80:A3:85:30:2E   VLAN30    P8    (LANTRONIX-UDS-SER02)
+10.185.30.48     00:80:A3:85:30:30   VLAN30    P9    (lantronix-odorizer-tty)  <-- UNDOCUMENTED FIELD SKID / SERIAL SERVER
+10.185.30.51     00:00:54:85:30:33   VLAN30    P10   (UPS-SOLAR-RECT01)
+10.185.30.52     00:A0:45:85:30:34   VLAN30    P11   (PLCNEXT-CATHODIC-02)
+10.185.30.60     AC:CC:8E:85:30:3C   VLAN30    P12   (AXIS-FLARE-THERMAL1)
+10.120.0.1       00:1A:A1:78:00:01   VLAN120   G1    (HOUSTON-VSAT-HUB01)
+10.120.10.20     00:50:56:78:0A:14   VLAN120   G1    (HOUS-GASCTRL-DNP01)
+10.120.10.25     00:50:56:78:0A:19   VLAN120   G1    (HOUS-FLOW-MODBUS01)
+10.120.20.50     3C:D9:2B:78:14:32   VLAN120   G1    (HOUS-CUSTODY-SFTP01)
+10.120.30.15     00:50:56:78:1E:0F   VLAN120   G1    (HOUS-SOLARWINDS-NMS)
+10.120.40.12     00:50:56:78:28:0C   VLAN120   G1    (HOUS-ENG-FILESRV01)
+10.120.88.19     00:50:56:78:58:13   VLAN120   G1    (HOUS-IT-ADMIN-WK19)
+
+MOXA-EDS516-RING01# show mac-address-table
+VLAN  MAC Address         Type      Port  Vendor
+------------------------------------------------------------------
+30    00:1B:17:85:30:01   Unicast   P1    Palo Alto Networks
+30    00:90:E8:85:30:02   Unicast   P2    Moxa Technologies Co., Ltd.
+30    00:90:E8:85:30:03   Unicast   P3    Moxa Technologies Co., Ltd.
+30    00:0E:8C:85:30:0B   Unicast   P4    ABB Automation
+30    00:0E:8C:85:30:0C   Unicast   P5    ABB Automation
+30    00:0E:8C:85:30:0D   Unicast   P6    ABB Automation
+30    00:00:BC:85:30:0E   Unicast   P7    Rockwell Automation / Allen-
+30    00:00:BC:85:30:0F   Unicast   P8    Rockwell Automation / Allen-
+30    00:E0:C4:85:30:10   Unicast   P9    Yokogawa Electric Corporatio
+30    00:E0:C4:85:30:11   Unicast   P10   Yokogawa Electric Corporatio
+30    00:1D:9C:85:30:12   Unicast   P11   Honeywell Process Solutions
+30    00:90:E8:85:30:15   Unicast   P12   Moxa Technologies Co., Ltd.
+30    00:90:E8:85:30:16   Unicast   P13   Moxa Technologies Co., Ltd.
+30    00:90:E8:85:30:17   Unicast   P14   Moxa Technologies Co., Ltd.
+30    00:1B:1B:85:30:18   Unicast   P15   Siemens AG
+30    00:1B:1B:85:30:19   Unicast   P1    Siemens AG
+30    00:09:91:85:30:1A   Unicast   P2    GE Vernova / GE Multilin
+30    00:E0:C4:85:30:1D   Unicast   P3    Yokogawa Electric Corporatio
+30    F8:B1:56:85:30:1E   Unicast   P4    Dell Inc.
+30    F4:54:33:85:30:1F   Unicast   P5    Rockwell Automation / Allen-
+30    00:D0:C9:85:30:28   Unicast   P6    Advantech Co., Ltd.
+30    00:80:A3:85:30:2D   Unicast   P7    Lantronix
+30    00:80:A3:85:30:2E   Unicast   P8    Lantronix
+30    00:80:A3:85:30:30   Unicast   P9    Lantronix
+30    00:00:54:85:30:33   Unicast   P10   Schneider Electric
+30    00:A0:45:85:30:34   Unicast   P11   Phoenix Contact GmbH
+30    AC:CC:8E:85:30:3C   Unicast   P12   Axis Communications AB
+120   00:1A:A1:78:00:01   Unicast   G1    Cisco Systems, Inc.
+120   00:50:56:78:0A:14   Unicast   G1    VMware, Inc.
+120   00:50:56:78:0A:19   Unicast   G1    VMware, Inc.
+120   3C:D9:2B:78:14:32   Unicast   G1    Hewlett Packard Enterprise (
+120   00:50:56:78:1E:0F   Unicast   G1    VMware, Inc.
+120   00:50:56:78:28:0C   Unicast   G1    VMware, Inc.
+120   00:50:56:78:58:13   Unicast   G1    VMware, Inc.
+
+MOXA-EDS516-RING01# show vlan
+30   COMPRESSOR_AND_METERING_OT   P1-P15
+120  VSAT_WAN_HOUSTON_TRANSIT     G1
