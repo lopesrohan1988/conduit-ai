@@ -95,7 +95,7 @@ export default function WorkbenchHeader({
                 }`}
                 title={
                   backendConnected
-                    ? "Connected to FastAPI + LangGraph Backend (:8000)"
+                    ? "Connected to FastAPI + LangGraph Backend (:8008)"
                     : "Running with Deterministic 6-Vertical Ground-Truth Cache"
                 }
               >
@@ -106,7 +106,7 @@ export default function WorkbenchHeader({
                       : "bg-amber-400"
                   }`}
                 />
-                {backendConnected ? "API LIVE :8000" : "OFFLINE TWIN READY"}
+                {backendConnected ? "API LIVE :8008" : "OFFLINE TWIN READY"}
               </span>
             </div>
             <p className="text-xs text-slate-300 mt-0.5 truncate">

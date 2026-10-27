@@ -172,7 +172,7 @@ cp .env.example .env
 ```bash
 cd backend
 uv sync
-uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8008
 ```
 
 ### 3. Launch the Next.js 15 Consultant Workbench

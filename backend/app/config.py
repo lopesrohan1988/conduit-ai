@@ -77,9 +77,9 @@ class Settings(BaseSettings):
 
     # 4. ConduitAI Application & Workbench Settings
     demo_cache_fallback: bool = Field(default=True)
-    next_public_api_url: str = Field(default="http://localhost:8000")
+    next_public_api_url: str = Field(default="http://127.0.0.1:8008")
     backend_host: str = Field(default="0.0.0.0")
-    backend_port: int = Field(default=8000)
+    backend_port: int = Field(default=8008)
 
     # Pluggable Data & Catalog Paths
     data_dir: Path = Field(default=Path("../data"))
