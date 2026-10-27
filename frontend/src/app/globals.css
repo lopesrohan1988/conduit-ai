@@ -3,12 +3,12 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
-  background-color: #020617;
-  color: #f1f5f9;
+  background-color: #f8fafc;
+  color: #0f172a;
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -18,65 +18,70 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* Industrial Blueprint Subtle Grid */
-.bg-industrial-grid {
-  background-size: 28px 28px;
-  background-image: 
-    linear-gradient(to right, rgba(30, 41, 59, 0.35) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(30, 41, 59, 0.35) 1px, transparent 1px);
+/* Subtle Architectural Blueprint Grid (Light Mode) */
+.bg-blueprint-grid {
+  background-size: 24px 24px;
+  background-image:
+    linear-gradient(to right, rgba(203, 213, 225, 0.45) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(203, 213, 225, 0.45) 1px, transparent 1px);
 }
 
-.bg-hud-dots {
-  background-image: radial-gradient(rgba(51, 65, 85, 0.55) 1px, transparent 1px);
-  background-size: 16px 16px;
+/* Media Frame Subtle Grid for Photo/Video Fallback Canvases */
+.bg-media-grid {
+  background-size: 24px 24px;
+  background-image:
+    linear-gradient(to right, rgba(51, 65, 85, 0.35) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(51, 65, 85, 0.35) 1px, transparent 1px);
 }
 
-/* Custom Dark Scrollbars */
+/* Clean Light Scrollbars */
 ::-webkit-scrollbar {
   width: 7px;
   height: 7px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #090d16;
+  background: #f1f5f9;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
-  border-radius: 3px;
+  background: #cbd5e1;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+  background: #94a3b8;
 }
 
-/* React Flow Dark Mission-Control Overrides */
+/* React Flow Clean Light Overrides */
 .react-flow__controls {
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6) !important;
-  border: 1px solid #1e293b !important;
-  border-radius: 6px !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08) !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 8px !important;
   overflow: hidden;
 }
 
 .react-flow__controls-button {
-  background: #0f172a !important;
-  border-bottom: 1px solid #1e293b !important;
-  fill: #94a3b8 !important;
-  color: #94a3b8 !important;
+  background: #ffffff !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  fill: #475569 !important;
+  color: #475569 !important;
 }
 
 .react-flow__controls-button:hover {
-  background: #1e293b !important;
-  fill: #f8fafc !important;
+  background: #f8fafc !important;
+  fill: #0f172a !important;
+  color: #0f172a !important;
 }
 
 .react-flow__attribution {
-  background: rgba(2, 6, 23, 0.75) !important;
-  color: #475569 !important;
+  background: rgba(255, 255, 255, 0.85) !important;
+  color: #64748b !important;
   font-size: 10px !important;
   padding: 2px 6px !important;
+  border-radius: 4px 0 0 0;
 }
 
 .react-flow__attribution a {
-  color: #64748b !important;
+  color: #475569 !important;
 }

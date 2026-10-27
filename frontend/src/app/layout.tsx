@@ -16,9 +16,9 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ConduitAI | IEC 62443 SL-4 Autonomous Data Diode Workbench",
+  title: "ConduitAI | Hardware Data Diode Sizing & Zero-Downtime Cutover",
   description:
-    "Autonomous OT Network Isolation, Hardware Data Diode Sizing, SAM 3.1 Rack Inspection & Verifiable Layer-1/2 Socket Digital Twin Workbench.",
+    "Automated OT Network Isolation, Hardware Data Diode Sizing, SAM 3.1 Rack Inspection & Zero-Downtime Digital Twin Verification.",
 };
 
 export default function RootLayout({
@@ -27,11 +27,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${inter.variable} ${jetbrainsMono.variable} dark`}
-    >
-      <body className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-emerald-500/30 selection:text-emerald-200">
+    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
+      <body className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased selection:bg-blue-100 selection:text-blue-900">
         {children}
       </body>
     </html>

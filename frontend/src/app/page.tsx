@@ -1,20 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import {
-  Eye,
-  Network,
-  GitCompareArrows,
-  Server,
-  AlertTriangle,
-  ShieldCheck,
-  Activity,
-  Upload,
-  FolderCheck,
-  ArrowLeft,
-  ArrowRight,
-  CheckCircle2,
-} from "lucide-react";
+import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import {
   AgentTimelineStep,
   InferenceMode,
@@ -46,13 +33,16 @@ import BomComplianceTab from "@/components/BomComplianceTab";
 interface WorkflowStepMeta {
   id: WorkbenchTabId;
   stepNum: number;
-  title: string;
-  roleSubtitle: string;
-  engineerSubtitle: string;
-  shortBadge: string;
-  verifiedTakeaway: string;
-  icon: React.ReactNode;
+  shortName: string;
 }
+
+const WORKFLOW_STEPS: WorkflowStepMeta[] = [
+  { id: "site_setup", stepNum: 1, shortName: "Site & Files" },
+  { id: "intake_vision", stepNum: 2, shortName: "Space & Risks" },
+  { id: "purdue_topology", stepNum: 3, shortName: "Security Map" },
+  { id: "cutover_matrix", stepNum: 4, shortName: "Compatibility" },
+  { id: "bom_compliance", stepNum: 5, shortName: "Quote & Kit" },
+];
 
 export default function ConduitWorkbenchPage() {
   const [selectedScenarioId, setSelectedScenarioId] = useState<string>(
@@ -84,7 +74,6 @@ export default function ConduitWorkbenchPage() {
   const [timelineExpanded, setTimelineExpanded] = useState<boolean>(false);
   const [isAssessing, setIsAssessing] = useState<boolean>(false);
   const [assessmentCompleted, setAssessmentCompleted] = useState<boolean>(true);
-  const [previewSyncedTag, setPreviewSyncedTag] = useState<string | null>(null);
 
   const eventSourceRef = useRef<EventSource | null>(null);
   const fallbackTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
@@ -144,9 +133,6 @@ export default function ConduitWorkbenchPage() {
       if (!active) return;
       if (preview) {
         setBackendConnected(true);
-        setPreviewSyncedTag(`Synced /scenarios/${selectedScenarioId}/preview`);
-      } else {
-        setPreviewSyncedTag(null);
       }
     });
 
@@ -193,7 +179,7 @@ export default function ConduitWorkbenchPage() {
             setIsAssessing(false);
             setAssessmentCompleted(true);
           }
-        }, (idx + 1) * 340);
+        }, (idx + 1) * 320);
 
         fallbackTimersRef.current.push(timer);
       });
@@ -363,75 +349,18 @@ export default function ConduitWorkbenchPage() {
     navigateToStep("intake_vision");
   }, [handleRunAssessment, navigateToStep]);
 
-  const workflowSteps: WorkflowStepMeta[] = [
-    {
-      id: "site_setup",
-      stepNum: 1,
-      title: "Site Setup & File Request",
-      roleSubtitle: "Sales + Customer IT Intake",
-      engineerSubtitle: "Offline PCAP/CLI/Photo Bundle",
-      shortBadge: "5 Files Ready",
-      verifiedTakeaway:
-        "Selected customer site & prepared safe read-only file request for the Network Engineer.",
-      icon: <FolderCheck className="w-4 h-4" />,
-    },
-    {
-      id: "intake_vision",
-      stepNum: 2,
-      title: "Cabinet Fit & Hidden Risks",
-      roleSubtitle: "Physical Space + Unlisted Floor Gear",
-      engineerSubtitle: "SAM 3.1 + Muse Voice + 3-Way Diff",
-      shortBadge: selectedScenario.isCriticalRogueScenario
-        ? "🚨 5G Bypass"
-        : `${selectedScenario.shadowAssets.length} Unlisted`,
-      verifiedTakeaway: `Confirmed physical rack/DIN space via SAM 3.1 & uncovered ${selectedScenario.shadowAssets.length} unlisted floor devices.`,
-      icon: <Eye className="w-4 h-4" />,
-    },
-    {
-      id: "purdue_topology",
-      stepNum: 3,
-      title: "Before vs. After Security Map",
-      roleSubtitle: "Visual Customer Protection Story",
-      engineerSubtitle: `Purdue L0–L5 (${selectedScenario.preCutoverSl} → ${selectedScenario.postCutoverSl})`,
-      shortBadge: `${selectedScenario.preCutoverSl} → ${selectedScenario.postCutoverSl}`,
-      verifiedTakeaway:
-        "Showed visually how one-way hardware cuts off inbound attacks while keeping dashboards live.",
-      icon: <Network className="w-4 h-4" />,
-    },
-    {
-      id: "cutover_matrix",
-      stepNum: 4,
-      title: "Zero-Downtime Proof",
-      roleSubtitle: '"Will Anything Break?" Answered',
-      engineerSubtitle: "TX/RX Proxy Rules + Modal Twin",
-      shortBadge: "0% Downtime",
-      verifiedTakeaway: `Verified all ${selectedScenario.flows.length} site connections in the Digital Twin with 0% plant downtime & 100% attack drop.`,
-      icon: <GitCompareArrows className="w-4 h-4" />,
-    },
-    {
-      id: "bom_compliance",
-      stepNum: 5,
-      title: "Quote, ROI & Engineer Kit",
-      roleSubtitle: "Sales Proposal + IT Handoff",
-      engineerSubtitle: "ARCH_A..D BoM + CLI + Exports",
-      shortBadge: `$${selectedScenario.bom.totalHardwareCostUsd.toLocaleString()}`,
-      verifiedTakeaway: `Ready to close: $${selectedScenario.bom.totalHardwareCostUsd.toLocaleString()} hardware quote, executive email & IT cutover scripts ready.`,
-      icon: <Server className="w-4 h-4" />,
-    },
-  ];
-
-  const activeStepIndex = workflowSteps.findIndex((s) => s.id === activeTab);
-  const currentStepMeta = workflowSteps[activeStepIndex] ?? workflowSteps[0];
+  const activeStepIndex = WORKFLOW_STEPS.findIndex((s) => s.id === activeTab);
+  const currentStepMeta = WORKFLOW_STEPS[activeStepIndex] ?? WORKFLOW_STEPS[0];
   const prevStep =
-    activeStepIndex > 0 ? workflowSteps[activeStepIndex - 1] : null;
+    activeStepIndex > 0 ? WORKFLOW_STEPS[activeStepIndex - 1] : null;
   const nextStep =
-    activeStepIndex < workflowSteps.length - 1
-      ? workflowSteps[activeStepIndex + 1]
+    activeStepIndex < WORKFLOW_STEPS.length - 1
+      ? WORKFLOW_STEPS[activeStepIndex + 1]
       : null;
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
-      {/* Top Mission-Control Header */}
+    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900">
+      {/* Single 60px Clean White Top Bar */}
       <WorkbenchHeader
         scenarios={FALLBACK_SCENARIOS}
         selectedScenario={selectedScenario}
@@ -450,167 +379,103 @@ export default function ConduitWorkbenchPage() {
         onToggleTimeline={() => setTimelineExpanded((v) => !v)}
       />
 
-      {/* Main Consultant Workbench Workspace */}
-      <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 lg:px-6 py-4 space-y-4">
-        {/* Scenario Telemetry & Plain-English Situation Banner */}
-        <section className="rounded-md bg-slate-900/75 border border-slate-800 p-4 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-          <div className="space-y-1 max-w-3xl">
+      {/* Main Content Container */}
+      <main className="flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-5 space-y-4">
+        {/* Compact Site Summary Bar */}
+        <section className="bg-white border border-slate-200 rounded-xl px-5 py-3.5 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="space-y-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-[11px] font-mono text-sky-300">
-                SITE 0{selectedScenario.shortIndex} ·{" "}
-                {selectedScenario.vertical.toUpperCase()}
+              <h1 className="text-base sm:text-lg font-semibold text-slate-900 tracking-tight">
+                {selectedScenario.facilityName}
+              </h1>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                {narrative.industryBadge}
               </span>
               {selectedScenario.isCriticalRogueScenario && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500 text-slate-950 text-[11px] font-mono font-bold">
-                  <AlertTriangle className="w-3.5 h-3.5" />
-                  ROGUE 5G CELLULAR BYPASS DETECTED
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200">
+                  Rogue 5G Modem Detected
                 </span>
               )}
-              {previewSyncedTag && (
-                <span className="text-[10px] font-mono text-emerald-400">
-                  ● {previewSyncedTag}
+              {!isGuided && (
+                <span className="text-xs font-mono text-slate-500">
+                  {selectedScenario.conduitId} · {selectedScenario.preCutoverSl}{" "}
+                  → {selectedScenario.postCutoverSl}
                 </span>
               )}
             </div>
-            <h2 className="text-lg sm:text-xl font-bold text-slate-100 tracking-tight">
-              {selectedScenario.facilityName}
-            </h2>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              {isGuided ? (
-                <>
-                  <strong className="text-emerald-400">Customer Goal: </strong>
-                  {narrative.businessGoal}
-                </>
-              ) : (
-                <span className="font-mono text-slate-400">
-                  Conduit{" "}
-                  <span className="text-slate-200">
-                    {selectedScenario.conduitId}
-                  </span>
-                  : {selectedScenario.conduitName}
-                </span>
-              )}
+            <p className="text-xs sm:text-sm text-slate-600 truncate">
+              {narrative.businessGoal}
             </p>
           </div>
 
-          {/* Role-Aware KPI Cards (Plain-English in Guided Mode, Technical in Engineer Deep-Dive) */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 shrink-0">
-            <div
-              className="px-3 py-2 rounded bg-zinc-950 border border-slate-800"
-              title="Observed peak site traffic plus a 25% safety margin so the diode never bottlenecks"
-            >
-              <div className="text-[10px] font-mono uppercase text-slate-400">
-                {isGuided
-                  ? "Required Speed (+25% Buffer)"
-                  : "Peak / 1.25× Sized"}
+          {/* 4 Clean Key Numbers */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 lg:border-l lg:border-slate-200 lg:pl-6 shrink-0">
+            <div>
+              <div className="text-xs text-slate-500">Peak Traffic</div>
+              <div className="text-sm font-semibold text-slate-900 font-mono">
+                {selectedScenario.telemetry.peakBandwidthMbps} Mbps
               </div>
-              <div className="text-sm font-mono font-bold text-slate-100 mt-0.5">
-                {selectedScenario.telemetry.peakBandwidthMbps}M{" "}
-                <span className="text-emerald-400">
-                  → {selectedScenario.telemetry.sizedHeadroomMbps} Mbps
-                </span>
+              <div className="text-[11px] text-slate-500 font-mono">
+                {selectedScenario.telemetry.sizedHeadroomMbps} Mbps sized
               </div>
             </div>
 
-            <div
-              className="px-3 py-2 rounded bg-zinc-950 border border-slate-800"
-              title="Read-only network packets and firewall log rows analyzed offline"
-            >
-              <div className="text-[10px] font-mono uppercase text-slate-400">
-                {isGuided ? "Site Traffic Analyzed" : "PCAP / FW Rows"}
-              </div>
-              <div className="text-sm font-mono font-bold text-sky-300 mt-0.5">
-                {(selectedScenario.telemetry.pcapPacketCount / 1000).toFixed(0)}k
-                pkts ·{" "}
-                {(selectedScenario.telemetry.firewallRowCount / 1000).toFixed(0)}k
-                logs
+            <div>
+              <div className="text-xs text-slate-500">Unlisted Devices</div>
+              <div
+                className={`text-sm font-semibold font-mono ${
+                  selectedScenario.isCriticalRogueScenario
+                    ? "text-rose-700"
+                    : "text-amber-700"
+                }`}
+              >
+                {selectedScenario.telemetry.shadowAssetCount} Found
               </div>
             </div>
 
-            <div
-              className="px-3 py-2 rounded bg-zinc-950 border border-slate-800"
-              title="Active machines found on the floor that were missing from the customer's diagram"
-            >
-              <div className="text-[10px] font-mono uppercase text-slate-400">
-                {isGuided ? "Hidden Unlisted Devices" : "Shadow OT Drift"}
-              </div>
-              <div className="text-sm font-mono font-bold text-rose-400 mt-0.5">
-                {selectedScenario.telemetry.shadowAssetCount} Found on Floor
+            <div>
+              <div className="text-xs text-slate-500">Downtime</div>
+              <div className="text-sm font-semibold text-emerald-700 font-mono">
+                0% Verified
               </div>
             </div>
 
-            <div
-              className="px-3 py-2 rounded bg-emerald-950/30 border border-emerald-500/40"
-              title="Upgrades software firewall protection to IEC 62443 SL-4 physical one-way hardware isolation"
-            >
-              <div className="text-[10px] font-mono uppercase text-emerald-300/90">
-                {isGuided ? "Protection Upgrade" : "IEC 62443 Posture"}
-              </div>
-              <div className="text-xs sm:text-sm font-mono font-bold text-emerald-400 mt-0.5 flex items-center gap-1">
-                <ShieldCheck className="w-4 h-4 shrink-0" />
-                <span>
-                  {isGuided
-                    ? `Firewall → 1-Way Lock (${selectedScenario.postCutoverSl})`
-                    : `${selectedScenario.preCutoverSl} → ${selectedScenario.postCutoverSl}`}
-                </span>
+            <div>
+              <div className="text-xs text-slate-500">Est. Quote</div>
+              <div className="text-sm font-semibold text-slate-900 font-mono">
+                ${selectedScenario.bom.totalHardwareCostUsd.toLocaleString()}
               </div>
             </div>
           </div>
         </section>
 
-        {/* 5-Step Guided Workflow Stepper */}
+        {/* Simple 5-Step Stepper */}
         <nav
-          className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-2"
-          aria-label="5-Step Guided Workflow"
+          className="bg-white border border-slate-200 rounded-xl p-1.5 shadow-sm grid grid-cols-2 sm:grid-cols-5 gap-1"
+          aria-label="Workflow Steps"
         >
-          {workflowSteps.map((step, idx) => {
+          {WORKFLOW_STEPS.map((step, idx) => {
             const isActive = activeTab === step.id;
-            const isCompletedStep = idx < activeStepIndex;
+            const isCompleted = idx < activeStepIndex;
             return (
               <button
                 key={step.id}
                 type="button"
                 onClick={() => navigateToStep(step.id)}
-                className={`p-3 rounded-md text-left transition-all border flex flex-col justify-between gap-1.5 ${
+                className={`px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center justify-center gap-1.5 ${
                   isActive
-                    ? "bg-slate-900 text-slate-100 border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.16)]"
-                    : isCompletedStep
-                      ? "bg-slate-900/70 text-slate-200 border-emerald-500/30 hover:border-emerald-500/60"
-                      : "bg-slate-900/40 text-slate-400 border-slate-800 hover:bg-slate-900/75 hover:text-slate-200"
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : isCompleted
+                      ? "text-slate-700 hover:bg-slate-50"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                 }`}
               >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span
-                      className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[11px] font-mono font-bold shrink-0 ${
-                        isActive
-                          ? "bg-emerald-400 text-slate-950"
-                          : isCompletedStep
-                            ? "bg-emerald-500/25 text-emerald-300 border border-emerald-500/50"
-                            : "bg-slate-800 text-slate-400"
-                      }`}
-                    >
-                      {isCompletedStep ? "✓" : step.stepNum}
-                    </span>
-                    <span className="text-xs font-bold truncate">
-                      {step.title}
-                    </span>
-                  </div>
-
-                  <span
-                    className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] font-mono ${
-                      isActive
-                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                        : "bg-slate-950 text-slate-400 border border-slate-800"
-                    }`}
-                  >
-                    {step.shortBadge}
-                  </span>
-                </div>
-
-                <div className="text-[11px] text-slate-400 pl-7 truncate">
-                  {isGuided ? step.roleSubtitle : step.engineerSubtitle}
-                </div>
+                {isCompleted && (
+                  <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                )}
+                <span className="truncate">
+                  {step.stepNum}. {step.shortName}
+                </span>
               </button>
             );
           })}
@@ -653,35 +518,25 @@ export default function ConduitWorkbenchPage() {
           )}
         </section>
 
-        {/* Bottom Guided Stepper Wizard Bar (Prev / Step Summary / Next) */}
-        <section className="rounded-md bg-slate-900/90 border border-slate-800 p-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3">
+        {/* Clean Bottom Step Navigation */}
+        <section className="pt-2 pb-4 flex items-center justify-between gap-3">
           <div>
             {prevStep ? (
               <button
                 type="button"
                 onClick={() => navigateToStep(prevStep.id)}
-                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-md bg-slate-950 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-200 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-xs sm:text-sm font-medium text-slate-700 shadow-sm transition-colors"
               >
-                <ArrowLeft className="w-3.5 h-3.5 text-slate-400" />
-                <span>
-                  Step {prevStep.stepNum}: {prevStep.title}
-                </span>
+                <ArrowLeft className="w-4 h-4 text-slate-500" />
+                <span>Previous</span>
               </button>
             ) : (
-              <span className="inline-flex items-center gap-1.5 text-xs font-mono text-emerald-400 px-1">
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Start Here: Guided 5-Step Workflow</span>
-              </span>
+              <span className="w-20 inline-block" />
             )}
           </div>
 
-          <div className="text-center px-2">
-            <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400">
-              Step {currentStepMeta.stepNum} of 5 Summary
-            </div>
-            <div className="text-xs text-slate-200 mt-0.5">
-              {currentStepMeta.verifiedTakeaway}
-            </div>
+          <div className="text-xs font-medium text-slate-500">
+            Step {currentStepMeta.stepNum} of 5
           </div>
 
           <div>
@@ -689,45 +544,23 @@ export default function ConduitWorkbenchPage() {
               <button
                 type="button"
                 onClick={() => navigateToStep(nextStep.id)}
-                className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-md bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold shadow-[0_0_20px_rgba(16,185,129,0.25)] transition-all"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-medium shadow-sm transition-colors"
               >
-                <span>
-                  Continue to Step {nextStep.stepNum}: {nextStep.title}
-                </span>
+                <span>Next: {nextStep.shortName}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             ) : (
               <button
                 type="button"
                 onClick={() => navigateToStep("site_setup")}
-                className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/50 text-sky-200 text-xs font-semibold transition-all"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-xs sm:text-sm font-medium text-slate-700 shadow-sm transition-colors"
               >
-                <span>↺ Assess Another Customer Site (Back to Step 1)</span>
+                <span>← Back to Step 1</span>
               </button>
             )}
           </div>
         </section>
       </main>
-
-      {/* Industrial Footer Telemetry Bar */}
-      <footer className="border-t border-slate-800/90 bg-zinc-950 py-2.5 px-4 lg:px-6 mt-4">
-        <div className="max-w-[1600px] mx-auto flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-slate-500">
-          <div className="flex items-center gap-2">
-            <Activity className="w-3.5 h-3.5 text-emerald-500" />
-            <span>
-              ConduitAI · Sales + Network Engineer Guided Workbench ·
-              Vendor-Neutral Hardware Diode Sizing (ARCH_A..D)
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="inline-flex items-center gap-1 text-slate-400">
-              <Upload className="w-3 h-3 text-sky-400" />
-              100% Offline Safe Artifacts: Diagram · Cabinet Photo/MP4 · Voice
-              Memo · Read-Only Switch &amp; PCAP
-            </span>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

@@ -1,7 +1,8 @@
 import { FlowTier, ProtocolFlowEntry, ScenarioDataset } from "@/types/conduit";
 
 export interface GuidedScenarioNarrative {
-  customerSituation: string;
+  selectLabel: string;
+  industryBadge: string;
   businessGoal: string;
   cabinetFitHeadline: string;
   cabinetFitPlainText: string;
@@ -12,106 +13,109 @@ export interface GuidedScenarioNarrative {
 
 const SCENARIO_NARRATIVES: Record<string, GuidedScenarioNarrative> = {
   scenario_1_manufacturing: {
-    customerSituation:
-      "Automotive stamping plant sending robot & high-speed camera quality data up to corporate SAP and Splunk dashboards.",
+    selectLabel: "1. Apex Automotive Plant",
+    industryBadge: "Manufacturing",
     businessGoal:
-      "Stop corporate IT ransomware from halting stamping presses while keeping 85 Mbps camera quality batches flowing with zero production downtime.",
+      "Block corporate ransomware from stamping presses while keeping 85 Mbps camera quality feeds live.",
     cabinetFitHeadline:
-      "Yes — Fits Upstairs in Control Room 19\" Rack Slot RU-14 (Not Press-Floor Box)",
+      "Fits Control Room 19\" Rack Slot RU-14 (12 spare ports)",
     cabinetFitPlainText:
-      "SAM 3.1 spotted that the stamping-floor box only has clip-on DIN rails, while upstairs in the Control Room server rack, 1U slot RU-14 is wide open with 12 spare network ports. ConduitAI automatically mounts the 1U Enterprise Diode in RU-14 so installers don't show up with hardware that won't fit.",
+      "Floor cabinet only has DIN rails; SAM 3.1 verified an open 1U slot (RU-14) upstairs in the Control Room rack.",
     hiddenRiskHeadline:
-      "3 Unlisted Factory PLCs & Direct Contractor Remote-Control Access Found",
+      "3 unlisted press PLCs & unauthorized remote PLC write access found",
     hiddenRiskPlainText:
-      "Maintenance added 3 extra stamping & conveyor controllers (.15, .16, .17) that were missing from the customer's Visio diagram—plus an office workstation is sending unauthorized tonnage-overwrite commands inward.",
+      "Controllers .15–.17 were missing from the Visio diagram, and an office PC is writing tonnage registers directly.",
     salesTalkingPoint:
-      "\"Your Visio diagram missed 3 live controllers on the press line. If we hadn't caught them before cutover, your PI Historian charts would have gone blank on Day 1—ConduitAI already included all 3 in your zero-downtime proxy setup.\"",
+      "Your diagram missed 3 live press PLCs—ConduitAI caught them before cutover so your PI Historian never drops a tag.",
   },
   scenario_2_substation: {
-    customerSituation:
-      "220kV high-voltage power substation reporting live megawatt/voltage readings to the regional grid control center.",
+    selectLabel: "2. GridCore 220kV Substation",
+    industryBadge: "Power Grid",
     businessGoal:
-      "Meet mandatory NERC CIP & CEA grid security rules and physically block remote breaker-trip cyberattacks at minimal hardware cost ($4,500).",
+      "Meet NERC CIP rules and physically block remote breaker-trip commands for $4,500.",
     cabinetFitHeadline:
-      "Yes — Clips Directly onto Existing Substation DIN-Rail & 48V Battery Bus",
+      "Clips directly onto existing 35mm DIN rail & 48V bus",
     cabinetFitPlainText:
-      "SAM 3.1 verified 210mm of free 35mm DIN-rail space and 8 spare switch ports inside the relay house. The compact fanless Field Diode ($4,500) clips right in with zero rack modifications.",
+      "SAM 3.1 measured 210mm of open DIN rail and 8 free ports inside the relay house—no rack modifications needed.",
     hiddenRiskHeadline:
-      "Live Breaker-Trip Attack Command & 2 Temporary Relay Leftovers Caught",
+      "Live breaker-trip command & 2 unlisted Bay 4 relays detected",
     hiddenRiskPlainText:
-      "Traffic logs revealed an unauthorized breaker-trip command coming from the corporate WAN (Industroyer2 pattern) plus 2 temporary Bay 4 commissioning relays left plugged in after last month's maintenance.",
+      "Packet logs caught an unauthorized IEC-104 breaker command from WAN plus 2 commissioning relays left on the switch.",
     salesTalkingPoint:
-      "\"A software firewall leaves a two-way cable open toward your 220kV circuit breakers. For just $4,500 in ruggedized hardware, this diode makes remote breaker-trip injection physically impossible while keeping regional EMS telemetry live.\"",
+      "For $4,500 in rugged DIN hardware, remote breaker-trip attacks become physically impossible while EMS telemetry stays live.",
   },
   scenario_3_smart_building: {
-    customerSituation:
-      "Corporate HQ tower streaming 48 high-definition security cameras and smart HVAC building sensors into the corporate network.",
+    selectLabel: "3. MetroCorp Smart Building",
+    industryBadge: "Smart Building",
     businessGoal:
-      "Prevent vulnerable security cameras from becoming a backdoor into corporate badge/HR databases—while saving $12,500 by right-sizing hardware.",
+      "Isolate 48 security cameras & HVAC from corporate HR/badge servers—saving $12,500 via right-sizing.",
     cabinetFitHeadline:
-      "Yes — Fits Open 1U Slot RU-14 in Building MDF Closet ($8,500 Half-Rack Diode)",
+      "Fits open 1U slot RU-14 in MDF closet ($8,500 half-rack unit)",
     cabinetFitPlainText:
-      "SAM 3.1 verified an open 1U slot right below the Aruba PoE camera switch and selected the $8,500 Video & IoT Diode instead of an oversized $21,000 enterprise unit—saving the customer $12,500 immediately.",
+      "SAM 3.1 verified 1U open space below the PoE switch and selected the $8,500 Video Diode over a $21k enterprise unit.",
     hiddenRiskHeadline:
-      "Infected Security Camera (.33) Actively Scanning Building & Corporate Servers!",
+      "Compromised PoE camera (.33) actively scanning corporate servers",
     hiddenRiskPlainText:
-      "Camera 172.16.40.33 has compromised firmware and is actively scanning corporate badge databases and chiller controls—plus 2 unlisted loading-dock cameras were found.",
+      "Camera 172.16.40.33 is probing badge databases and chiller controls; 2 unlisted dock cameras also discovered.",
     salesTalkingPoint:
-      "\"One of your PoE cameras is already probing your corporate network. Our Video Diode strips away all network attack traffic and passes only pure video frames to your Milestone NVR—stopping camera-borne breaches cold for $8,500.\"",
+      "One camera is already probing your corporate network—this $8,500 Video Diode passes pure video frames and blocks all network pivots.",
   },
   scenario_4_water_treatment: {
-    customerSituation:
-      "Municipal drinking-water plant dosing chlorine & reporting EPA water-quality data, working from an old 2019 paper blueprint.",
+    selectLabel: "4. AquaPure Water Plant (5G Alert)",
+    industryBadge: "Water Utility",
     businessGoal:
-      "Protect public drinking-water chemical dosing from remote tampering and fit inside wet-area NEMA cabinets that have zero server racks.",
+      "Lock down chlorine dosing against remote tampering inside wet-area NEMA cabinets.",
     cabinetFitHeadline:
-      "Critical Save — No 19\" Rack Here! Auto-Switched Quote to Clip-On DIN Hardware",
+      "No 19\" rack on site — auto-switched quote to clip-on DIN kit",
     cabinetFitPlainText:
-      "A standard 19-inch rackmount diode cannot mount inside this chemical cabinet. SAM 3.1 measured 250mm of free 35mm DIN rail and sized a compact dual DIN-rail kit (175mm total) that clips in cleanly.",
+      "Standard rack units won't fit this NEMA box; SAM 3.1 measured 250mm free DIN rail for a 175mm dual DIN kit.",
     hiddenRiskHeadline:
-      "URGENT: Unauthorized 5G Cellular Modem Bypassing the Firewall!",
+      "Rogue 5G cellular modem bypassing the firewall on port Gi1/24",
     hiddenRiskPlainText:
-      "SAM 3.1's camera scan + switch logs caught a hidden 5G cellular router with paddle antennas plugged straight into port Gi1/24—completely invisible to the customer's firewall while allowing Oldsmar-style remote screen control and dangerous 11,100 ppm chlorine overrides!",
+      "Camera scan + switch MAC table caught an unauthorized 5G router allowing remote VNC screen control & chemical overrides.",
     salesTalkingPoint:
-      "\"Your perimeter firewall looked clean only because someone plugged a rogue 5G cellular modem directly inside the chlorine cabinet! ConduitAI spotted it on camera and in packet logs—we give your team the exact switch port (Gi1/24) to shut down today.\"",
+      "Your firewall looked clean because a rogue 5G modem was plugged directly into the chlorine cabinet—we give IT the exact port (Gi1/24) to shut down.",
   },
   scenario_5_oil_gas_pipeline: {
-    customerSituation:
-      "Remote West Texas gas compressor station sending pipeline metering & safety data over satellite (VSAT) to Houston headquarters.",
+    selectLabel: "5. PermianStream Oil Pipeline",
+    industryBadge: "Oil & Gas",
     businessGoal:
-      "Keep gas flowing even if corporate IT is hit by Colonial Pipeline-style ransomware, using wide-temperature (-40°C to +75°C) hardware.",
+      "Keep pipeline gas custody metering running even during a corporate IT ransomware incident.",
     cabinetFitHeadline:
-      "Yes — Rugged Heat-Rated (-40°C to +75°C) DIN Diode Fits Desert Enclosure",
+      "Heat-rated (-40°C to +75°C) fanless DIN diode fits compressor box",
     cabinetFitPlainText:
-      "Field technician audio noted cabinet temperatures hit 62°C in summer. ConduitAI selected a fanless aluminum DIN-rail diode rated to +75°C that fits the 250mm open rail space.",
+      "Voice note flagged 62°C summer cabinet heat; ConduitAI selected a +75°C rated DIN diode fitting 250mm open rail.",
     hiddenRiskHeadline:
-      "Unencrypted Passwords Over Satellite & Ransomware-Prone File Shares",
+      "Plaintext Telnet passwords & ransomware-prone SMB shares over VSAT",
     hiddenRiskPlainText:
-      "Houston IT is logging into a pipeline odorizer over unencrypted Telnet (exposing root passwords in plaintext) and mounting legacy Windows SMB file shares—the #1 ransomware pathway.",
+      "Corporate IT is using unencrypted Telnet to the odorizer and mounting SMB file shares across the satellite link.",
     salesTalkingPoint:
-      "\"If ransomware hits corporate IT tomorrow, open Windows file shares can force a precautionary pipeline shutdown. For $4,500, this extreme-temp hardware diode isolates Compressor Station 4 so gas custody metering never stops.\"",
+      "Open Windows file shares can force a pipeline shutdown during IT ransomware—this $4,500 heat-rated diode keeps gas metering isolated.",
   },
   scenario_6_pharma_cleanroom: {
-    customerSituation:
-      "FDA-regulated sterile biologics cleanroom streaming batch quality records out while receiving signed production recipes from Werum PAS-X MES.",
+    selectLabel: "6. BioVance Pharma Cleanroom",
+    industryBadge: "Pharma GMP",
     businessGoal:
-      "Achieve hardware isolation WITHOUT breaking mandatory closed-loop digital batch recipe downloads required to run pharmaceutical manufacturing.",
+      "Isolate cleanroom skids without breaking mandatory signed MES batch recipe downloads.",
     cabinetFitHeadline:
-      "Yes — Dual 1U Slots Verified in Cleanroom Interstitial Server Rack",
+      "Dual open 1U slots verified in cleanroom interstitial rack",
     cabinetFitPlainText:
-      "SAM 3.1 verified two contiguous 1U slots and 12 free ports in the cleanroom interstitial rack—accommodating both the Controlled Recipe Gateway and the Optical Cleanroom EMS Diode.",
+      "SAM 3.1 confirmed two contiguous 1U slots and 12 spare ports for the Controlled Recipe Gateway + Optical EMS Diode.",
     hiddenRiskHeadline:
-      "Pure One-Way Diode Would Break Batch Recipes + 2 Unvalidated GMP Skids Found",
+      "Blind one-way diode would break batch recipes + 2 unvalidated skids found",
     hiddenRiskPlainText:
-      "Quoting a standard blind one-way diode on VLAN 60 would block PAS-X master recipes and halt drug production! ConduitAI automatically selected Archetype D (OT-initiated hardware guard) for recipes + flagged 2 unvalidated mixer/WFI skids.",
+      "Standard one-way diodes block PAS-X recipe handshakes; ConduitAI paired an OT-initiated gateway and flagged 2 unlisted GMP skids.",
     salesTalkingPoint:
-      "\"Most vendors quote a blind one-way diode here and accidentally break your PAS-X recipe downloads. ConduitAI recognized your signed recipe flow and paired a Controlled OT-Locked Gateway with pure optical particle-counter isolation—plus caught 2 unvalidated GMP skids before an FDA audit.\"",
+      "A standard blind diode here would halt drug batch recipes—ConduitAI paired an OT-locked recipe gateway and caught 2 unvalidated skids pre-audit.",
   },
 };
 
-export function getGuidedNarrative(scenario: ScenarioDataset): GuidedScenarioNarrative {
+export function getGuidedNarrative(
+  scenario: ScenarioDataset
+): GuidedScenarioNarrative {
   return (
-    SCENARIO_NARRATIVES[scenario.id] ?? SCENARIO_NARRATIVES.scenario_1_manufacturing
+    SCENARIO_NARRATIVES[scenario.id] ??
+    SCENARIO_NARRATIVES.scenario_1_manufacturing
   );
 }
 
@@ -123,31 +127,27 @@ export function getPlainEnglishTierSummary(tier: FlowTier): {
   switch (tier) {
     case "GREEN":
       return {
-        title: "✅ Works Immediately (One-Way Out)",
-        customerImpact:
-          "Already sends data outward from plant to office. Flows straight through the hardware diode with zero workflow changes.",
-        badgeColor: "bg-emerald-500/15 text-emerald-300 border-emerald-500/40",
+        title: "Works As-Is",
+        customerImpact: "Flows outward naturally with zero changes.",
+        badgeColor: "bg-emerald-50 text-emerald-700 border-emerald-200",
       };
     case "AMBER":
       return {
-        title: "🔄 Kept Working via Auto-Mirror (Pull → Push)",
-        customerImpact:
-          "Office server currently reaches into the plant to read data. Diode's inner helper reads the machine locally and updates a safe office mirror copy—0% downtime.",
-        badgeColor: "bg-amber-500/15 text-amber-300 border-amber-500/40",
+        title: "Auto-Reversed",
+        customerImpact: "Local helper mirrors readings outward safely.",
+        badgeColor: "bg-amber-50 text-amber-800 border-amber-200",
       };
     case "RED_BLOCKER":
       return {
-        title: "🔌 Needs Simple Local Adapter Before Cutover",
-        customerImpact:
-          "Old Windows file-share or dynamic-port protocol that ransomware abuses. Converted to a clean one-way file/tag push on the plant side.",
-        badgeColor: "bg-orange-500/20 text-orange-300 border-orange-500/50",
+        title: "Local Adapter",
+        customerImpact: "Converted to a safe one-way file/tag push.",
+        badgeColor: "bg-amber-50 text-amber-800 border-amber-200",
       };
     case "CRITICAL_VIOLATION":
       return {
-        title: "🛑 Dangerous Access — Permanently Blocked",
-        customerImpact:
-          "Unauthorized remote desktop, hacker scan, or machine-override write. Physically impossible after hardware diode installation.",
-        badgeColor: "bg-rose-500/20 text-rose-300 border-rose-500/50",
+        title: "Blocked Threat",
+        customerImpact: "Physically severed by one-way hardware.",
+        badgeColor: "bg-rose-50 text-rose-700 border-rose-200",
       };
   }
 }
@@ -159,59 +159,51 @@ export function explainFlowInPlainEnglish(flow: ProtocolFlowEntry): {
   const proto = flow.protocol.toUpperCase();
   if (flow.classification === "CRITICAL_VIOLATION") {
     return {
-      whatItDoes: `High-risk remote access or unauthorized control command (${flow.functionDetail}).`,
-      howWeHandleIt:
-        "Physically cut off by the one-way hardware barrier so attackers can never reach plant equipment.",
+      whatItDoes: `Unauthorized remote control / scan (${flow.functionDetail})`,
+      howWeHandleIt: "Physically blocked by one-way diode hardware.",
     };
   }
   if (flow.classification === "RED_BLOCKER") {
     return {
-      whatItDoes: `Legacy two-way Windows ${proto} connection (${flow.functionDetail}).`,
-      howWeHandleIt:
-        "Replaced with a safe local protocol adapter / one-way SFTP file dropbox before cutover so business files still arrive.",
+      whatItDoes: `Legacy two-way ${proto} share (${flow.functionDetail})`,
+      howWeHandleIt: "Converted to safe one-way local file/tag push.",
     };
   }
   if (flow.classification === "AMBER") {
     if (proto.includes("RECIPE")) {
       return {
-        whatItDoes:
-          "Mandatory signed production batch recipes sent from enterprise MES to plant batch controller.",
-        howWeHandleIt:
-          "Handled safely via Controlled Gateway (ARCH_D): the plant side pulls signed recipes from a holding queue—office hosts can never initiate connections inward.",
+        whatItDoes: "Signed MES production batch recipe download",
+        howWeHandleIt: "Plant side pulls signed recipes via Controlled Gateway (ARCH_D).",
       };
     }
     return {
-      whatItDoes: `Office dashboard/historian polling plant equipment for read-only readings (${flow.functionDetail}).`,
-      howWeHandleIt:
-        "Diode's OT-side poller reads the equipment locally and mirrors live values to the office side—dashboards stay 100% live without inward access.",
+      whatItDoes: `Dashboard polling plant data (${flow.functionDetail})`,
+      howWeHandleIt: "OT poller mirrors live values to office replica (0% downtime).",
     };
   }
   return {
-    whatItDoes: `Outbound plant telemetry, video, or security logs (${flow.functionDetail}).`,
-    howWeHandleIt:
-      "Streams straight out across the one-way optical hardware diode with zero downtime.",
+    whatItDoes: `Outbound telemetry / video / logs (${flow.functionDetail})`,
+    howWeHandleIt: "Streams straight out through the one-way optical diode.",
   };
 }
 
 export function buildNetworkEngineerRequestTemplate(
   scenario: ScenarioDataset
 ): string {
-  return `Subject: Quick Read-Only Site Exports for ${scenario.facilityName} Data Diode Sizing (Zero Plant Impact)
+  return `Subject: Read-Only Site Files for ${scenario.facilityName} Data Diode Quote
 
-Hi Network / OT Engineering Team,
+Hi Network / OT Team,
 
-We are preparing a verified hardware data diode quote and zero-downtime cutover plan for ${scenario.facilityName} (${scenario.vertical}) using ConduitAI.
+To generate our verified hardware diode quote and zero-downtime cutover plan for ${scenario.facilityName}, please share 4 quick read-only items (nothing installed on your network):
 
-Nothing needs to be installed on your network—everything runs 100% offline from 4 quick read-only items whenever convenient:
+1. Network Diagram: Existing PDF, Visio, PNG, or whiteboard photo.
+2. Cabinet Photo + 6s Video: Quick phone photo & vertical pan of the target rack or PLC cabinet.
+3. Switch ARP / MAC Output: Read-only "show ip arp", "show mac address-table", and "show vlan".
+4. Boundary Traffic Sample: 5–15 min passive SPAN PCAP (plus optional firewall CSV log).
 
-1. Existing Network Diagram: Any PDF, PNG, Visio export, paper blueprint scan, or whiteboard photo you already have.
-2. Cabinet / Server Rack Photo + 6-sec Video: Quick smartphone photo & vertical pan of the target rack or PLC cabinet (so we verify 1U rack vs. 35mm DIN-rail fit and spare switch ports).
-3. Read-Only Switch ARP/MAC Output: Output of "show ip arp", "show mac address-table", and "show vlan" from the boundary OT switch.
-4. Boundary Traffic Sample: A 5–15 min passive SPAN/mirror PCAP capture (and optional 24h firewall CSV log) at the IT/OT boundary so we verify peak Mbps and ensure zero Historian/SCADA polling breaks at cutover.
+Optional: A 15-second phone voice memo noting any floor changes or heat/power limits.
 
-Optional: Feel free to record a 15-second voice memo on your phone pointing out any recent floor additions or temperature/power constraints.
-
-Thank you!`;
+Thanks!`;
 }
 
 export function buildCustomerProposalEmail(scenario: ScenarioDataset): string {
@@ -219,35 +211,27 @@ export function buildCustomerProposalEmail(scenario: ScenarioDataset): string {
   const hwLines = scenario.bom.items
     .map(
       (i) =>
-        `  • ${i.quantity}x ${i.name} (${i.archetypeId}) — ${i.mountingOption} — $${i.extendedCostUsd.toLocaleString()} USD`
+        `• ${i.quantity}x ${i.name} (${i.mountingOption}) — $${i.extendedCostUsd.toLocaleString()}`
     )
     .join("\n");
 
-  return `Subject: Verified Hardware Data Diode Proposal & Zero-Downtime Cutover Plan — ${scenario.facilityName}
+  return `Subject: Verified Data Diode Quote & Zero-Downtime Plan — ${scenario.facilityName}
 
 Hi Team,
 
-Following our review of your site diagram, cabinet photos, and boundary network capture for ${scenario.facilityName}, here is your verified hardware isolation quote and cutover summary:
+Here is your verified hardware isolation quote and cutover summary for ${scenario.facilityName}:
 
-1. RECOMMENDED HARDWARE QUOTE (Total: $${scenario.bom.totalHardwareCostUsd.toLocaleString()} USD)
+1. Hardware Quote — $${scenario.bom.totalHardwareCostUsd.toLocaleString()} USD
 ${hwLines}
-  • Bandwidth Sizing: ${scenario.bom.peakBandwidthMbps} Mbps observed peak → sized for ${scenario.bom.sizedBandwidthWithHeadroomMbps} Mbps (includes 25% safety buffer; hardware supports ${scenario.bom.sustainedCapacityMbps} Mbps sustained).
-  • Physical Fit Verified: ${scenario.bom.physicalFitStatus}
+• Speed Sized: ${scenario.bom.peakBandwidthMbps} Mbps peak → ${scenario.bom.sizedBandwidthWithHeadroomMbps} Mbps w/ 25% buffer (${scenario.bom.sustainedCapacityMbps} Mbps capacity).
+• Physical Fit: ${scenario.bom.physicalFitStatus}
 
-2. KEY FLOOR RISKS UNCOVERED BEFORE INSTALLATION
-  • ${narrative.hiddenRiskHeadline}: ${narrative.hiddenRiskPlainText}
+2. Floor Risks Caught Early
+• ${narrative.hiddenRiskHeadline}
 
-3. ZERO-DOWNTIME CUTOVER GUARANTEE (DIGITAL TWIN VERIFIED)
-  • All ${scenario.flows.length} cross-zone data flows were replayed across a physical one-way socket twin:
-  • 0% Operational Downtime — existing Historian, SCADA, and compliance feeds remain 100% live via local pull-to-push mirroring.
-  • 100% Inbound Cyberattack Block — remote desktop, ransomware file shares, and unauthorized machine writes are physically severed (${scenario.preCutoverSl} → ${scenario.postCutoverSl}).
+3. Zero-Downtime Proof (Digital Twin Verified)
+• All ${scenario.flows.length} connections tested: 0% plant downtime, 100% inbound attacks physically blocked (${scenario.preCutoverSl} → ${scenario.postCutoverSl}).
+• Satisfies: ${scenario.compliance.map((c) => `${c.standard} ${c.clauseId}`).join(", ")}.
 
-4. COMPLIANCE STANDARDS SATISFIED
-  • ${scenario.compliance.map((c) => `${c.standard} (${c.clauseId})`).join(", ")}
-
-Attached / Ready to Share with Your Network Engineer:
-  • Editable Target Architecture Diagram (.drawio)
-  • Copy-Paste Switch VLAN Cutover Commands & TX/RX Proxy Configuration Bundle
-
-Let's review this together in a 15-minute call with your network lead to schedule cutover.`;
+Ready to review with your network lead in 15 minutes to schedule cutover.`;
 }

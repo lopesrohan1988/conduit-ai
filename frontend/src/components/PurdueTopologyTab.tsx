@@ -16,12 +16,9 @@ import {
   ShieldAlert,
   ShieldCheck,
   ArrowRight,
-  Cpu,
   AlertTriangle,
   Lock,
   Unlock,
-  Network,
-  Info,
 } from "lucide-react";
 import {
   ScenarioDataset,
@@ -56,11 +53,11 @@ function PurdueAssetNodeComponent({
   if (spec.isBoundaryNode) {
     return (
       <div
-        className={`min-w-[310px] rounded-md px-3.5 py-2.5 border-2 transition-all shadow-xl ${
+        className={`min-w-[295px] rounded-xl px-3.5 py-2.5 border-2 transition-all shadow-sm ${
           isAfter
-            ? "bg-emerald-950/90 border-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.28)]"
-            : "bg-amber-950/80 border-amber-500/80 shadow-[0_0_24px_rgba(245,158,11,0.18)]"
-        } ${selected ? "ring-2 ring-white/60" : ""}`}
+            ? "bg-emerald-50/80 border-emerald-500"
+            : "bg-amber-50/80 border-amber-400"
+        } ${selected ? "ring-2 ring-blue-500/40" : ""}`}
       >
         <Handle
           type="target"
@@ -72,52 +69,50 @@ function PurdueAssetNodeComponent({
           type="source"
           position={Position.Top}
           id="top-source"
-          className="!bg-emerald-400 !w-2.5 !h-2.5"
+          className="!bg-emerald-500 !w-2.5 !h-2.5"
         />
 
         <div className="flex items-center justify-between gap-2 mb-1">
           <span
-            className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${
+            className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
               isAfter
-                ? "bg-emerald-400 text-slate-950"
-                : "bg-amber-500 text-slate-950"
+                ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                : "bg-amber-100 text-amber-900 border-amber-200"
             }`}
           >
             {isAfter
-              ? `ONE-WAY HARDWARE DIODE (${postSl})`
-              : `TWO-WAY SOFTWARE FIREWALL (${preSl})`}
+              ? `Hardware Diode (${postSl})`
+              : `Software Firewall (${preSl})`}
           </span>
-          <span className="text-[10px] font-mono text-slate-300">
+          <span className="text-[10px] font-mono text-slate-500">
             {spec.vlan}
           </span>
         </div>
 
         {isAfter ? (
           <div className="space-y-1.5">
-            <div className="text-xs font-bold text-emerald-200 flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+            <div className="text-xs font-semibold text-slate-900 flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>{archetypeSummary}</span>
             </div>
-            <div className="flex items-center justify-between gap-1 px-2 py-1 rounded bg-slate-950/90 border border-emerald-500/40 text-[10px] font-mono text-emerald-300">
-              <span>PLANT READER</span>
-              <ArrowRight className="w-3 h-3 text-emerald-400" />
-              <span className="px-1 rounded bg-emerald-500/20 text-emerald-200">
-                1-WAY HARDWARE
-              </span>
-              <ArrowRight className="w-3 h-3 text-emerald-400" />
-              <span>OFFICE MIRROR</span>
+            <div className="flex items-center justify-between gap-1 px-2 py-1 rounded-md bg-white border border-emerald-200 text-[10px] font-mono text-emerald-800">
+              <span>Plant TX</span>
+              <ArrowRight className="w-3 h-3 text-emerald-600" />
+              <span className="font-semibold">1-Way Lock</span>
+              <ArrowRight className="w-3 h-3 text-emerald-600" />
+              <span>Office Mirror</span>
             </div>
           </div>
         ) : (
           <div>
-            <div className="text-xs font-bold text-amber-100 flex items-center gap-1.5">
-              <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
+            <div className="text-xs font-semibold text-slate-900 flex items-center gap-1.5">
+              <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
               <span>
                 {spec.hostname} ({spec.vendor})
               </span>
             </div>
-            <div className="text-[10px] font-mono text-amber-200/80 mt-0.5">
-              Two-Way Cable · Hackers & Ransomware Can Reach Inward
+            <div className="text-[11px] text-amber-900/80 mt-0.5">
+              Two-way connection — inward access exposed
             </div>
           </div>
         )}
@@ -126,13 +121,13 @@ function PurdueAssetNodeComponent({
           type="source"
           position={Position.Bottom}
           id="bottom-source"
-          className="!bg-amber-400 !w-2.5 !h-2.5"
+          className="!bg-amber-500 !w-2.5 !h-2.5"
         />
         <Handle
           type="target"
           position={Position.Bottom}
           id="bottom-target"
-          className="!bg-emerald-400 !w-2.5 !h-2.5"
+          className="!bg-emerald-500 !w-2.5 !h-2.5"
         />
       </div>
     );
@@ -144,80 +139,78 @@ function PurdueAssetNodeComponent({
 
   const levelBadgeColor =
     spec.purdueLevel === "L4"
-      ? "bg-sky-500/20 text-sky-300 border-sky-500/40"
+      ? "bg-slate-100 text-slate-700 border-slate-200"
       : spec.purdueLevel === "BYPASS"
-        ? "bg-rose-500 text-slate-950 border-rose-400"
-        : "bg-emerald-500/20 text-emerald-300 border-emerald-500/40";
+        ? "bg-rose-50 text-rose-700 border-rose-200"
+        : "bg-emerald-50 text-emerald-700 border-emerald-200";
 
-  const cardBorder = isQuarantinedRogue
-    ? "bg-slate-900/50 border-slate-700 opacity-65"
+  const cardStyle = isQuarantinedRogue
+    ? "bg-slate-100 border-slate-300 opacity-65"
     : isRogue
-      ? "bg-rose-950/85 border-rose-500 animate-pulse-alert"
+      ? "bg-rose-50/70 border-rose-400"
       : isShadow
         ? isAfter
-          ? "bg-slate-900/95 border-emerald-500/60"
-          : "bg-rose-950/45 border-rose-400/80"
-        : "bg-slate-900/95 border-slate-700 hover:border-slate-500";
+          ? "bg-white border-emerald-400"
+          : "bg-rose-50/40 border-rose-400"
+        : "bg-white border-slate-300 hover:border-slate-400";
 
   return (
     <div
-      className={`min-w-[205px] max-w-[235px] rounded-md px-3 py-2 border transition-all shadow-lg ${cardBorder} ${
-        selected ? "ring-2 ring-sky-400" : ""
+      className={`min-w-[200px] max-w-[230px] rounded-xl px-3 py-2 border-2 transition-all shadow-sm ${cardStyle} ${
+        selected ? "ring-2 ring-blue-500/40" : ""
       }`}
     >
       <Handle
         type="target"
         position={Position.Top}
         id="top-target"
-        className="!bg-slate-500 !w-2 !h-2"
+        className="!bg-slate-400 !w-2 !h-2"
       />
       <Handle
         type="source"
         position={Position.Top}
         id="top-source"
-        className="!bg-emerald-400 !w-2 !h-2"
+        className="!bg-emerald-500 !w-2 !h-2"
       />
 
       <div className="flex items-center justify-between gap-1.5 mb-1">
         <span
-          className={`px-1.5 py-[1px] rounded text-[9px] font-mono font-bold border ${levelBadgeColor}`}
+          className={`px-1.5 py-[1px] rounded text-[10px] font-semibold border ${levelBadgeColor}`}
         >
           {spec.purdueLevel === "L4"
-            ? "L4 OFFICE"
+            ? "L4 IT"
             : spec.purdueLevel === "BYPASS"
-              ? "BYPASS"
-              : `${spec.purdueLevel} PLANT`}
+              ? "Bypass"
+              : `${spec.purdueLevel} Plant`}
         </span>
-        <span className="text-[10px] font-mono text-slate-400 truncate">
+        <span className="text-[10px] font-mono text-slate-500 truncate">
           {spec.ip}
         </span>
       </div>
 
-      <div className="text-xs font-semibold text-slate-100 truncate">
+      <div className="text-xs font-semibold text-slate-900 truncate">
         {spec.hostname}
       </div>
-      <div className="text-[10px] text-slate-400 truncate">
+      <div className="text-[11px] text-slate-500 truncate">
         {spec.vendor} · {spec.role}
       </div>
 
       {spec.anomalyBadge && (
         <div
-          className={`mt-1.5 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold inline-flex items-center gap-1 ${
+          className={`mt-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium inline-flex items-center gap-1 border ${
             isQuarantinedRogue
-              ? "bg-slate-800 text-slate-300 border border-slate-600 line-through"
+              ? "bg-slate-100 text-slate-500 border-slate-200 line-through"
               : isRogue || (!isAfter && isShadow)
-                ? "bg-rose-500/25 text-rose-200 border border-rose-500/50"
-                : isAfter && isShadow
-                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                  : "bg-amber-500/20 text-amber-200 border border-amber-500/40"
+                ? "bg-rose-50 text-rose-700 border-rose-200"
+                : "bg-emerald-50 text-emerald-700 border-emerald-200"
           }`}
         >
           <AlertTriangle className="w-2.5 h-2.5 shrink-0" />
           <span>
             {isQuarantinedRogue
-              ? "UNPLUGGED & PORT SHUT"
+              ? "Port Shut"
               : isAfter && isShadow
-                ? "PROTECTED + MIRRORED"
+                ? "Mirrored Safely"
                 : spec.anomalyBadge}
           </span>
         </div>
@@ -227,13 +220,13 @@ function PurdueAssetNodeComponent({
         type="source"
         position={Position.Bottom}
         id="bottom-source"
-        className="!bg-slate-500 !w-2 !h-2"
+        className="!bg-slate-400 !w-2 !h-2"
       />
       <Handle
         type="target"
         position={Position.Bottom}
         id="bottom-target"
-        className="!bg-slate-500 !w-2 !h-2"
+        className="!bg-slate-400 !w-2 !h-2"
       />
     </div>
   );
@@ -243,33 +236,30 @@ const nodeTypes = {
   purdueAsset: PurdueAssetNodeComponent,
 };
 
-function describeNodeInPlainEnglish(
-  spec: TopologyNodeSpec,
-  isAfter: boolean
-): string {
+function describeNodeShort(spec: TopologyNodeSpec, isAfter: boolean): string {
   if (spec.isBoundaryNode) {
     return isAfter
-      ? "Physical Hardware Data Diode installed between Plant and Office. Data streams outward to dashboards, while physical laws prevent any cyberattack from traveling inward."
-      : "Current software firewall connecting Office IT and Plant OT. Because it routes traffic two ways in software, ransomware or stolen credentials can still reach inward.";
+      ? "Physical one-way hardware diode: telemetry flows out to dashboards while inbound attacks are physically impossible."
+      : "Software firewall routing traffic two ways—ransomware or stolen credentials can still reach inward.";
   }
   if (spec.isRogueBypass) {
     return isAfter
-      ? "Previously hidden bypass device—now physically unplugged and its switch port permanently locked down."
-      : "URGENT RISK: Unauthorized device bypassing the customer's main firewall and creating a direct backdoor into plant machinery!";
+      ? "Unauthorized bypass modem unplugged and switch port administratively shut down."
+      : "Unauthorized cellular modem bypassing the main firewall directly into the control cabinet.";
   }
   if (spec.isShadowAsset) {
     return isAfter
-      ? "Unlisted floor machine discovered by ConduitAI—now documented in the asset inventory and safely mirrored through the diode so no readings are lost."
-      : "Unlisted floor equipment missing from the customer's network diagram. Found automatically in switch and packet logs so it isn't forgotten at cutover.";
+      ? "Previously unlisted floor device—now inventoried and safely mirrored through the diode."
+      : "Active floor device missing from the customer's diagram; discovered via switch ARP and packet logs.";
   }
   if (spec.purdueLevel === "L4") {
     return isAfter
-      ? `Corporate / Office system (${spec.role}). Reads live plant data safely from the Diode's Office Mirror Replica without touching real factory machines.`
-      : `Corporate / Office system (${spec.role}). Today it connects directly across the firewall toward plant equipment.`;
+      ? "Corporate IT server reading live plant values from the safe DMZ replica without inward plant access."
+      : "Corporate IT server connecting directly across the firewall toward plant equipment.";
   }
   return isAfter
-    ? `Protected Plant Floor equipment (${spec.role}). Completely shielded from corporate IT cyberattacks while reporting live telemetry outward.`
-    : `Plant Floor equipment (${spec.role}) running physical operations. Currently exposed to inward network connections.`;
+    ? "Protected plant equipment shielded from inbound cyberattacks while streaming live telemetry out."
+    : "Plant equipment currently reachable by inward network connections.";
 }
 
 export default function PurdueTopologyTab({
@@ -337,22 +327,22 @@ export default function PurdueTopologyTab({
           label: `✕ ${e.afterLabel}`,
           animated: false,
           style: {
-            stroke: "#64748b",
+            stroke: "#94a3b8",
             strokeWidth: 1.5,
             strokeDasharray: "5 5",
-            opacity: 0.45,
+            opacity: 0.65,
           },
           labelStyle: {
-            fill: "#fda4af",
+            fill: "#be123c",
             fontSize: 10,
             fontFamily: "monospace",
-            fontWeight: 700,
+            fontWeight: 600,
           },
           labelBgStyle: {
-            fill: "#1e1b2e",
-            fillOpacity: 0.9,
-            stroke: "#f43f5e",
-            strokeWidth: 0.6,
+            fill: "#fff1f2",
+            fillOpacity: 0.96,
+            stroke: "#fecdd3",
+            strokeWidth: 1,
           },
           labelBgPadding: [5, 3] as [number, number],
         };
@@ -375,23 +365,23 @@ export default function PurdueTopologyTab({
           animated: true,
           markerEnd: {
             type: MarkerType.ArrowClosed,
-            color: "#10b981",
+            color: "#059669",
           },
           style: {
-            stroke: "#10b981",
-            strokeWidth: 2.2,
+            stroke: "#059669",
+            strokeWidth: 2,
           },
           labelStyle: {
-            fill: "#a7f3d0",
+            fill: "#047857",
             fontSize: 10,
             fontFamily: "monospace",
             fontWeight: 600,
           },
           labelBgStyle: {
-            fill: "#022c22",
-            fillOpacity: 0.92,
-            stroke: "#10b981",
-            strokeWidth: 0.6,
+            fill: "#ecfdf5",
+            fillOpacity: 0.96,
+            stroke: "#a7f3d0",
+            strokeWidth: 1,
           },
           labelBgPadding: [5, 3] as [number, number],
         };
@@ -403,10 +393,31 @@ export default function PurdueTopologyTab({
 
       const strokeColor =
         isCritical || isRedBlocker
-          ? "#f43f5e"
+          ? "#e11d48"
           : isAmber
-            ? "#f59e0b"
-            : "#10b981";
+            ? "#d97706"
+            : "#059669";
+
+      const labelTextFill =
+        isCritical || isRedBlocker
+          ? "#be123c"
+          : isAmber
+            ? "#b45309"
+            : "#047857";
+
+      const labelBgFill =
+        isCritical || isRedBlocker
+          ? "#fff1f2"
+          : isAmber
+            ? "#fffbeb"
+            : "#ecfdf5";
+
+      const labelBorder =
+        isCritical || isRedBlocker
+          ? "#fecdd3"
+          : isAmber
+            ? "#fde68a"
+            : "#a7f3d0";
 
       return {
         id: `${e.id}-${cutoverMode}`,
@@ -422,25 +433,20 @@ export default function PurdueTopologyTab({
         },
         style: {
           stroke: strokeColor,
-          strokeWidth: isCritical ? 2.6 : 2,
+          strokeWidth: isCritical ? 2.4 : 2,
           strokeDasharray: isCritical ? "6 3" : undefined,
         },
         labelStyle: {
-          fill:
-            isCritical || isRedBlocker
-              ? "#fecdd3"
-              : isAmber
-                ? "#fde68a"
-                : "#a7f3d0",
+          fill: labelTextFill,
           fontSize: 10,
           fontFamily: "monospace",
           fontWeight: 600,
         },
         labelBgStyle: {
-          fill: "#090d16",
-          fillOpacity: 0.92,
-          stroke: strokeColor,
-          strokeWidth: 0.6,
+          fill: labelBgFill,
+          fillOpacity: 0.96,
+          stroke: labelBorder,
+          strokeWidth: 1,
         },
         labelBgPadding: [5, 3] as [number, number],
       };
@@ -457,124 +463,78 @@ export default function PurdueTopologyTab({
 
   return (
     <div className="space-y-4">
-      {/* Plain-English Before vs. After Interactive Story Switcher */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        <button
-          type="button"
-          onClick={() => setCutoverMode("before")}
-          className={`text-left p-4 rounded-md border transition-all flex items-start gap-3 ${
-            cutoverMode === "before"
-              ? "bg-rose-950/35 border-rose-500 shadow-[0_0_20px_rgba(244,63,94,0.18)]"
-              : "bg-slate-900/65 border-slate-800 hover:bg-slate-900"
-          }`}
+      {/* Clean Single-Row Control Bar */}
+      <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm flex flex-wrap justify-between items-center gap-3">
+        {/* Segmented Before vs After Switch */}
+        <div
+          className="inline-flex flex-wrap items-center bg-slate-100 p-1 rounded-lg border border-slate-200/80 gap-1"
+          role="group"
+          aria-label="Security Map Architecture Toggle"
         >
-          <div className="p-2 rounded bg-rose-500/20 border border-rose-500/40 shrink-0 mt-0.5">
-            <Unlock className="w-4 h-4 text-rose-400" />
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-xs sm:text-sm font-bold text-slate-100">
-                🔓 Today: Two-Way Software Firewall (Hackable ·{" "}
-                {scenario.preCutoverSl})
-              </span>
-              {cutoverMode === "before" && (
-                <span className="px-1.5 py-0.5 rounded bg-rose-500 text-slate-950 text-[10px] font-mono font-bold">
-                  VIEWING
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              Office computers, remote contractors, and ransomware worms can
-              reach <strong className="text-rose-300">inward</strong> into
-              factory machines (red &amp; yellow downward arrows).
-            </p>
-          </div>
-        </button>
+          <button
+            type="button"
+            onClick={() => setCutoverMode("before")}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition-all ${
+              cutoverMode === "before"
+                ? "bg-white text-rose-700 shadow-sm"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <Unlock className="w-3.5 h-3.5" />
+            <span>Current: Software Firewall (Two-Way)</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setCutoverMode("after")}
-          className={`text-left p-4 rounded-md border transition-all flex items-start gap-3 ${
-            cutoverMode === "after"
-              ? "bg-emerald-950/40 border-emerald-400 shadow-[0_0_24px_rgba(16,185,129,0.22)]"
-              : "bg-slate-900/65 border-slate-800 hover:bg-slate-900"
-          }`}
-        >
-          <div className="p-2 rounded bg-emerald-500/20 border border-emerald-500/40 shrink-0 mt-0.5">
-            <Lock className="w-4 h-4 text-emerald-400" />
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-xs sm:text-sm font-bold text-slate-100">
-                🛡️ After ConduitAI: One-Way Hardware Diode (Un-hackable ·{" "}
-                {scenario.postCutoverSl})
-              </span>
-              {cutoverMode === "after" && (
-                <span className="px-1.5 py-0.5 rounded bg-emerald-400 text-slate-950 text-[10px] font-mono font-bold">
-                  VIEWING
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              Click here to see the cutover: plant data flows{" "}
-              <strong className="text-emerald-300">OUT</strong> to dashboards
-              normally (all green upward streams), while inbound cyberattacks
-              are physically cut off!
-            </p>
-          </div>
-        </button>
-      </div>
-
-      {/* Simple Plain-English Legend Strip */}
-      <div className="bg-slate-900/85 border border-slate-800 rounded-md px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs">
-        <div className="flex items-center gap-2 text-slate-200 font-semibold">
-          <Network className="w-4 h-4 text-emerald-400" />
-          <span>
-            {isGuided
-              ? "Simple Map Legend (Click any box on the map to inspect):"
-              : `Conduit ${scenario.conduitId}: ${scenario.conduitName}`}
-          </span>
+          <button
+            type="button"
+            onClick={() => setCutoverMode("after")}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition-all ${
+              cutoverMode === "after"
+                ? "bg-blue-600 text-white shadow-sm"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <Lock className="w-3.5 h-3.5" />
+            <span>Proposed: Hardware Diode (One-Way)</span>
+          </button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4 text-xs">
-          <span className="inline-flex items-center gap-1.5 text-emerald-300">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
-            <span>🟢 Safe Outbound Data (Flows Out Normally)</span>
+        {/* Simple 3-Item Legend */}
+        <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-slate-600 px-1">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+            <span>Safe Outbound</span>
           </span>
-          <span className="inline-flex items-center gap-1.5 text-amber-300">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-            <span>🟡 Auto-Reversed Polling (Mirrored Safely)</span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+            <span>Auto-Reversed</span>
           </span>
-          <span className="inline-flex items-center gap-1.5 text-rose-300">
+          <span className="inline-flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-            <span>🔴 Blocked Attack / Rogue Bypass</span>
+            <span>Blocked Threat</span>
           </span>
         </div>
       </div>
 
-      {/* Main Graph + Right Dual-Layer Inspector */}
+      {/* Light-Mode Blueprint Graph + Concise Side Inspector */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
-        <div className="xl:col-span-9 h-[610px] rounded-md border border-slate-800 bg-zinc-950 relative overflow-hidden">
-          <div className="absolute left-3 top-4 z-10 pointer-events-none space-y-[125px] text-[10px] font-mono uppercase tracking-wider">
-            <div className="px-2 py-0.5 rounded bg-sky-950/75 border border-sky-500/30 text-sky-300">
-              {isGuided
-                ? "Top Floor · Corporate Office & Cloud (L4)"
-                : "Purdue L4 · Enterprise IT / WAN"}
+        <div className="xl:col-span-9 h-[560px] rounded-xl border border-slate-200 bg-slate-50/80 shadow-sm relative overflow-hidden">
+          {/* Clean Light Swimlane Labels */}
+          <div className="absolute left-3 top-4 z-10 pointer-events-none space-y-[118px] text-[11px] font-medium">
+            <div className="px-2.5 py-0.5 rounded-md bg-white/90 border border-slate-200 text-slate-600 shadow-sm">
+              {isGuided ? "Corporate Office (L4)" : "Purdue L4 · Enterprise IT"}
             </div>
-            <div className="px-2 py-0.5 rounded bg-amber-950/75 border border-amber-500/30 text-amber-300">
+            <div className="px-2.5 py-0.5 rounded-md bg-white/90 border border-slate-200 text-slate-600 shadow-sm">
               {isGuided
-                ? "Security Barrier · Firewall vs. Data Diode (L3.5)"
+                ? "Security Barrier (L3.5)"
                 : "Purdue L3.5 · Conduit Boundary"}
             </div>
-            <div className="px-2 py-0.5 rounded bg-emerald-950/75 border border-emerald-500/30 text-emerald-300">
-              {isGuided
-                ? "Control Room · Operator Screens & SCADA (L2/L3)"
-                : "Purdue L3/L2 · OT SCADA & HMI"}
+            <div className="px-2.5 py-0.5 rounded-md bg-white/90 border border-slate-200 text-slate-600 shadow-sm">
+              {isGuided ? "Control Room (L2/L3)" : "Purdue L3/L2 · SCADA & HMI"}
             </div>
-            <div className="px-2 py-0.5 rounded bg-emerald-950/75 border border-emerald-500/30 text-emerald-300">
+            <div className="px-2.5 py-0.5 rounded-md bg-white/90 border border-slate-200 text-slate-600 shadow-sm">
               {isGuided
-                ? "Plant Floor · Physical Machines & Controllers (L1)"
-                : "Purdue L1/L0 · PLCs, RTUs & Relays"}
+                ? "Plant Equipment (L1)"
+                : "Purdue L1/L0 · PLCs & Relays"}
             </div>
           </div>
 
@@ -588,90 +548,64 @@ export default function PurdueTopologyTab({
             minZoom={0.45}
             maxZoom={1.6}
           >
-            <Background color="#1e293b" gap={24} size={1} />
+            <Background color="#cbd5e1" gap={20} size={1} />
             <Controls position="bottom-right" />
           </ReactFlow>
         </div>
 
-        {/* Right Inspector: Plain-English Summary + Network Engineer Spec */}
-        <div className="xl:col-span-3 space-y-3 flex flex-col">
+        {/* Concise Right-Hand Node Inspector */}
+        <div className="xl:col-span-3">
           {selectedSpec && (
-            <div className="p-4 rounded-md bg-slate-900/90 border border-slate-800 space-y-3 flex-1">
-              <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
-                <Info className="w-4 h-4 text-emerald-400" />
-                <div>
-                  <div className="text-xs font-bold text-slate-100">
-                    {selectedSpec.hostname}
-                  </div>
-                  <div className="text-[11px] text-slate-400">
-                    {selectedSpec.vendor} · {selectedSpec.role}
-                  </div>
+            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3.5">
+              <div>
+                <div className="text-xs font-medium text-slate-500">
+                  Selected Device
+                </div>
+                <h4 className="text-sm font-semibold text-slate-900 mt-0.5">
+                  {selectedSpec.hostname}
+                </h4>
+                <div className="text-xs text-slate-500">
+                  {selectedSpec.vendor}
                 </div>
               </div>
 
-              {/* Plain-English Explanation for Non-Technical / Sales */}
-              <div className="p-3 rounded bg-slate-950/90 border border-emerald-500/30 space-y-1">
-                <div className="text-[10px] font-mono uppercase text-emerald-400 font-semibold">
-                  Plain-English Summary
-                </div>
-                <p className="text-xs text-slate-200 leading-relaxed">
-                  {describeNodeInPlainEnglish(
-                    selectedSpec,
-                    cutoverMode === "after"
-                  )}
-                </p>
-              </div>
+              {/* 1 Short Plain-English Explanation */}
+              <p className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-700 leading-relaxed">
+                {describeNodeShort(selectedSpec, cutoverMode === "after")}
+              </p>
 
-              {/* Technical Spec for Network Engineer */}
-              <div className="space-y-1.5 pt-1 text-xs font-mono">
-                <div className="flex items-center gap-1.5 text-[10px] uppercase text-sky-400 pb-1">
-                  <Cpu className="w-3.5 h-3.5" />
-                  <span>Network Engineer Spec</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">IPv4 / Subnet:</span>
-                  <span className="text-emerald-300">{selectedSpec.ip}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Purdue Level:</span>
-                  <span className="text-sky-300">
-                    {selectedSpec.purdueLevel}
+              {/* Compact Key-Value Specs */}
+              <div className="divide-y divide-slate-100 text-xs">
+                <div className="py-1.5 flex items-center justify-between gap-2">
+                  <span className="text-slate-500">IP Address</span>
+                  <span className="font-mono font-medium text-slate-900">
+                    {selectedSpec.ip}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">VLAN / Trunk:</span>
-                  <span className="text-slate-200">{selectedSpec.vlan}</span>
+                <div className="py-1.5 flex items-center justify-between gap-2">
+                  <span className="text-slate-500">Zone</span>
+                  <span className="font-mono font-medium text-slate-900">
+                    {selectedSpec.purdueLevel} · {selectedSpec.vlan}
+                  </span>
+                </div>
+                <div className="py-1.5 flex items-center justify-between gap-2">
+                  <span className="text-slate-500">Role</span>
+                  <span className="font-medium text-slate-900 text-right">
+                    {selectedSpec.role}
+                  </span>
                 </div>
               </div>
 
               {(selectedSpec.isShadowAsset || selectedSpec.isRogueBypass) && (
-                <div className="p-2.5 rounded bg-rose-950/40 border border-rose-500/40 text-[11px] text-rose-200 leading-relaxed">
-                  <div className="font-mono font-bold text-rose-300 mb-0.5">
-                    HOW CONDUITAI CAUGHT THIS
-                  </div>
+                <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-800 leading-snug">
+                  <span className="font-semibold">Discovery Note: </span>
                   {selectedSpec.isRogueBypass
-                    ? "Invisible in perimeter firewall logs! Spotted physically on camera by Meta SAM 3.1 + switch MAC table + packet capture."
-                    : "Missing from customer diagram & Excel inventory; uncovered automatically from switch ARP table + live packet traffic."}
+                    ? "Spotted on camera by SAM 3.1 + switch MAC table."
+                    : "Missing from diagram; caught in switch ARP + PCAP."}
                 </div>
               )}
             </div>
           )}
-
-          {/* Quick Tip for Customer Calls */}
-          <div className="p-3.5 rounded-md bg-slate-900/85 border border-slate-800 text-xs text-slate-300 space-y-1">
-            <div className="text-[10px] font-mono uppercase text-amber-400 font-semibold">
-              💡 Tip During Customer Demo
-            </div>
-            <p className="leading-relaxed text-[11px] text-slate-300">
-              Click between{" "}
-              <strong className="text-rose-300">Today (Firewall)</strong> and{" "}
-              <strong className="text-emerald-300">
-                After (Hardware Diode)
-              </strong>{" "}
-              above to visually show executives how every red attack path
-              disappears while business data keeps flowing upward.
-            </p>
-          </div>
         </div>
       </div>
     </div>
