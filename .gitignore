@@ -1,0 +1,61 @@
+# ==============================================================================
+# ConduitAI — Git Ignore Rules
+# ==============================================================================
+
+# Environment & Secrets (NEVER commit real API keys)
+.env
+.env.*
+!.env.example
+
+# Proprietary / Customer-Specific Hardware Catalogs (Post-Hackathon Protection)
+data/catalogs/private_*.json
+**/private_*.json
+
+# Python Bytecode & Virtual Environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+.uv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# DuckDB Analytical Databases & Write-Ahead Logs
+*.duckdb
+*.duckdb.wal
+*.duckdb.tmp
+
+# Node.js & Next.js Frontend
+node_modules/
+.next/
+out/
+.vercel/
+*.tsbuildinfo
+next-env.d.ts
+
+# Logs & Runtime Artifacts
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+logs/
+
+# OS & Editor Metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+.idea/
+.vscode/*
+!.vscode/extensions.json
