@@ -139,7 +139,7 @@ def test_catalog_and_oui_helpers() -> None:
     assert moxa is not None
     assert "Moxa" in moxa["vendor"]
 
-    assert len(list_scenarios()) == 6
+    assert len(list_scenarios()) == 2
     assert len(list_real_ics_captures()) == 15
     assert len(list_walkthrough_videos()) == 2
 
@@ -190,7 +190,7 @@ async def test_fastapi_rest_endpoints_and_static_files() -> None:
         h_data = r_health.json()
         assert h_data["status"] == "ok"
         assert h_data["catalog_counts"]["archetypes"] == 4
-        assert h_data["catalog_counts"]["scenarios"] == 6
+        assert h_data["catalog_counts"]["scenarios"] == 2
         assert h_data["catalog_counts"]["real_ics_captures"] == 15
 
         # 2. Model stack health (all 7 integrations)
@@ -225,17 +225,17 @@ async def test_fastapi_rest_endpoints_and_static_files() -> None:
         assert r_scen.status_code == 200
         s_data = r_scen.json()
         assert set(s_data.keys()) == {"scenarios", "real_ics_captures", "videos"}
-        assert len(s_data["scenarios"]) == 6
+        assert len(s_data["scenarios"]) == 2
         assert len(s_data["real_ics_captures"]) == 15
         assert len(s_data["videos"]) == 2
 
         # 5. Scenario 1 preview + static image check + 404 check
         r_prev = await client.get(
-            "/api/v1/scenarios/scenario_1_manufacturing/preview"
+            "/api/v1/scenarios/scenario_2_substation/preview"
         )
         assert r_prev.status_code == 200
         prev_data = r_prev.json()
-        assert prev_data["facility_name"] == "Apex Automotive Stamping Plant"
+        assert prev_data["facility_name"] == "GridCore 220kV North Transmission Substation"
         assert all(prev_data["files_verified_on_disk"].values())
 
         diag_url = prev_data["media_urls"]["topology_diagram_url"]
@@ -257,7 +257,7 @@ async def test_fastapi_rest_endpoints_and_static_files() -> None:
 
         r_voice_mp = await client.post(
             "/api/v1/voice/transcribe",
-            data={"scenario_id": "scenario_1_manufacturing"},
+            data={"scenario_id": "scenario_2_substation"},
             files={"file": ("walkdown.wav", b"RIFF\x24\x00\x00\x00WAVEfmt ", "audio/wav")},
         )
         assert r_voice_mp.status_code == 200

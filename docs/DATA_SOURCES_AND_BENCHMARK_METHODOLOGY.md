@@ -1,5 +1,9 @@
 # 📊 ConduitAI — Data Sources, Hybrid OT Dataset Provenance & Benchmark Methodology
 
+> **Current scope (2026-10-28):** the demo and benchmark now use **two plants**: the GridCore substation (`scenario_2_substation`) and the AquaPure water-treatment plant (`scenario_4_water_treatment`). The other four scenarios described below were removed from the app and benchmark and remain only in git history.
+>
+> **Synthetic media:** the cabinet and rack photos are AI-generated images, and the walkthrough videos are rendered by `generate_rack_videos.py`. None of them was photographed or filmed at a real site. The real data in this repo is the 15 public ICS captures in `data/real_ics_captures/`. Measured results are in [`BENCHMARK_SCORECARD.md`](BENCHMARK_SCORECARD.md).
+
 > **Hackathon Submission Reference & Judge Q&A Companion**
 > Designed so engineering, compliance, and evaluation sections can be cited or copied directly into the **Meta Global AI Developer Hackathon** submission writeup, architecture pitch deck, and live technical Q&A.
 

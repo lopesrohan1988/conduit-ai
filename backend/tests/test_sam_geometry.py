@@ -66,9 +66,9 @@ def test_recorded_sam_responses_measure_builtin_photos() -> None:
     root = cfg.resolved_data_dir / "scenarios"
     photos = [
         root / "scenario_2_substation" / "server_rack_open_1u.jpg",
-        root / "scenario_1_manufacturing" / "plc_cabinet_din_rail.jpg",
+        root / "scenario_4_water_treatment" / "plc_cabinet_din_rail.jpg",
         root / "scenario_4_water_treatment" / "rogue_5g_modem_bypass.jpg",
-        root / "scenario_5_oil_gas_pipeline" / "whiteboard_pipeline_topology.jpg",
+        cfg.resolved_data_dir / "visuals" / "whiteboard_pipeline_topology.jpg",
     ]
     insps, mode = asyncio.run(
         inspect_cabinet_photos(photos, gateway=MetaModelGateway(cfg), use_live_llm=False)

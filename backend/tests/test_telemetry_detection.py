@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
-from app.agents.switch_config_agent import parse_switch_cli_dump
 from app.agents.telemetry_duckdb_agent import (
     _classify_flow_tier,
     _collapse_fan_out,
@@ -12,7 +12,6 @@ from app.agents.telemetry_duckdb_agent import (
     run_telemetry_duckdb_agent,
     zone_map_from_assets,
 )
-from app.config import get_settings
 from app.state import AssetNode
 
 
@@ -75,18 +74,25 @@ def test_inbound_ssh_is_red_even_when_labelled_sftp() -> None:
     assert _classify_flow_tier(src_ip="10.2.2.2", dst_ip="10.1.1.1", direction="OT_TO_IT", **common) == "GREEN"
 
 
-def test_smart_building_camera_pivot_is_detected_and_streams_collapsed() -> None:
-    cfg = get_settings()
-    sc = cfg.resolved_data_dir / "scenarios" / "scenario_3_smart_building"
-    sw = parse_switch_cli_dump(sc / "aruba_switch_dump.txt", sc / "asset_inventory.csv")
-    tel = run_telemetry_duckdb_agent(
-        sc / "boundary_capture.pcap",
-        sc / "fortigate_traffic_24h.csv",
-        zone_map=zone_map_from_assets(sw.assets),
-    )
+def _fortigate_csv(tmp_path: Path, rows: list[tuple[str, str, int, str]]) -> Path:
+    lines = ["srcip,dstip,dstport,proto,service,policyname,sentbyte,rcvdbyte,duration_sec"]
+    lines += [f"{src},{dst},{port},6,{svc},TEST,5000,500,10" for src, dst, port, svc in rows]
+    path = tmp_path / "fortigate_traffic_24h.csv"
+    path.write_text("\n".join(lines), encoding="utf-8")
+    return path
+
+
+def test_camera_pivot_is_flagged_and_camera_streams_collapse(tmp_path: Path) -> None:
+    cams = [(f"172.16.40.{i}", "10.80.10.20", 554, "RTSP") for i in range(10, 16)]
+    pivot = [
+        ("172.16.40.13", dst, port, svc)
+        for dst in ("10.80.10.20", "10.80.10.25", "10.80.20.15", "172.16.30.10")
+        for port, svc in ((445, "SMB"), (502, "MODBUS"), (22, "SSH"))
+    ]
+    tel = run_telemetry_duckdb_agent(None, _fortigate_csv(tmp_path, cams + pivot))
     lateral = [f for f in tel.flows if f.lateral_movement_suspected]
-    assert lateral and all(f.src_ip == "172.16.40.33" and f.preliminary_tier == "RED" for f in lateral)
-    assert {445, 22} <= {f.dst_port for f in lateral}
+    assert lateral and all(f.src_ip == "172.16.40.13" and f.preliminary_tier == "RED" for f in lateral)
+    assert {445, 502, 22} == {f.dst_port for f in lateral}
+    # The scanning camera's own RTSP stream is normal peer behaviour and merges with the other cameras
     rtsp = [f for f in tel.flows if f.dst_port == 554]
     assert len(rtsp) == 1 and not rtsp[0].lateral_movement_suspected
-    assert {47808, 1883} <= {f.dst_port for f in tel.flows}

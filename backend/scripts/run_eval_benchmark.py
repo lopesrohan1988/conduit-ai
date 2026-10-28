@@ -1,6 +1,6 @@
-"""Reproducible Multi-Vertical OT & Real ICS PCAP Benchmark Evaluator for ConduitAI.
+"""Reproducible OT Plant & Real ICS PCAP Benchmark Evaluator for ConduitAI.
 
-For each of the 6 vertical scenarios, runs the real LangGraph pipeline on the raw artifacts
+For each benchmark plant scenario, runs the real LangGraph pipeline on the raw artifacts
 (switch dumps, SPAN pcaps, firewall CSVs, cabinet photos, videos, field notes) and scores the
 resulting plan against `benchmark_ground_truth.json`. Ground truth is read only by the scorer.
 
@@ -198,7 +198,7 @@ def run_benchmark(live: bool) -> str:
         "",
         *_summary_rows(scores, variants),
         "",
-        f"Corpus processed: `{totals['packets']:,}` SPAN packets and `{totals['fw_rows']:,}` firewall rows across 6 verticals.",
+        f"Corpus processed: `{totals['packets']:,}` SPAN packets and `{totals['fw_rows']:,}` firewall rows across {len(per_scenario)} plants.",
         "",
     ]
 
@@ -279,7 +279,7 @@ def run_benchmark(live: bool) -> str:
         "",
         "## Caveats",
         "",
-        "- The six vertical scenarios are synthetic and were authored alongside the parsers; treat "
+        "- The plant scenarios are synthetic and were authored alongside the parsers; treat "
         "perception scores (assets, shadows, peak) as regression tests, not generalisation evidence.",
         "- The kernel `os.pipe()` twin is a mechanism demo and is not counted as an accuracy metric.",
         "- Live results vary run to run; re-run with `--live` to reproduce.",

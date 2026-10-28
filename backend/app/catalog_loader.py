@@ -32,12 +32,8 @@ from app.state import (
 
 # Scenario -> primary walkthrough video filename in `data/videos/`
 _SCENARIO_VIDEO_MAP: dict[str, str] = {
-    "scenario_1_manufacturing": "rack_1u_slot_walkthrough.mp4",
     "scenario_2_substation": "rack_1u_slot_walkthrough.mp4",
-    "scenario_3_smart_building": "rack_1u_slot_walkthrough.mp4",
     "scenario_4_water_treatment": "cabinet_rogue_modem_pan.mp4",
-    "scenario_5_oil_gas_pipeline": "cabinet_rogue_modem_pan.mp4",
-    "scenario_6_pharma_cleanroom": "rack_1u_slot_walkthrough.mp4",
 }
 
 

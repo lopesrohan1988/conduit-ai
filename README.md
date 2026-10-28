@@ -35,22 +35,21 @@ Power grids, water utilities and factories are still bridged from their Operatio
 
 Every number below is computed by [`backend/scripts/run_eval_benchmark.py`](backend/scripts/run_eval_benchmark.py). The script runs the real pipeline on each scenario's raw files and only then scores the plan against [`benchmark_ground_truth.json`](data/evals/benchmark_ground_truth.json). The pipeline never reads ground truth. Full output: [**`docs/BENCHMARK_SCORECARD.md`**](docs/BENCHMARK_SCORECARD.md).
 
-| Metric (6 scenarios, 43 labelled flows) | Rule engine only | **Muse Wonder + verifier** |
+| Metric (2 plants, 13 labelled flows) | Rule engine only | **Muse Wonder + verifier** |
 | :--- | :--- | :--- |
-| Hardware BoM exact (archetypes + quantity) | 4/6 | **5/6** |
-| Flow Green/Amber/Red tier correct | 40/43 (93.0%) | 40/43 (93.0%) |
-| Critical violations severed at L1 | 9/10 (90%) | 9/10 (90%) |
+| Hardware BoM exact (archetypes + quantity) | 1/2 | **2/2** |
+| Flow Green/Amber/Red tier correct | 13/13 | 13/13 |
+| Critical violations severed at L1 | 4/4 | 4/4 |
 | Unsafe passes (must-block flow graded GREEN) | 0 | 0 |
-| Shadow / rogue assets found | 13/13 | 13/13 |
+| Shadow / rogue assets found | 4/4 | 4/4 |
 
 *The live column is one run; Muse Wonder's output varies a little between runs, so re-run `--live` to reproduce.*
 
-- **Where the model adds value:** design choices the rule engine can't make. It picks a field diode plus a video diode for the water plant's mixed PLC + camera traffic, and adds an enterprise diode beside the gateway in the pharma suite.
-- **The verifier catches the model.** In the smart-building run, Muse Wonder first proposed relaying the compromised camera's SMB scan through an SFTP relay. The verifier rejected it (lateral movement must be severed), and the model revised the plan. The Compatibility tab shows each attempt and its violations.
-- **Measured vision changes the answer at one site.** The manufacturing site's answer key expects a 1U rack diode, but its photos show only a DIN-rail cabinet (the rack appears only in a synthetic video). SAM measures 0 free rack units there. The verifier rejected all three of Muse Wonder's rack-diode proposals, and the DIN-mounted alternatives can't proxy the site's OPC-UA and SQL flows. That BoM miss is a real conflict in the scenario's evidence, not a parsing error.
-- **The remaining 3 flow misses** are flows listed in the answer key that don't exist in the scenario's capture or logs (S3 syslog, S3 RDP), or are listed with IPs that don't match the traffic (S5 SMB). They are not counted as wins.
+- **Where the model adds value:** the water plant mixes PLC polling with camera streams. The rule engine picks one video diode; Muse Wonder picks a field diode for the PLCs plus a video diode for the cameras, which matches the answer key.
+- **The verifier catches the model.** At the substation, Muse Wonder's first kit couldn't proxy IEC-104, the substation's main telemetry protocol. The verifier rejected it and the model fixed the kit on attempt 2. The Compatibility tab shows each attempt and its violations.
+- **With only 13 labelled flows, these scores are a demo sanity check, not a statistical claim.**
 
-> The six scenarios are synthetic and were written alongside the parsers. Treat perception scores (assets, shadows, peak Mbps) as regression tests, not generalisation evidence. The parsers are also run against **15 real public ICS captures** (CISA, UIUC ITI, Digital Bond): 13 yield Layer-7 decodes.
+> Both plants are synthetic (see *What is synthetic* below) and were written alongside the parsers. Treat perception scores (assets, shadows, peak Mbps) as regression tests, not generalisation evidence. The parsers are also run against **15 real public ICS captures** (CISA, UIUC ITI, Digital Bond): 13 yield Layer-7 decodes.
 
 ---
 
@@ -148,10 +147,14 @@ flowchart LR
 
 ---
 
-## 🏭 Six Benchmark Scenarios
+## 🏭 Two Demo Plants
 
-| Scenario | Profile | Key protocols, peak | Cutover challenge |
+| Plant | Profile | Key protocols, peak | What the client sees |
 | :--- | :--- | :--- | :--- |
+| **1. GridCore 220 kV Substation** | SEL / ABB / GE IEDs in a control-room rack | IEC-104, DNP3, Modbus, Syslog, 42 Mbps | Today an IT host can send an IEC-104 breaker-trip command and open SSH sessions into the substation. A field diode in the measured free rack space cuts both, while telemetry keeps flowing out |
+| **2. AquaPure Water Treatment** | Chlorine dosing, ControlLogix, DIN-rail cabinets | EtherNet/IP CIP, Modbus, VNC, 65 Mbps | A cellular modem in the cabinet bypasses the firewall entirely. A diode alone isn't enough: the modem must be removed, and the PLC and camera traffic need two diodes |
+
+--- | :--- | :--- | :--- |
 | **1. Apex Automotive Stamping** | Siemens / Rockwell / Schneider line | S7comm, Modbus, OPC-DA DCOM, OPC-UA, SMBv1, 85 Mbps | Historian polling, DCOM dynamic ports, rogue Modbus FC 16 write, 3 shadow PLCs |
 | **2. GridCore 220 kV Substation** | SEL / ABB / GE IEDs | IEC-104, DNP3, Modbus, Syslog, 42 Mbps | Inbound IEC-104 TypeID 45 breaker trip, inbound SSH, 2 shadow relays |
 | **3. MetroCorp Smart Building** | 48 IP cameras + BMS | RTSP, BACnet/IP, MQTT, 420 Mbps | Compromised camera `172.16.40.33` scanning SMB / Modbus / SSH |
@@ -188,7 +191,7 @@ uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8008
 cd frontend && npm install && npm run dev
 ```
 
-Open **http://localhost:3000**. Pick one of the six sample sites and press **Run Analysis**. Alternatively, use **Upload** on each row of the Site Files checklist (traffic logs accept several files at once), then **Analyze Uploaded Files**.
+Open **http://localhost:3000**. Pick one of the two demo plants and press **Run Analysis**. Alternatively, use **Upload** on each row of the Site Files checklist (traffic logs accept several files at once), then **Analyze Uploaded Files**.
 
 **Reproduce the benchmark:**
 
@@ -204,7 +207,19 @@ uv run pytest -q
 ## 📜 Provenance
 
 - The git history starts on **2026-10-26**, the first day of the hackathon build window. Application code in [`backend/`](backend/) and [`frontend/`](frontend/) was written during the event.
-- The real industrial captures in [`data/real_ics_captures/`](data/real_ics_captures/) come from public repositories: US CISA `cisagov`, UIUC ITI (CC-BY-4.0) and Digital Bond. The six vertical scenarios are synthetic. Sources and SHA-256 checksums are listed in [`docs/DATA_SOURCES_AND_BENCHMARK_METHODOLOGY.md`](docs/DATA_SOURCES_AND_BENCHMARK_METHODOLOGY.md).
+- The real industrial captures in [`data/real_ics_captures/`](data/real_ics_captures/) come from public repositories: US CISA `cisagov`, UIUC ITI (CC-BY-4.0) and Digital Bond. Sources and SHA-256 checksums are listed in [`docs/DATA_SOURCES_AND_BENCHMARK_METHODOLOGY.md`](docs/DATA_SOURCES_AND_BENCHMARK_METHODOLOGY.md).
+
+### What is synthetic
+
+No real customer site was used. Everything in the two demo plants is generated:
+
+| Artifact | How it was made |
+| :--- | :--- |
+| SPAN `.pcap` captures, firewall CSVs, switch CLI dumps, asset inventories | Generated by scripts in this repo, with protocol-valid packets and Layer-7 payloads |
+| Cabinet and rack photos (`*.jpg` in `data/scenarios/`, `data/visuals/`) | AI-generated images, not photographs of real sites. SAM 3.1 still measures them, and the scale comes from standard rack and DIN-rail dimensions |
+| Walkthrough videos (`data/videos/*.mp4`) | Rendered by [`generate_rack_videos.py`](data/scripts/generate_rack_videos.py) |
+| Field voice notes | Sample transcripts. Live transcription runs on audio you upload or record |
+| Answer key (`benchmark_ground_truth.json`) | Written by the author alongside the scenarios |
 
 ## 📄 License
 

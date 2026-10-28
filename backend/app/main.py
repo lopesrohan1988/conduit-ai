@@ -103,7 +103,7 @@ if settings.data_dir.exists():
 class RackCardRequest(BaseModel):
     """Request body for generating an annotated rack/DIN installation card via `muse-image-1.0`."""
 
-    scenario_id: str | None = "scenario_1_manufacturing"
+    scenario_id: str | None = "scenario_2_substation"
     prompt_override: str | None = None
     size: str = "1024x1024"
 
@@ -111,7 +111,7 @@ class RackCardRequest(BaseModel):
 class TwinVerifyRequest(BaseModel):
     """Request body for on-demand Layer-1/2 Digital Twin verification."""
 
-    scenario_id: str = "scenario_1_manufacturing"
+    scenario_id: str = "scenario_2_substation"
     use_modal_cloud: bool = False
 
 
@@ -648,7 +648,7 @@ async def generate_rack_installation_card(req: RackCardRequest) -> dict[str, Any
     if req.prompt_override:
         prompt = req.prompt_override
     else:
-        sc_id = req.scenario_id or "scenario_1_manufacturing"
+        sc_id = req.scenario_id or "scenario_2_substation"
         try:
             plan = await _resolve_scenario_plan(sc_id)
             rec = plan.conduit_sizing_recommendations[0]

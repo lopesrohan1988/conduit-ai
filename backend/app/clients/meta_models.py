@@ -29,33 +29,6 @@ _SAM31_BOX_PATTERN = re.compile(
 )
 
 _SCENARIO_DEMO_TRANSCRIPTS: dict[str, dict[str, Any]] = {
-    "scenario_1_manufacturing": {
-        "raw_transcript": (
-            "Field walkdown at Apex Automotive Stamping Line 4: the press-side PLC enclosure only has "
-            "35 millimeter DIN rail space, zero 19-inch rack rails, so any 1U enterprise diode has to "
-            "mount upstairs in the Level 3 OT control room rack RU-14 where we confirmed two empty 1U "
-            "slots and six spare RJ45 ports. Also note three retrofitted S7-1200 and CompactLogix skids "
-            "on ports 15 through 17 were never added to the 2021 Visio diagram."
-        ),
-        "observations": [
-            {
-                "observation_id": "VOBS-01",
-                "category": "PHYSICAL_MOUNTING",
-                "extracted_entity": "Level 3 Control Room 19-inch Rack (RU-14, 2 empty 1U slots)",
-                "engineering_impact": "Mount ARCH_C_ENTERPRISE_1U_DIODE in L3 control room rack rather than DIN-only press skid.",
-                "severity": "WARNING",
-                "timestamp_offset_sec": 2.4,
-            },
-            {
-                "observation_id": "VOBS-02",
-                "category": "ROGUE_ASSET",
-                "extracted_entity": "3x Retrofitted PLCs on Stratix Gi1/0/15-17 (.15, .16, .17)",
-                "engineering_impact": "Reconcile undocumented shadow PLCs and include their Modbus/S7comm reads in TX local poller.",
-                "severity": "WARNING",
-                "timestamp_offset_sec": 9.8,
-            },
-        ],
-    },
     "scenario_2_substation": {
         "raw_transcript": (
             "GridCore 220kV North Substation relay house inspection: Bay 4 still has two temporary "
@@ -79,24 +52,6 @@ _SCENARIO_DEMO_TRANSCRIPTS: dict[str, dict[str, Any]] = {
                 "engineering_impact": "Flag commissioning relays violating NERC CIP-010 baseline inventory.",
                 "severity": "WARNING",
                 "timestamp_offset_sec": 1.8,
-            },
-        ],
-    },
-    "scenario_3_smart_building": {
-        "raw_transcript": (
-            "MetroCorp Tower MDF closet check: 48 Hikvision PoE cameras on VLAN 40 are streaming 420 "
-            "megabits sustained into Corporate Milestone VMS, plus two loading-dock cameras on ports "
-            "47 and 48 aren't on the riser sheet. We have one open 1U slot in the MDF rack—need a "
-            "1-gigabit video diode to stop compromised camera firmware from pivoting into BMS chillers."
-        ),
-        "observations": [
-            {
-                "observation_id": "VOBS-01",
-                "category": "PROTOCOL_REQUIREMENT",
-                "extracted_entity": "48x RTSP 1080p camera feeds (420 Mbps sustained) + BACnet/MQTT",
-                "engineering_impact": "Select ARCH_B_VIDEO_IOT_DIODE (800 Mbps sustained, 64x 1080p RTSP ceiling) in 1U half-rack slot.",
-                "severity": "INFO",
-                "timestamp_offset_sec": 3.0,
             },
         ],
     },
@@ -124,51 +79,6 @@ _SCENARIO_DEMO_TRANSCRIPTS: dict[str, dict[str, Any]] = {
                 "engineering_impact": "Prohibit 1U_19INCH_RACK appliances; deploy DIN-rail ARCH_A_FIELD_DIODE + ARCH_B_VIDEO_IOT_DIODE.",
                 "severity": "WARNING",
                 "timestamp_offset_sec": 9.5,
-            },
-        ],
-    },
-    "scenario_5_oil_gas_pipeline": {
-        "raw_transcript": (
-            "PermianStream Compressor Station CS-04 walkdown: NEMA-4X compressor house enclosure runs "
-            "from minus 20 to plus 65 Celsius with DIN-rail mounting only. Houston Gas Control polls "
-            "ROC800 RTUs over DNP3 and Triconex ESD status registers read-only over Ku-band VSAT, "
-            "and we spotted an undocumented Lantronix RS-485 serial box on the odorizer skid with Telnet open."
-        ),
-        "observations": [
-            {
-                "observation_id": "VOBS-01",
-                "category": "PHYSICAL_MOUNTING",
-                "extracted_entity": "NEMA-4X wide-temp (-40 to +75C) DIN-rail compressor cabinet",
-                "engineering_impact": "Select ruggedized fanless ARCH_A_FIELD_DIODE (DIN_RAIL, 65mm width).",
-                "severity": "WARNING",
-                "timestamp_offset_sec": 2.1,
-            },
-            {
-                "observation_id": "VOBS-02",
-                "category": "ROGUE_ASSET",
-                "extracted_entity": "Undocumented Lantronix XPort serial server (.48) with cleartext Telnet/23",
-                "engineering_impact": "Sever inbound TCP/23 at Layer 1/2 and disable Telnet on serial gateway.",
-                "severity": "CRITICAL",
-                "timestamp_offset_sec": 10.4,
-            },
-        ],
-    },
-    "scenario_6_pharma_cleanroom": {
-        "raw_transcript": (
-            "BioVance ISO-5 sterile biologics interstitial rack audit: 19-inch GMP server rack has "
-            "two open 1U slots. Important operational constraint—Werum PAS-X MES in VLAN 90 must "
-            "dispatch X.509-signed ISA-88 master batch recipes into the bioreactor batch executive on "
-            "VLAN 60, so a pure one-way diode will break batch startup unless we use an OT-polled "
-            "controlled gateway for VLAN 60 while keeping Grade-A particle counters strictly unidirectional."
-        ),
-        "observations": [
-            {
-                "observation_id": "VOBS-01",
-                "category": "PROTOCOL_REQUIREMENT",
-                "extracted_entity": "Mandatory Werum PAS-X MES X.509-signed ISA-88 Master Batch Recipe download",
-                "engineering_impact": "Deploy ARCH_D_BIDIRECTIONAL_GATEWAY (OT-originated TCP SYN lock + schema guard) for VLAN 60 and ARCH_C_ENTERPRISE_1U_DIODE for VLAN 65.",
-                "severity": "WARNING",
-                "timestamp_offset_sec": 4.7,
             },
         ],
     },
@@ -838,10 +748,10 @@ class MetaModelGateway:
                 if not self.settings.demo_cache_fallback:
                     raise
 
-        effective_scenario = scenario_id or "scenario_1_manufacturing"
+        effective_scenario = scenario_id or "scenario_2_substation"
         demo_entry = _SCENARIO_DEMO_TRANSCRIPTS.get(
             effective_scenario,
-            _SCENARIO_DEMO_TRANSCRIPTS["scenario_1_manufacturing"],
+            _SCENARIO_DEMO_TRANSCRIPTS["scenario_2_substation"],
         )
         return VoiceFieldNoteTranscript(
             scenario_id=effective_scenario,

@@ -281,9 +281,9 @@ export default function SiteIntakeStep({
         onChange={handleFileChange}
       />
 
-      {/* Left Card (7 cols): Compact 2x3 Site Picker + 5-Row Offline Files Checklist + CTA */}
+      {/* Left Card (7 cols): Plant Picker + 5-Row Offline Files Checklist + CTA */}
       <div className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col justify-between gap-5">
-        {/* 2x3 Sample Facility Grid */}
+        {/* Demo Plant Picker */}
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-sm font-semibold text-slate-900">
@@ -294,7 +294,7 @@ export default function SiteIntakeStep({
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             {scenarios.map((sc) => {
               const isSelected = sc.id === selectedScenario.id;
               const narrative = getGuidedNarrative(sc);

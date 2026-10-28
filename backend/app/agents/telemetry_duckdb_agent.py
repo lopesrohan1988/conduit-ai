@@ -381,7 +381,7 @@ def query_firewall_csv_duckdb(csv_path: str | Path | None) -> dict[str, Any]:
             ).fetchone()
             flow_rows = con.execute(
                 f"""
-                SELECT srcip, dstip, CAST(dstport AS INTEGER) AS dstport, UPPER(proto) AS proto,
+                SELECT srcip, dstip, CAST(dstport AS INTEGER) AS dstport, UPPER(CAST(proto AS VARCHAR)) AS proto,
                        service, policyname, COUNT(*) AS sessions,
                        SUM(sentbyte + rcvdbyte) AS total_bytes,
                        MAX((sentbyte + rcvdbyte) * 8.0 / GREATEST(duration_sec, 1) / 1e6) AS peak_sess_mbps
@@ -403,7 +403,7 @@ def query_firewall_csv_duckdb(csv_path: str | Path | None) -> dict[str, Any]:
             ).fetchone()
             flow_rows = con.execute(
                 f"""
-                SELECT src_ip, dst_ip, CAST(dst_port AS INTEGER) AS dstport, UPPER(ip_protocol) AS proto,
+                SELECT src_ip, dst_ip, CAST(dst_port AS INTEGER) AS dstport, UPPER(CAST(ip_protocol AS VARCHAR)) AS proto,
                        app, rule_name, COUNT(*) AS sessions,
                        SUM(bytes) AS total_bytes,
                        MAX(bytes * 8.0 / GREATEST(elapsed_time_sec, 1) / 1e6) AS peak_sess_mbps
@@ -443,7 +443,8 @@ def query_firewall_csv_duckdb(csv_path: str | Path | None) -> dict[str, Any]:
                 "src_ip": str(r[0]),
                 "dst_ip": str(r[1]),
                 "dst_port": int(r[2]),
-                "transport": "UDP" if "UDP" in str(r[3]).upper() else "TCP",
+                # FortiGate logs the IANA protocol number (6/17); PAN-OS and exports may use names
+                "transport": "UDP" if str(r[3]).upper() in {"UDP", "17"} else "TCP",
                 "service": str(r[4] or ""),
                 "rule_name": str(r[5] or ""),
                 "sessions": int(r[6]),

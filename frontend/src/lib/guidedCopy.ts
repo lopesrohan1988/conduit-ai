@@ -12,24 +12,8 @@ export interface GuidedScenarioNarrative {
 }
 
 const SCENARIO_NARRATIVES: Record<string, GuidedScenarioNarrative> = {
-  scenario_1_manufacturing: {
-    selectLabel: "1. Apex Automotive Plant",
-    industryBadge: "Manufacturing",
-    businessGoal:
-      "Block corporate ransomware from stamping presses while keeping 85 Mbps camera quality feeds live.",
-    cabinetFitHeadline:
-      "Fits Control Room 19\" Rack Slot RU-14 (12 spare ports)",
-    cabinetFitPlainText:
-      "Floor cabinet only has DIN rails; SAM 3.1 verified an open 1U slot (RU-14) upstairs in the Control Room rack.",
-    hiddenRiskHeadline:
-      "3 unlisted press PLCs & unauthorized remote PLC write access found",
-    hiddenRiskPlainText:
-      "Controllers .15–.17 were missing from the Visio diagram, and an office PC is writing tonnage registers directly.",
-    salesTalkingPoint:
-      "Your diagram missed 3 live press PLCs—ConduitAI caught them before cutover so your PI Historian never drops a tag.",
-  },
   scenario_2_substation: {
-    selectLabel: "2. GridCore 220kV Substation",
+    selectLabel: "1. GridCore 220kV Substation",
     industryBadge: "Power Grid",
     businessGoal:
       "Meet NERC CIP rules and physically block remote breaker-trip commands for $4,500.",
@@ -44,24 +28,8 @@ const SCENARIO_NARRATIVES: Record<string, GuidedScenarioNarrative> = {
     salesTalkingPoint:
       "For $4,500 in rugged DIN hardware, remote breaker-trip attacks become physically impossible while EMS telemetry stays live.",
   },
-  scenario_3_smart_building: {
-    selectLabel: "3. MetroCorp Smart Building",
-    industryBadge: "Smart Building",
-    businessGoal:
-      "Isolate 48 security cameras & HVAC from corporate HR/badge servers—saving $12,500 via right-sizing.",
-    cabinetFitHeadline:
-      "Fits open 1U slot RU-14 in MDF closet ($8,500 half-rack unit)",
-    cabinetFitPlainText:
-      "SAM 3.1 verified 1U open space below the PoE switch and selected the $8,500 Video Diode over a $21k enterprise unit.",
-    hiddenRiskHeadline:
-      "Compromised PoE camera (.33) actively scanning corporate servers",
-    hiddenRiskPlainText:
-      "Camera 172.16.40.33 is probing badge databases and chiller controls; 2 unlisted dock cameras also discovered.",
-    salesTalkingPoint:
-      "One camera is already probing your corporate network—this $8,500 Video Diode passes pure video frames and blocks all network pivots.",
-  },
   scenario_4_water_treatment: {
-    selectLabel: "4. AquaPure Water Plant (5G Alert)",
+    selectLabel: "2. AquaPure Water Plant (5G Alert)",
     industryBadge: "Water Utility",
     businessGoal:
       "Lock down chlorine dosing against remote tampering inside wet-area NEMA cabinets.",
@@ -76,38 +44,6 @@ const SCENARIO_NARRATIVES: Record<string, GuidedScenarioNarrative> = {
     salesTalkingPoint:
       "Your firewall looked clean because a rogue 5G modem was plugged directly into the chlorine cabinet—we give IT the exact port (Gi1/24) to shut down.",
   },
-  scenario_5_oil_gas_pipeline: {
-    selectLabel: "5. PermianStream Oil Pipeline",
-    industryBadge: "Oil & Gas",
-    businessGoal:
-      "Keep pipeline gas custody metering running even during a corporate IT ransomware incident.",
-    cabinetFitHeadline:
-      "Heat-rated (-40°C to +75°C) fanless DIN diode fits compressor box",
-    cabinetFitPlainText:
-      "Voice note flagged 62°C summer cabinet heat; ConduitAI selected a +75°C rated DIN diode fitting 250mm open rail.",
-    hiddenRiskHeadline:
-      "Plaintext Telnet passwords & ransomware-prone SMB shares over VSAT",
-    hiddenRiskPlainText:
-      "Corporate IT is using unencrypted Telnet to the odorizer and mounting SMB file shares across the satellite link.",
-    salesTalkingPoint:
-      "Open Windows file shares can force a pipeline shutdown during IT ransomware—this $4,500 heat-rated diode keeps gas metering isolated.",
-  },
-  scenario_6_pharma_cleanroom: {
-    selectLabel: "6. BioVance Pharma Cleanroom",
-    industryBadge: "Pharma GMP",
-    businessGoal:
-      "Isolate cleanroom skids without breaking mandatory signed MES batch recipe downloads.",
-    cabinetFitHeadline:
-      "Dual open 1U slots verified in cleanroom interstitial rack",
-    cabinetFitPlainText:
-      "SAM 3.1 confirmed two contiguous 1U slots and 12 spare ports for the Controlled Recipe Gateway + Optical EMS Diode.",
-    hiddenRiskHeadline:
-      "Blind one-way diode would break batch recipes + 2 unvalidated skids found",
-    hiddenRiskPlainText:
-      "Standard one-way diodes block PAS-X recipe handshakes; ConduitAI paired an OT-initiated gateway and flagged 2 unlisted GMP skids.",
-    salesTalkingPoint:
-      "A standard blind diode here would halt drug batch recipes—ConduitAI paired an OT-locked recipe gateway and caught 2 unvalidated skids pre-audit.",
-  },
 };
 
 export function getGuidedNarrative(
@@ -115,7 +51,7 @@ export function getGuidedNarrative(
 ): GuidedScenarioNarrative {
   return (
     SCENARIO_NARRATIVES[scenario.id] ??
-    SCENARIO_NARRATIVES.scenario_1_manufacturing
+    SCENARIO_NARRATIVES.scenario_2_substation
   );
 }
 

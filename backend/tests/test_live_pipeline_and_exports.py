@@ -19,7 +19,7 @@ from app.main import app
 from app.state import ConduitArchitecturePlan, ModalTwinVerificationResult
 
 
-def test_six_vertical_benchmark_100pct_telemetry_and_shadow_accuracy() -> None:
+def test_benchmark_telemetry_and_shadow_accuracy() -> None:
     """Verify real Switch CLI + Scapy PCAP + DuckDB SQL parsers match 100% of ground truth."""
     cfg = get_settings()
     gt_scenarios = load_benchmark_ground_truth()["scenarios"]
@@ -56,10 +56,11 @@ def test_six_vertical_benchmark_100pct_telemetry_and_shadow_accuracy() -> None:
         total_assets += sw.total_discovered_assets
         total_shadows += len(sw.shadow_anomalies)
 
-    assert total_pkts == 183000
-    assert total_fw_rows == 120000
-    assert total_assets == 264
-    assert total_shadows == 13
+    totals = load_benchmark_ground_truth()["benchmark_metadata"]["aggregate_totals"]
+    assert total_pkts == totals["total_pcap_packets"]
+    assert total_fw_rows == totals["total_firewall_csv_rows"]
+    assert total_assets == totals["total_discovered_assets"]
+    assert total_shadows == totals["total_undocumented_shadow_assets"]
 
 
 def test_real_cisa_and_iti_ics_pcaps_dissect_cleanly() -> None:
@@ -88,7 +89,7 @@ async def test_deliverable_exports_drawio_pdf_and_zip() -> None:
     ) as client:
         # 1. drawio XML
         r_xml = await client.get(
-            "/api/v1/assessments/scenario_1_manufacturing/export/drawio"
+            "/api/v1/assessments/scenario_2_substation/export/drawio"
         )
         assert r_xml.status_code == 200
         assert "<mxfile" in r_xml.text
@@ -106,7 +107,7 @@ async def test_deliverable_exports_drawio_pdf_and_zip() -> None:
 
         # 3. Cutover ZIP bundle
         r_zip = await client.get(
-            "/api/v1/assessments/scenario_6_pharma_cleanroom/export/zip"
+            "/api/v1/assessments/scenario_4_water_treatment/export/zip"
         )
         assert r_zip.status_code == 200
         with zipfile.ZipFile(io.BytesIO(r_zip.content), "r") as zf:
@@ -197,7 +198,7 @@ async def test_live_meta_api_sse_and_rack_card_smoke() -> None:
         # 2. Live `muse-image-1.0` rack card generation
         r_card = await client.post(
             "/api/v1/visuals/rack-card",
-            json={"scenario_id": "scenario_1_manufacturing"},
+            json={"scenario_id": "scenario_2_substation"},
         )
         assert r_card.status_code == 200
         card_data = r_card.json()
