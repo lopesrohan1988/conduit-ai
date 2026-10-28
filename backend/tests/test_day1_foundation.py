@@ -62,11 +62,11 @@ def test_settings_paths_and_defaults() -> None:
     assert isinstance(cfg, Settings)
 
     assert cfg.meta_api_base_url == "https://api.meta.ai/v1"
-    assert cfg.muse_spark_model == "muse-spark"
-    assert cfg.muse_wonder_model == "muse-wonder"
+    assert cfg.muse_spark_model == "muse-spark-1.3"
+    assert cfg.muse_wonder_model == "muse-wonder-1.0"
     assert cfg.sam_3_1_model == "sam-3.1"
-    assert cfg.muse_image_model == "muse-image"
-    assert cfg.muse_voice_transcribe_model == "muse-voice-transcribe"
+    assert cfg.muse_image_model == "muse-image-1.0"
+    assert cfg.muse_voice_transcribe_model == "muse-voice-transcribe-1.0"
     assert cfg.muse_code_model == "muse-code"
     assert cfg.baseten_api_base_url == "https://inference.baseten.co/v1"
     assert cfg.baseten_model == "meta-models/muse-spark-open-1026"
@@ -158,7 +158,7 @@ async def test_gateway_routing_and_secret_redaction() -> None:
         [{"role": "user", "content": "size diode"}],
         inference_mode="cloud_meta_api",
     )
-    assert cloud_res["model"] == "muse-wonder"
+    assert cloud_res["model"] == "muse-wonder-1.0"
 
     airgap_res = await gw.route_architect_reasoning(
         [{"role": "user", "content": "size diode"}],
@@ -294,7 +294,7 @@ async def test_sse_assessment_stream_cloud_and_airgapped() -> None:
 
         frames_cloud = _parse_sse_frames(resp_cloud.text)
         assert [f["event"] for f in frames_cloud] == expected_stages
-        assert frames_cloud[5]["data"]["model"] == "muse-wonder"
+        assert frames_cloud[5]["data"]["model"] == "muse-wonder-1.0"
 
         complete_data = frames_cloud[-1]["data"]
         assert complete_data["inference_mode"] == "cloud_meta_api"

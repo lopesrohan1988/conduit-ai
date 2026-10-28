@@ -9,10 +9,13 @@ import {
   FileSpreadsheet,
   FileText,
   Mic,
+  Square,
   Upload,
   Video,
 } from "lucide-react";
 import { ScenarioDataset, UserLensMode } from "@/types/conduit";
+import { API_BASE } from "@/lib/api";
+import { encodeAudioBlobToWav } from "@/lib/hydrateScenario";
 import {
   buildNetworkEngineerRequestTemplate,
   getGuidedNarrative,
@@ -24,6 +27,10 @@ interface SiteIntakeStepProps {
   onSelectScenario: (id: string) => void;
   userLens: UserLensMode;
   onAnalyzeAndAdvance: () => void;
+  onLivePayloadHydrate?: (
+    payload: Record<string, unknown>,
+    isCustomUpload?: boolean
+  ) => void;
 }
 
 export default function SiteIntakeStep({
@@ -32,11 +39,16 @@ export default function SiteIntakeStep({
   onSelectScenario,
   userLens,
   onAnalyzeAndAdvance,
+  onLivePayloadHydrate,
 }: SiteIntakeStepProps) {
   const [copiedChecklist, setCopiedChecklist] = useState(false);
   const [customAttachedNames, setCustomAttachedNames] = useState<
     Record<string, string>
   >({});
+  const [uploadingSlot, setUploadingSlot] = useState<string | null>(null);
+  const [isRecordingMic, setIsRecordingMic] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [pendingSlotKey, setPendingSlotKey] = useState<string | null>(null);
 
@@ -58,15 +70,113 @@ export default function SiteIntakeStep({
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && pendingSlotKey) {
-      setCustomAttachedNames((prev) => ({
-        ...prev,
-        [pendingSlotKey]: file.name,
-      }));
+  const toggleMicRecording = async () => {
+    if (isRecordingMic && mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+      setIsRecordingMic(false);
+      return;
     }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+      recorder.ondataavailable = (ev) => {
+        if (ev.data.size > 0) audioChunksRef.current.push(ev.data);
+      };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const rawBlob = new Blob(audioChunksRef.current, {
+          type: recorder.mimeType || "audio/webm",
+        });
+        setUploadingSlot("voice");
+        const wavBlob = await encodeAudioBlobToWav(rawBlob);
+        const recName = `live_walkdown_${Date.now().toString().slice(-4)}.wav`;
+        setCustomAttachedNames((prev) => ({ ...prev, voice: recName }));
+
+        const form = new FormData();
+        form.append("file", wavBlob, recName);
+        form.append("scenario_id", selectedScenario.id);
+        try {
+          const res = await fetch(`${API_BASE}/api/v1/voice/transcribe`, {
+            method: "POST",
+            body: form,
+          });
+          if (res.ok) {
+            const vt = (await res.json()) as Record<string, unknown>;
+            onLivePayloadHydrate?.({ voice_transcript: vt }, false);
+          }
+        } catch {
+          // Offline fallback preserved
+        } finally {
+          setUploadingSlot(null);
+        }
+      };
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setIsRecordingMic(true);
+    } catch {
+      setIsRecordingMic(false);
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     e.target.value = "";
+    if (!file || !pendingSlotKey) return;
+
+    const slot = pendingSlotKey;
+    setCustomAttachedNames((prev) => ({
+      ...prev,
+      [slot]: file.name,
+    }));
+    setUploadingSlot(slot);
+
+    const form = new FormData();
+    try {
+      if (slot === "voice") {
+        form.append("file", file);
+        form.append("scenario_id", selectedScenario.id);
+        const res = await fetch(`${API_BASE}/api/v1/voice/transcribe`, {
+          method: "POST",
+          body: form,
+        });
+        if (res.ok) {
+          const vt = (await res.json()) as Record<string, unknown>;
+          onLivePayloadHydrate?.({ voice_transcript: vt }, false);
+        }
+      } else {
+        const lower = file.name.toLowerCase();
+        const fieldMap: Record<string, string> = {
+          diagram: "diagram_file",
+          cabinet: "cabinet_file",
+          video: "video_file",
+          logs: lower.endsWith(".csv")
+            ? lower.includes("inventory")
+              ? "asset_inventory_file"
+              : "firewall_csv_file"
+            : lower.endsWith(".txt") || lower.endsWith(".conf")
+              ? "switch_dump_file"
+              : "pcap_file",
+        };
+        form.append(fieldMap[slot] ?? "pcap_file", file);
+        form.append("facility_name", `${selectedScenario.shortLabel} (Custom Intake)`);
+        const res = await fetch(
+          `${API_BASE}/api/v1/assessments/custom/analyze?live_llm=true`,
+          {
+            method: "POST",
+            body: form,
+          }
+        );
+        if (res.ok) {
+          const body = (await res.json()) as Record<string, unknown>;
+          onLivePayloadHydrate?.(body, true);
+        }
+      }
+    } catch {
+      // Offline mode fallback preserved
+    } finally {
+      setUploadingSlot(null);
+    }
   };
 
   const artifacts = [
@@ -225,8 +335,35 @@ export default function SiteIntakeStep({
 
                 <div className="flex items-center gap-2 shrink-0">
                   <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    Ready
+                    {uploadingSlot === art.key
+                      ? "Analyzing..."
+                      : customAttachedNames[art.key]
+                        ? "Live Synced"
+                        : "Ready"}
                   </span>
+                  {art.key === "voice" && (
+                    <button
+                      type="button"
+                      onClick={toggleMicRecording}
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md border text-xs font-medium transition-colors ${
+                        isRecordingMic
+                          ? "bg-rose-600 text-white border-rose-600 animate-pulse"
+                          : "bg-white hover:bg-slate-50 border-slate-200 text-slate-700"
+                      }`}
+                    >
+                      {isRecordingMic ? (
+                        <>
+                          <Square className="w-3 h-3 fill-current" />
+                          <span>Stop Mic</span>
+                        </>
+                      ) : (
+                        <>
+                          <Mic className="w-3 h-3 text-rose-600" />
+                          <span>Record</span>
+                        </>
+                      )}
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => triggerSlotUpload(art.key)}

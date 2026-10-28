@@ -56,11 +56,11 @@ class Settings(BaseSettings):
     # 1. Meta Model API
     meta_model_api_key: str = Field(default="")
     meta_api_base_url: str = Field(default="https://api.meta.ai/v1")
-    muse_spark_model: str = Field(default="muse-spark")
-    muse_wonder_model: str = Field(default="muse-wonder")
+    muse_spark_model: str = Field(default="muse-spark-1.3")
+    muse_wonder_model: str = Field(default="muse-wonder-1.0")
     sam_3_1_model: str = Field(default="sam-3.1")
-    muse_image_model: str = Field(default="muse-image")
-    muse_voice_transcribe_model: str = Field(default="muse-voice-transcribe")
+    muse_image_model: str = Field(default="muse-image-1.0")
+    muse_voice_transcribe_model: str = Field(default="muse-voice-transcribe-1.0")
     muse_code_model: str = Field(default="muse-code")
 
     # 2. Baseten Open-Weights Inference

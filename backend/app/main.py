@@ -5,20 +5,27 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
+import tempfile
 import time
 from collections.abc import AsyncGenerator
+from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from starlette.datastructures import UploadFile as StarletteUploadFile
+from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
+from starlette.datastructures import UploadFile as StarletteUploadFile
 
 from app import __version__
+from app.agents.architect_sizing_agent import generate_switch_cutover_cli
+from app.agents.langgraph_workflow import (
+    build_conduit_langgraph,
+    build_scenario_initial_state,
+)
 from app.catalog_loader import (
     build_scenario_architecture_plan,
-    build_scenario_twin_verification,
     get_scenario_preview,
     list_real_ics_captures,
     list_scenarios,
@@ -28,7 +35,13 @@ from app.catalog_loader import (
 )
 from app.clients.meta_models import MetaModelGateway
 from app.config import get_settings
-from app.state import InferenceMode, VoiceFieldNoteTranscript
+from app.exporters.deliverables import (
+    export_cutover_zip_bundle,
+    export_drawio_xml,
+    export_executive_pdf,
+)
+from app.state import ConduitGraphState, InferenceMode, VoiceFieldNoteTranscript
+from app.twin.modal_cutover_twin import verify_cutover_in_digital_twin
 
 settings = get_settings()
 gateway = MetaModelGateway(settings=settings)
@@ -60,6 +73,21 @@ if settings.data_dir.exists():
         StaticFiles(directory=str(settings.data_dir)),
         name="static_data",
     )
+
+
+class RackCardRequest(BaseModel):
+    """Request body for generating an annotated rack/DIN installation card via `muse-image-1.0`."""
+
+    scenario_id: str | None = "scenario_1_manufacturing"
+    prompt_override: str | None = None
+    size: str = "1024x1024"
+
+
+class TwinVerifyRequest(BaseModel):
+    """Request body for on-demand Layer-1/2 Digital Twin verification."""
+
+    scenario_id: str = "scenario_1_manufacturing"
+    use_modal_cloud: bool = False
 
 
 @app.get("/api/v1/health", tags=["Health"])
@@ -172,7 +200,7 @@ async def transcribe_voice_field_note(
     request: Request,
     scenario_id: str | None = Query(default=None),
 ) -> VoiceFieldNoteTranscript:
-    """Transcribe an OT engineer's field audio note via Meta `muse-voice-transcribe`."""
+    """Transcribe an OT engineer's field audio note via Meta `muse-voice-transcribe-1.0`."""
     audio_bytes: bytes | None = None
     filename = "field_walkdown_note.wav"
     resolved_scenario_id = scenario_id
@@ -230,13 +258,26 @@ def _normalize_inference_mode(raw_mode: str | None) -> InferenceMode:
     )
 
 
+_PROGRESS_BY_STAGE: dict[str, int] = {
+    "sam_3_1_vision": 15,
+    "muse_voice_asr": 28,
+    "baseten_switch_cli": 44,
+    "duckdb_telemetry": 58,
+    "muse_spark_reconcile": 72,
+    "muse_wonder_or_glimmer_architect": 88,
+    "modal_socket_twin": 96,
+}
+
+
 @app.get("/api/v1/assessments/{scenario_id}/stream", tags=["Assessments"])
 async def stream_scenario_assessment(
     scenario_id: str,
     inference_mode: str | None = Query(default=None),
     step_delay_ms: int = Query(default=40, ge=0, le=1000),
+    live_llm: bool | None = Query(default=None),
+    use_modal_cloud: bool = Query(default=False),
 ) -> EventSourceResponse:
-    """Stream end-to-end multi-agent OT discovery, sizing, and Digital Twin SSE events."""
+    """Stream real-time LangGraph multi-agent OT discovery, sizing, and Digital Twin SSE events."""
     preview = get_scenario_preview(scenario_id)
     if preview is None:
         raise HTTPException(
@@ -245,183 +286,132 @@ async def stream_scenario_assessment(
         )
 
     effective_mode: InferenceMode = _normalize_inference_mode(inference_mode)
-    architect_model = (
-        settings.muse_glimmer_model
-        if effective_mode == "air_gapped_open_weights"
-        else settings.muse_wonder_model
+    effective_live_llm = (
+        live_llm
+        if live_llm is not None
+        else (
+            step_delay_ms > 0
+            and settings.meta_api_configured
+            and effective_mode == "cloud_meta_api"
+        )
     )
 
-    plan = build_scenario_architecture_plan(scenario_id)
-    twin_result = build_scenario_twin_verification(scenario_id, plan)
-    voice_note = await gateway.transcribe_muse_voice(scenario_id=scenario_id)
+    initial_state = build_scenario_initial_state(
+        scenario_id, inference_mode=effective_mode, settings=settings
+    )
+    compiled_graph, scratch = build_conduit_langgraph(
+        settings=settings,
+        gateway=gateway,
+        use_live_llm=effective_live_llm,
+        use_modal_cloud=use_modal_cloud,
+    )
 
     async def _event_generator() -> AsyncGenerator[dict[str, str], None]:
         started = time.perf_counter()
         delay_sec = step_delay_ms / 1000.0
-        metrics = preview["telemetry_metrics"]
-        flow_counts = preview["flow_counts"]
-        primary_sizing = plan.conduit_sizing_recommendations[0]
+        accumulated_state: dict[str, Any] = dict(initial_state)
+        step_idx = 0
 
-        stages: list[tuple[str, dict[str, Any]]] = [
-            (
-                "sam_3_1_vision",
-                {
-                    "stage": "sam_3_1_vision",
+        async for chunk in compiled_graph.astream(initial_state, stream_mode="updates"):
+            for node_name, update_dict in chunk.items():
+                accumulated_state.update(update_dict)
+                events = update_dict.get("agent_events") or []
+                ev_meta = events[-1] if events else {}
+
+                if delay_sec > 0:
+                    await asyncio.sleep(delay_sec)
+
+                headline = str(ev_meta.get("headline") or f"Completed {node_name}")
+                model_used = str(ev_meta.get("model") or node_name)
+                source_mode = str(ev_meta.get("source_mode") or "deterministic")
+
+                details: dict[str, Any] = {"source_mode": source_mode}
+                if node_name == "sam_3_1_vision":
+                    cabs = accumulated_state.get("cabinet_inspections") or []
+                    details.update(
+                        {
+                            "topology_diagram_url": preview["media_urls"]["topology_diagram_url"],
+                            "site_photo_urls": preview["media_urls"]["site_photo_urls"],
+                            "walkthrough_video_url": preview["media_urls"]["walkthrough_video_url"],
+                            "cabinet_inspections": [c.model_dump() for c in cabs],
+                        }
+                    )
+                elif node_name == "muse_voice_asr" and accumulated_state.get("voice_transcript"):
+                    details.update(accumulated_state["voice_transcript"].model_dump())
+                elif node_name == "baseten_switch_cli":
+                    sw = scratch.get("switch_audit")
+                    if sw:
+                        details.update(
+                            {
+                                "switch_hostname": sw.switch_hostname,
+                                "total_discovered_assets": sw.total_discovered_assets,
+                                "documented_assets": sw.documented_assets_count,
+                                "undocumented_count": len(sw.shadow_anomalies),
+                            }
+                        )
+                elif node_name == "duckdb_telemetry":
+                    tel = scratch.get("telemetry_audit")
+                    if tel:
+                        details.update(
+                            {
+                                "pcap_packet_count": tel.pcap_packet_count,
+                                "firewall_vendor": tel.firewall_vendor,
+                                "firewall_row_count": tel.firewall_row_count,
+                                "peak_bandwidth_mbps": tel.peak_bandwidth_mbps,
+                                "sized_bandwidth_with_1_25x_headroom_mbps": tel.sized_bandwidth_with_1_25x_headroom_mbps,
+                                "flow_tier_counts": tel.flow_tier_counts,
+                            }
+                        )
+                elif node_name == "muse_wonder_or_glimmer_architect" and accumulated_state.get("architecture_plan"):
+                    plan_obj = accumulated_state["architecture_plan"]
+                    details.update(
+                        {
+                            "conduit_sizing_recommendations": [
+                                s.model_dump() for s in plan_obj.conduit_sizing_recommendations
+                            ],
+                            "bill_of_materials": [
+                                b.model_dump() for b in plan_obj.bill_of_materials
+                            ],
+                            "switch_cutover_cli": scratch.get("architect_meta", {}).get(
+                                "switch_cutover_cli", ""
+                            ),
+                        }
+                    )
+                elif node_name == "modal_socket_twin" and accumulated_state.get("twin_verification"):
+                    details.update(accumulated_state["twin_verification"].model_dump())
+
+                payload = {
+                    "stage": node_name,
                     "status": "completed",
-                    "model": settings.sam_3_1_model,
-                    "progress_pct": 15,
-                    "headline": (
-                        f"SAM 3.1 segmented {preview['diagram_visual_style']} & verified "
-                        f"{primary_sizing.mounting_selection} physical cabinet fit."
-                    ),
-                    "details": {
-                        "topology_diagram_url": preview["media_urls"][
-                            "topology_diagram_url"
-                        ],
-                        "site_photo_urls": preview["media_urls"]["site_photo_urls"],
-                        "walkthrough_video_url": preview["media_urls"][
-                            "walkthrough_video_url"
-                        ],
-                        "verified_mounting": primary_sizing.mounting_selection,
-                        "cabinet_fit_verified": primary_sizing.cabinet_fit_verified,
-                        "cabinet_fit_notes": primary_sizing.cabinet_fit_notes,
-                    },
-                },
-            ),
-            (
-                "muse_voice_asr",
-                {
-                    "stage": "muse_voice_asr",
-                    "status": "completed",
-                    "model": settings.muse_voice_transcribe_model,
-                    "progress_pct": 28,
-                    "headline": (
-                        f"Muse Voice Transcribe extracted {len(voice_note.structured_observations)} "
-                        f"field engineering observation(s)."
-                    ),
-                    "details": voice_note.model_dump(),
-                },
-            ),
-            (
-                "baseten_switch_cli",
-                {
-                    "stage": "baseten_switch_cli",
-                    "status": "completed",
-                    "model": settings.baseten_model,
-                    "progress_pct": 44,
-                    "headline": (
-                        f"Baseten `{settings.baseten_model}` parsed switch ARP/MAC/802.1Q tables "
-                        f"across {preview['total_discovered_assets']} active endpoints."
-                    ),
-                    "details": {
-                        "total_discovered_assets": preview["total_discovered_assets"],
-                        "documented_assets": preview["documented_assets"],
-                        "undocumented_count": len(
-                            preview["undocumented_shadow_assets"]
-                        ),
-                    },
-                },
-            ),
-            (
-                "duckdb_telemetry",
-                {
-                    "stage": "duckdb_telemetry",
-                    "status": "completed",
-                    "model": "scapy-2.8 + duckdb-sql",
-                    "progress_pct": 58,
-                    "headline": (
-                        f"Analyzed {metrics.get('pcap_packet_count', 0):,} PCAP packets & "
-                        f"{metrics.get('firewall_row_count', 0):,} {metrics.get('firewall_vendor', '')} "
-                        f"rows — Peak {metrics.get('peak_bandwidth_mbps', 0)} Mbps "
-                        f"({metrics.get('sized_bandwidth_with_1_25x_headroom_mbps', 0)} Mbps w/ 1.25x headroom)."
-                    ),
-                    "details": {
-                        "telemetry_metrics": metrics,
-                        "flow_tier_counts": flow_counts,
-                    },
-                },
-            ),
-            (
-                "muse_spark_reconcile",
-                {
-                    "stage": "muse_spark_reconcile",
-                    "status": "completed",
-                    "model": settings.muse_spark_model,
-                    "progress_pct": 72,
-                    "headline": (
-                        f"Muse Spark reconciled physical/packet ground truth vs. diagram — "
-                        f"flagged {len(plan.shadow_assets_and_bypasses)} undocumented Shadow OT / Bypass anomaly(ies)."
-                    ),
-                    "details": {
-                        "reconciled_zones": [
-                            z.model_dump() for z in plan.reconciled_zones
-                        ],
-                        "shadow_assets_and_bypasses": [
-                            a.model_dump() for a in plan.shadow_assets_and_bypasses
-                        ],
-                    },
-                },
-            ),
-            (
-                "muse_wonder_or_glimmer_architect",
-                {
-                    "stage": "muse_wonder_or_glimmer_architect",
-                    "status": "completed",
-                    "model": architect_model,
+                    "step_index": step_idx,
+                    "model": model_used,
                     "inference_mode": effective_mode,
-                    "progress_pct": 88,
-                    "headline": (
-                        f"{architect_model} synthesized {plan.executive_summary.target_security_posture_sl} "
-                        f"cutover plan: {plan.executive_summary.recommended_diode_total_units}x diode unit(s) "
-                        f"(${plan.executive_summary.estimated_hardware_bom_usd:,.0f} BoM) & "
-                        f"{len(plan.tx_rx_proxy_translation_table)} TX/RX proxy rules."
-                    ),
-                    "details": {
-                        "conduit_sizing_recommendations": [
-                            s.model_dump()
-                            for s in plan.conduit_sizing_recommendations
-                        ],
-                        "bill_of_materials": [
-                            b.model_dump() for b in plan.bill_of_materials
-                        ],
-                        "protocol_cutover_matrix": [
-                            c.model_dump() for c in plan.protocol_cutover_matrix
-                        ],
-                    },
-                },
-            ),
-            (
-                "modal_socket_twin",
-                {
-                    "stage": "modal_socket_twin",
-                    "status": "completed",
-                    "model": "modal-layer1-socket-twin",
-                    "progress_pct": 96,
-                    "headline": (
-                        f"Modal Digital Twin verified {twin_result.telemetry_continuity_pct:.0f}% "
-                        f"legitimate telemetry continuity & {twin_result.inbound_exploit_block_rate_pct:.0f}% "
-                        f"physical exploit block rate ({twin_result.overall_verdict})."
-                    ),
-                    "details": twin_result.model_dump(),
-                },
-            ),
-        ]
-
-        for idx, (stage_name, payload) in enumerate(stages, start=1):
-            if delay_sec > 0:
-                await asyncio.sleep(delay_sec)
-            payload["step_index"] = idx - 1
-            payload["message"] = payload["headline"]
-            payload["scenario_id"] = scenario_id
-            payload["elapsed_ms"] = round((time.perf_counter() - started) * 1000.0, 1)
-            yield {
-                "id": str(idx),
-                "event": stage_name,
-                "data": json.dumps(payload),
-            }
+                    "progress_pct": _PROGRESS_BY_STAGE.get(node_name, 90),
+                    "headline": headline,
+                    "message": headline,
+                    "scenario_id": scenario_id,
+                    "elapsed_ms": round((time.perf_counter() - started) * 1000.0, 1),
+                    "details": details,
+                }
+                step_idx += 1
+                yield {
+                    "id": str(step_idx),
+                    "event": node_name,
+                    "data": json.dumps(payload),
+                }
 
         if delay_sec > 0:
             await asyncio.sleep(delay_sec)
+
+        plan_final = accumulated_state["architecture_plan"]
+        twin_final = accumulated_state["twin_verification"]
+        voice_final = accumulated_state["voice_transcript"]
+        architect_model = scratch.get("architect_meta", {}).get(
+            "architect_model",
+            settings.muse_glimmer_model
+            if effective_mode == "air_gapped_open_weights"
+            else settings.muse_wonder_model,
+        )
 
         complete_payload = {
             "stage": "complete",
@@ -432,16 +422,211 @@ async def stream_scenario_assessment(
             "facility_name": preview["facility_name"],
             "inference_mode": effective_mode,
             "architect_model_used": architect_model,
+            "live_llm_executed": effective_live_llm,
             "progress_pct": 100,
             "total_elapsed_ms": round((time.perf_counter() - started) * 1000.0, 1),
-            "architecture_plan": plan.model_dump(),
-            "twin_verification": twin_result.model_dump(),
-            "voice_transcript": voice_note.model_dump(),
+            "architecture_plan": plan_final.model_dump(),
+            "twin_verification": twin_final.model_dump(),
+            "voice_transcript": voice_final.model_dump(),
+            "switch_cutover_cli": scratch.get("architect_meta", {}).get(
+                "switch_cutover_cli", ""
+            ),
         }
         yield {
-            "id": str(len(stages) + 1),
+            "id": str(step_idx + 1),
             "event": "complete",
             "data": json.dumps(complete_payload),
         }
 
     return EventSourceResponse(_event_generator())
+
+
+@app.post("/api/v1/assessments/custom/analyze", tags=["Assessments"])
+async def analyze_custom_uploaded_site(
+    request: Request,
+    facility_name: str = Query(default="Custom Critical Infrastructure Site"),
+    inference_mode: str | None = Query(default=None),
+    live_llm: bool = Query(default=False),
+) -> dict[str, Any]:
+    """Execute the full LangGraph discovery, sizing, and socket twin pipeline on uploaded files."""
+    effective_mode = _normalize_inference_mode(inference_mode)
+    form = await request.form()
+
+    with tempfile.TemporaryDirectory(prefix="conduitai_intake_") as tmp_str:
+        tmp_dir = Path(tmp_str)
+        saved_paths: dict[str, Path] = {}
+        voice_bytes: bytes | None = None
+        voice_name = "custom_walkdown.wav"
+
+        for key in (
+            "diagram_file",
+            "cabinet_file",
+            "video_file",
+            "pcap_file",
+            "firewall_csv_file",
+            "switch_dump_file",
+            "asset_inventory_file",
+            "voice_file",
+        ):
+            item = form.get(key)
+            if isinstance(item, StarletteUploadFile):
+                raw_bytes = await item.read()
+                safe_name = Path(item.filename or f"{key}.bin").name
+                if key == "voice_file":
+                    voice_bytes = raw_bytes
+                    voice_name = safe_name
+                else:
+                    dest = tmp_dir / safe_name
+                    dest.write_bytes(raw_bytes)
+                    saved_paths[key] = dest
+
+        custom_state: ConduitGraphState = {
+            "facility_name": str(form.get("facility_name") or facility_name),
+            "inference_mode": effective_mode,
+            "diagram_image_path": str(saved_paths["diagram_file"])
+            if "diagram_file" in saved_paths
+            else None,
+            "cabinet_image_paths": [str(saved_paths["cabinet_file"])]
+            if "cabinet_file" in saved_paths
+            else [],
+            "video_walkthrough_path": str(saved_paths["video_file"])
+            if "video_file" in saved_paths
+            else None,
+            "pcap_path": str(saved_paths["pcap_file"])
+            if "pcap_file" in saved_paths
+            else None,
+            "firewall_csv_path": str(saved_paths["firewall_csv_file"])
+            if "firewall_csv_file" in saved_paths
+            else None,
+            "switch_dump_path": str(saved_paths["switch_dump_file"])
+            if "switch_dump_file" in saved_paths
+            else None,
+            "asset_inventory_csv_path": str(saved_paths["asset_inventory_file"])
+            if "asset_inventory_file" in saved_paths
+            else None,
+            "voice_audio_bytes": voice_bytes,
+            "voice_audio_filename": voice_name,
+            "agent_events": [],
+            "errors": [],
+        }
+
+        compiled_graph, scratch = build_conduit_langgraph(
+            settings=settings,
+            gateway=gateway,
+            use_live_llm=live_llm,
+        )
+        final_state = await compiled_graph.ainvoke(custom_state)
+
+    plan = final_state["architecture_plan"]
+    twin = final_state["twin_verification"]
+    voice = final_state["voice_transcript"]
+    return {
+        "status": "completed",
+        "facility_name": custom_state["facility_name"],
+        "inference_mode": effective_mode,
+        "architecture_plan": plan.model_dump(),
+        "twin_verification": twin.model_dump(),
+        "voice_transcript": voice.model_dump() if voice else None,
+        "switch_cutover_cli": scratch.get("architect_meta", {}).get(
+            "switch_cutover_cli", generate_switch_cutover_cli(plan)
+        ),
+        "agent_events": final_state.get("agent_events", []),
+    }
+
+
+@app.get(
+    "/api/v1/assessments/{scenario_id}/export/{export_format}",
+    tags=["Deliverable Exports"],
+)
+async def export_scenario_deliverable(
+    scenario_id: str,
+    export_format: str,
+) -> Response:
+    """Download `.drawio` topology XML, ReportLab `.pdf` report, or `.zip` cutover bundle."""
+    try:
+        plan = build_scenario_architecture_plan(scenario_id)
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=404, detail=f"Scenario '{scenario_id}' not found."
+        ) from exc
+
+    twin = verify_cutover_in_digital_twin(plan, scenario_id=scenario_id)
+    fmt = export_format.strip().lower()
+
+    if fmt == "drawio":
+        xml_str = export_drawio_xml(plan)
+        return Response(
+            content=xml_str.encode("utf-8"),
+            media_type="application/xml",
+            headers={
+                "Content-Disposition": f'attachment; filename="conduitai_{scenario_id}_target_sl4.drawio"'
+            },
+        )
+    if fmt == "pdf":
+        pdf_bytes = export_executive_pdf(plan, twin)
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="conduitai_{scenario_id}_compliance_report.pdf"'
+            },
+        )
+    if fmt == "zip":
+        zip_bytes = export_cutover_zip_bundle(plan, twin)
+        return Response(
+            content=zip_bytes,
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": f'attachment; filename="conduitai_{scenario_id}_cutover_bundle.zip"'
+            },
+        )
+
+    raise HTTPException(
+        status_code=422,
+        detail=f"Unsupported export format '{export_format}'. Expected 'drawio', 'pdf', or 'zip'.",
+    )
+
+
+@app.post("/api/v1/twin/verify", tags=["Digital Twin"])
+async def verify_scenario_digital_twin(req: TwinVerifyRequest) -> dict[str, Any]:
+    """Execute on-demand Layer-1/2 `os.pipe()` + TCP socket Digital Twin verification."""
+    try:
+        plan = build_scenario_architecture_plan(req.scenario_id)
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=404, detail=f"Scenario '{req.scenario_id}' not found."
+        ) from exc
+
+    twin = await asyncio.to_thread(
+        verify_cutover_in_digital_twin,
+        plan,
+        scenario_id=req.scenario_id,
+        use_modal_cloud=req.use_modal_cloud,
+    )
+    return twin.model_dump()
+
+
+@app.post("/api/v1/visuals/rack-card", tags=["Visual Synthesis"])
+async def generate_rack_installation_card(req: RackCardRequest) -> dict[str, Any]:
+    """Generate an annotated hardware diode rack/DIN installation visual via `muse-image-1.0`."""
+    if req.prompt_override:
+        prompt = req.prompt_override
+    else:
+        sc_id = req.scenario_id or "scenario_1_manufacturing"
+        try:
+            plan = build_scenario_architecture_plan(sc_id)
+            rec = plan.conduit_sizing_recommendations[0]
+            prompt = (
+                f"Clean industrial engineering elevation diagram of {rec.quantity}x "
+                f"{rec.recommended_archetype_id} optical hardware data diode mounted in "
+                f"{rec.mounting_selection} for {plan.executive_summary.facility_name}, "
+                f"showing green TX fiber output to blue RX replica switch, high-contrast technical blueprint style"
+            )
+        except KeyError:
+            prompt = (
+                "Clean technical blueprint elevation of a 1U hardware data diode optical isolation "
+                "appliance in a 19-inch OT server rack with green TX to RX fiber link"
+            )
+
+    return await gateway.generate_muse_image(prompt, size=req.size)
+

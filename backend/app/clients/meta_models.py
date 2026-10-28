@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import base64
+import json
+import mimetypes
 import re
 from pathlib import Path
 from typing import Any
@@ -16,6 +18,10 @@ from app.state import (
     InferenceMode,
     VoiceFieldNoteTranscript,
     VoiceFieldObservation,
+)
+
+_SAM31_BOX_PATTERN = re.compile(
+    r"<\|box;x1=(\d+);y1=(\d+);x2=(\d+);y2=(\d+);w=(\d+);h=(\d+)\|>"
 )
 
 _SCENARIO_DEMO_TRANSCRIPTS: dict[str, dict[str, Any]] = {
@@ -175,6 +181,48 @@ def _split_reasoning_tags(raw_text: str) -> tuple[str, str | None]:
     return cleaned, reasoning
 
 
+def extract_json_object(raw_text: str) -> dict[str, Any] | None:
+    """Safely extract a JSON object from raw LLM output (handling markdown code fences)."""
+    if not raw_text:
+        return None
+    cleaned, _ = _split_reasoning_tags(raw_text)
+    fenced = re.search(r"```(?:json)?\s*(\{.*\})\s*```", cleaned, flags=re.DOTALL)
+    candidate = fenced.group(1) if fenced else cleaned
+    start = candidate.find("{")
+    end = candidate.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        return None
+    try:
+        parsed = json.loads(candidate[start : end + 1])
+        return parsed if isinstance(parsed, dict) else None
+    except json.JSONDecodeError:
+        return None
+
+
+def parse_sam31_response_boxes(raw_output_text: str) -> list[dict[str, Any]]:
+    """Parse Meta `sam-3.1` `/v1/responses` `<|box;x1=...;y1=...;x2=...;y2=...;w=...;h=...|>` tokens."""
+    boxes: list[dict[str, Any]] = []
+    for idx, match in enumerate(_SAM31_BOX_PATTERN.finditer(raw_output_text), start=1):
+        x1, y1, x2, y2, w, h = (int(g) for g in match.groups())
+        safe_w = max(w, 1)
+        safe_h = max(h, 1)
+        boxes.append(
+            {
+                "box_index": idx,
+                "bbox_xyxy": [float(x1), float(y1), float(x2), float(y2)],
+                "image_width": safe_w,
+                "image_height": safe_h,
+                "pct_xywh": [
+                    round((x1 / safe_w) * 100.0, 2),
+                    round((y1 / safe_h) * 100.0, 2),
+                    round(((x2 - x1) / safe_w) * 100.0, 2),
+                    round(((y2 - y1) / safe_h) * 100.0, 2),
+                ],
+            }
+        )
+    return boxes
+
+
 class MetaModelGateway:
     """Async client gateway across Meta Model API, Baseten Open-Weights, and Modal Glimmer."""
 
@@ -185,12 +233,16 @@ class MetaModelGateway:
         return AsyncOpenAI(
             base_url=self.settings.meta_api_base_url,
             api_key=self.settings.meta_model_api_key or "unconfigured-meta-key",
+            timeout=25.0,
+            max_retries=1,
         )
 
     def _baseten_openai_client(self) -> AsyncOpenAI:
         return AsyncOpenAI(
             base_url=self.settings.baseten_api_base_url,
             api_key=self.settings.baseten_api_key or "unconfigured-baseten-key",
+            timeout=20.0,
+            max_retries=1,
         )
 
     def _glimmer_openai_client(self) -> AsyncOpenAI:
@@ -207,33 +259,51 @@ class MetaModelGateway:
         max_tokens: int = 4096,
         response_format: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Invoke Meta `muse-spark` for multimodal reconciliation & structured extraction."""
+        """Invoke Meta `muse-spark-1.3` for multimodal reconciliation & structured extraction."""
         if not self.settings.meta_api_configured:
             return {
                 "content": "",
+                "reasoning": None,
                 "model": self.settings.muse_spark_model,
                 "provider": "meta_model_api",
                 "source_mode": "demo_cache_fallback",
             }
 
-        client = self._meta_openai_client()
-        kwargs: dict[str, Any] = {
-            "model": self.settings.muse_spark_model,
-            "messages": messages,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-        }
-        if response_format is not None:
-            kwargs["response_format"] = response_format
+        try:
+            client = self._meta_openai_client()
+            # Ensure enough token headroom for internal reasoning tokens before `content`
+            effective_max_tokens = max(max_tokens, 1024)
+            kwargs: dict[str, Any] = {
+                "model": self.settings.muse_spark_model,
+                "messages": messages,
+                "temperature": temperature,
+                "max_tokens": effective_max_tokens,
+            }
+            if response_format is not None:
+                kwargs["response_format"] = response_format
 
-        completion = await client.chat.completions.create(**kwargs)
-        content = completion.choices[0].message.content or ""
-        return {
-            "content": content,
-            "model": completion.model,
-            "provider": "meta_model_api",
-            "source_mode": "live",
-        }
+            completion = await client.chat.completions.create(**kwargs)
+            msg = completion.choices[0].message
+            raw_content = msg.content or ""
+            cleaned_content, inline_reasoning = _split_reasoning_tags(raw_content)
+            explicit_reasoning = getattr(msg, "reasoning_content", None) or inline_reasoning
+            return {
+                "content": cleaned_content,
+                "reasoning": explicit_reasoning,
+                "model": completion.model,
+                "provider": "meta_model_api",
+                "source_mode": "live",
+            }
+        except Exception as exc:
+            if not self.settings.demo_cache_fallback:
+                raise
+            return {
+                "content": "",
+                "reasoning": f"Fallback engaged ({type(exc).__name__})",
+                "model": self.settings.muse_spark_model,
+                "provider": "meta_model_api",
+                "source_mode": "demo_cache_fallback",
+            }
 
     async def chat_muse_wonder(
         self,
@@ -243,7 +313,7 @@ class MetaModelGateway:
         max_tokens: int = 8192,
         response_format: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Invoke Meta `muse-wonder` frontier reasoning model for OT architecture synthesis."""
+        """Invoke Meta `muse-wonder-1.0` frontier reasoning model for OT architecture synthesis."""
         if not self.settings.meta_api_configured:
             return {
                 "content": "",
@@ -253,28 +323,40 @@ class MetaModelGateway:
                 "source_mode": "demo_cache_fallback",
             }
 
-        client = self._meta_openai_client()
-        kwargs: dict[str, Any] = {
-            "model": self.settings.muse_wonder_model,
-            "messages": messages,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-        }
-        if response_format is not None:
-            kwargs["response_format"] = response_format
+        try:
+            client = self._meta_openai_client()
+            effective_max_tokens = max(max_tokens, 1536)
+            kwargs: dict[str, Any] = {
+                "model": self.settings.muse_wonder_model,
+                "messages": messages,
+                "temperature": temperature,
+                "max_tokens": effective_max_tokens,
+            }
+            if response_format is not None:
+                kwargs["response_format"] = response_format
 
-        completion = await client.chat.completions.create(**kwargs)
-        msg = completion.choices[0].message
-        raw_content = msg.content or ""
-        cleaned_content, inline_reasoning = _split_reasoning_tags(raw_content)
-        explicit_reasoning = getattr(msg, "reasoning_content", None) or inline_reasoning
-        return {
-            "content": cleaned_content,
-            "reasoning": explicit_reasoning,
-            "model": completion.model,
-            "provider": "meta_model_api",
-            "source_mode": "live",
-        }
+            completion = await client.chat.completions.create(**kwargs)
+            msg = completion.choices[0].message
+            raw_content = msg.content or ""
+            cleaned_content, inline_reasoning = _split_reasoning_tags(raw_content)
+            explicit_reasoning = getattr(msg, "reasoning_content", None) or inline_reasoning
+            return {
+                "content": cleaned_content,
+                "reasoning": explicit_reasoning,
+                "model": completion.model,
+                "provider": "meta_model_api",
+                "source_mode": "live",
+            }
+        except Exception as exc:
+            if not self.settings.demo_cache_fallback:
+                raise
+            return {
+                "content": "",
+                "reasoning": f"Fallback engaged ({type(exc).__name__})",
+                "model": self.settings.muse_wonder_model,
+                "provider": "meta_model_api",
+                "source_mode": "demo_cache_fallback",
+            }
 
     async def chat_baseten_open(
         self,
@@ -283,33 +365,53 @@ class MetaModelGateway:
         temperature: float = 0.0,
         max_tokens: int = 4096,
     ) -> dict[str, Any]:
-        """Invoke Baseten `meta-models/muse-spark-open-1026` for high-speed switch CLI parsing."""
-        if not self.settings.baseten_api_configured:
-            return {
-                "content": "",
-                "reasoning": None,
-                "model": self.settings.baseten_model,
-                "provider": "baseten_open_weights",
-                "source_mode": "demo_cache_fallback",
-            }
+        """Invoke Baseten `meta-models/muse-spark-open-1026` (or live Meta Spark fallback) for CLI parsing."""
+        if self.settings.baseten_api_configured:
+            try:
+                client = self._baseten_openai_client()
+                completion = await client.chat.completions.create(
+                    model=self.settings.baseten_model,
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+                msg = completion.choices[0].message
+                raw_content = msg.content or ""
+                cleaned_content, inline_reasoning = _split_reasoning_tags(raw_content)
+                explicit_reasoning = (
+                    getattr(msg, "reasoning_content", None) or inline_reasoning
+                )
+                return {
+                    "content": cleaned_content,
+                    "reasoning": explicit_reasoning,
+                    "model": completion.model,
+                    "provider": "baseten_open_weights",
+                    "source_mode": "live",
+                }
+            except Exception:
+                if not self.settings.demo_cache_fallback:
+                    raise
 
-        client = self._baseten_openai_client()
-        completion = await client.chat.completions.create(
-            model=self.settings.baseten_model,
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
-        msg = completion.choices[0].message
-        raw_content = msg.content or ""
-        cleaned_content, inline_reasoning = _split_reasoning_tags(raw_content)
-        explicit_reasoning = getattr(msg, "reasoning_content", None) or inline_reasoning
+        # Seamless live fallback to Meta `muse-spark-1.3` when Baseten key is not yet populated
+        if self.settings.meta_api_configured:
+            spark_res = await self.chat_muse_spark(
+                messages, temperature=temperature, max_tokens=max_tokens
+            )
+            if spark_res.get("source_mode") == "live":
+                return {
+                    "content": spark_res.get("content", ""),
+                    "reasoning": spark_res.get("reasoning"),
+                    "model": spark_res.get("model", self.settings.muse_spark_model),
+                    "provider": "meta_spark_live_fallback",
+                    "source_mode": "live",
+                }
+
         return {
-            "content": cleaned_content,
-            "reasoning": explicit_reasoning,
-            "model": completion.model,
+            "content": "",
+            "reasoning": None,
+            "model": self.settings.baseten_model,
             "provider": "baseten_open_weights",
-            "source_mode": "live",
+            "source_mode": "demo_cache_fallback",
         }
 
     async def chat_air_gapped_glimmer(
@@ -390,22 +492,40 @@ class MetaModelGateway:
         *,
         mode: str = "mode_1_network_diagram",
     ) -> dict[str, Any]:
-        """Execute Meta `sam-3.1` text-prompted segmentation with deterministic fallback."""
+        """Execute Meta `sam-3.1` text-prompted segmentation via `POST /v1/responses`."""
         path = Path(image_path)
         prompt_pack = load_sam31_vision_prompts()
 
         if self.settings.meta_api_configured and path.exists():
             try:
+                mime_type = mimetypes.guess_type(path.name)[0] or "image/jpeg"
                 encoded_image = base64.b64encode(path.read_bytes()).decode("ascii")
+                default_prompts = (
+                    ["server rack slot, DIN rail, industrial switch, cellular modem"]
+                    if mode == "mode_2_cabinet_rack_sizer"
+                    else [
+                        "security zone box, firewall icon, PLC controller, network switch, server"
+                    ]
+                )
+                prompt_text = ", ".join(prompts) if prompts else default_prompts[0]
                 payload = {
                     "model": self.settings.sam_3_1_model,
-                    "image_base64": encoded_image,
-                    "text_prompts": prompts or [],
-                    "mode": mode,
+                    "input": [
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "input_text", "text": prompt_text},
+                                {
+                                    "type": "input_image",
+                                    "image_url": f"data:{mime_type};base64,{encoded_image}",
+                                },
+                            ],
+                        }
+                    ],
                 }
-                async with httpx.AsyncClient(timeout=30.0) as http:
+                async with httpx.AsyncClient(timeout=35.0) as http:
                     resp = await http.post(
-                        f"{self.settings.meta_api_base_url.rstrip('/')}/images/segmentations",
+                        f"{self.settings.meta_api_base_url.rstrip('/')}/responses",
                         headers={
                             "Authorization": f"Bearer {self.settings.meta_model_api_key}"
                         },
@@ -413,8 +533,22 @@ class MetaModelGateway:
                     )
                     resp.raise_for_status()
                     data = resp.json()
-                    data["source_mode"] = "live_sam31"
-                    return data
+
+                output_texts: list[str] = []
+                for item in data.get("output", []):
+                    for block in item.get("content", []):
+                        if isinstance(block, dict) and block.get("text"):
+                            output_texts.append(str(block["text"]))
+                combined_raw = "\n".join(output_texts)
+                parsed_boxes = parse_sam31_response_boxes(combined_raw)
+                return {
+                    "model": self.settings.sam_3_1_model,
+                    "mode": mode,
+                    "source_mode": "live_sam31",
+                    "response_id": data.get("id"),
+                    "boxes": parsed_boxes,
+                    "raw_segmentation_tokens": combined_raw[:1000],
+                }
             except Exception:
                 if not self.settings.demo_cache_fallback:
                     raise
@@ -433,6 +567,7 @@ class MetaModelGateway:
                 "model": self.settings.sam_3_1_model,
                 "mode": mode,
                 "source_mode": "demo_cache_fallback",
+                "boxes": [],
                 "result": chosen,
             }
 
@@ -440,6 +575,7 @@ class MetaModelGateway:
             "model": self.settings.sam_3_1_model,
             "mode": mode,
             "source_mode": "demo_cache_fallback",
+            "boxes": [],
             "result": prompt_pack.get("mode_1_network_diagram", {}).get(
                 "few_shot_example_output", {}
             ),
@@ -451,7 +587,7 @@ class MetaModelGateway:
         *,
         size: str = "1024x1024",
     ) -> dict[str, Any]:
-        """Generate an engineering visual / rack mounting diagram card via `muse-image`."""
+        """Generate an engineering visual / rack mounting diagram card via `muse-image-1.0`."""
         if self.settings.meta_api_configured:
             try:
                 client = self._meta_openai_client()
@@ -462,11 +598,16 @@ class MetaModelGateway:
                     n=1,
                 )
                 first = result.data[0] if result.data else None
+                direct_url = getattr(first, "url", None)
+                b64_payload = getattr(first, "b64_json", None)
+                if not direct_url and b64_payload:
+                    mime = "image/webp" if b64_payload.startswith("UklGR") else "image/png"
+                    direct_url = f"data:{mime};base64,{b64_payload}"
                 return {
                     "model": self.settings.muse_image_model,
                     "source_mode": "live",
-                    "image_url": getattr(first, "url", None),
-                    "b64_json": getattr(first, "b64_json", None),
+                    "image_url": direct_url,
+                    "b64_json": b64_payload,
                 }
             except Exception:
                 if not self.settings.demo_cache_fallback:
@@ -486,40 +627,106 @@ class MetaModelGateway:
         *,
         scenario_id: str | None = None,
     ) -> VoiceFieldNoteTranscript:
-        """Transcribe OT field audio notes via `POST {meta_api_base_url}/asr` (`muse-voice-transcribe`)."""
-        if audio_bytes and self.settings.meta_api_configured:
-            try:
-                asr_url = f"{self.settings.meta_api_base_url.rstrip('/')}/asr"
-                async with httpx.AsyncClient(timeout=30.0) as http:
-                    resp = await http.post(
-                        asr_url,
-                        headers={
-                            "Authorization": f"Bearer {self.settings.meta_model_api_key}"
-                        },
-                        data={"model": self.settings.muse_voice_transcribe_model},
-                        files={"file": (filename, audio_bytes, "audio/wav")},
-                    )
-                    resp.raise_for_status()
-                    payload = resp.json()
+        """Transcribe OT field audio notes via Meta API (`/asr`, `/audio/transcriptions`, or multimodal audio)."""
+        # Only dispatch live network ASR when non-trivial real audio bytes (> 256 bytes) are uploaded
+        if audio_bytes and len(audio_bytes) > 256 and self.settings.meta_api_configured:
+            base = self.settings.meta_api_base_url.rstrip("/")
+            headers = {"Authorization": f"Bearer {self.settings.meta_model_api_key}"}
 
-                transcript_text = str(
-                    payload.get("text") or payload.get("transcript") or ""
-                ).strip()
-                if transcript_text:
+            # 1. Try dedicated multipart ASR / audio transcription endpoints
+            for suffix in ("/audio/transcriptions", "/asr"):
+                try:
+                    async with httpx.AsyncClient(timeout=25.0) as http:
+                        resp = await http.post(
+                            f"{base}{suffix}",
+                            headers=headers,
+                            data={"model": self.settings.muse_voice_transcribe_model},
+                            files={"file": (filename, audio_bytes, "audio/wav")},
+                        )
+                        if resp.status_code == 200:
+                            payload = resp.json()
+                            transcript_text = str(
+                                payload.get("text") or payload.get("transcript") or ""
+                            ).strip()
+                            if transcript_text:
+                                return VoiceFieldNoteTranscript(
+                                    scenario_id=scenario_id,
+                                    audio_filename=filename,
+                                    model_used=self.settings.muse_voice_transcribe_model,
+                                    source_mode="live_meta_asr",
+                                    duration_sec=float(payload.get("duration", 12.0)),
+                                    language=str(payload.get("language", "en")),
+                                    raw_transcript=transcript_text,
+                                    structured_observations=[
+                                        VoiceFieldObservation(
+                                            observation_id="VOBS-LIVE-01",
+                                            category="GENERAL_NOTE",
+                                            extracted_entity="Live Field Audio Walkdown Note",
+                                            engineering_impact=transcript_text[:240],
+                                            severity="INFO",
+                                            timestamp_offset_sec=0.0,
+                                        )
+                                    ],
+                                )
+                except Exception:
+                    pass
+
+            # 2. Live multimodal audio transcription + observation extraction via `muse-spark-1.3`
+            try:
+                ext = Path(filename).suffix.lower().lstrip(".") or "wav"
+                audio_fmt = "mp3" if ext == "mp3" else "wav"
+                b64_audio = base64.b64encode(audio_bytes).decode("ascii")
+                spark_res = await self.chat_muse_spark(
+                    [
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": (
+                                        "Transcribe this OT field engineer audio note verbatim and extract "
+                                        "structured engineering observations as JSON: "
+                                        '{"raw_transcript": "...", "observations": [{"observation_id": "VOBS-01", '
+                                        '"category": "PHYSICAL_MOUNTING|ROGUE_ASSET|PROTOCOL_REQUIREMENT|SAFETY_CONSTRAINT|GENERAL_NOTE", '
+                                        '"extracted_entity": "...", "engineering_impact": "...", '
+                                        '"severity": "INFO|WARNING|CRITICAL"}]}'
+                                    ),
+                                },
+                                {
+                                    "type": "input_audio",
+                                    "input_audio": {
+                                        "data": b64_audio,
+                                        "format": audio_fmt,
+                                    },
+                                },
+                            ],
+                        }
+                    ],
+                    max_tokens=2048,
+                )
+                parsed_json = extract_json_object(spark_res.get("content", ""))
+                if parsed_json and parsed_json.get("raw_transcript"):
+                    raw_obs = parsed_json.get("observations", [])
+                    obs_models = [
+                        VoiceFieldObservation.model_validate(o)
+                        for o in raw_obs
+                        if isinstance(o, dict)
+                    ]
                     return VoiceFieldNoteTranscript(
                         scenario_id=scenario_id,
                         audio_filename=filename,
                         model_used=self.settings.muse_voice_transcribe_model,
                         source_mode="live_meta_asr",
-                        duration_sec=float(payload.get("duration", 12.0)),
-                        language=str(payload.get("language", "en")),
-                        raw_transcript=transcript_text,
-                        structured_observations=[
+                        duration_sec=12.0,
+                        language="en",
+                        raw_transcript=str(parsed_json["raw_transcript"]),
+                        structured_observations=obs_models
+                        or [
                             VoiceFieldObservation(
                                 observation_id="VOBS-LIVE-01",
                                 category="GENERAL_NOTE",
                                 extracted_entity="Live Field Audio Walkdown Note",
-                                engineering_impact=transcript_text[:240],
+                                engineering_impact=str(parsed_json["raw_transcript"])[:240],
                                 severity="INFO",
                                 timestamp_offset_sec=0.0,
                             )
@@ -565,7 +772,7 @@ class MetaModelGateway:
                 "model_id": self.settings.sam_3_1_model,
                 "provider": "Meta Model API",
                 "role": "Dual-mode network diagram segmentation, rack/DIN physical fit & 24fps video bypass tracking",
-                "endpoint_base_url": self.settings.meta_api_base_url,
+                "endpoint_base_url": f"{self.settings.meta_api_base_url.rstrip('/')}/responses",
                 "api_key_configured": meta_ready,
                 "demo_fallback_ready": fallback,
                 "operational_status": _status_label(meta_ready),
@@ -592,7 +799,7 @@ class MetaModelGateway:
                 "model_id": self.settings.muse_image_model,
                 "provider": "Meta Model API",
                 "role": "Visual rack/DIN-rail hardware diode cutover installation card generation",
-                "endpoint_base_url": self.settings.meta_api_base_url,
+                "endpoint_base_url": f"{self.settings.meta_api_base_url.rstrip('/')}/images/generations",
                 "api_key_configured": meta_ready,
                 "demo_fallback_ready": fallback,
                 "operational_status": _status_label(meta_ready),
@@ -600,8 +807,8 @@ class MetaModelGateway:
             "muse_voice_transcribe": {
                 "model_id": self.settings.muse_voice_transcribe_model,
                 "provider": "Meta Model API",
-                "role": "Hands-free OT plant walkdown voice field note ASR (`POST /v1/asr`)",
-                "endpoint_base_url": f"{self.settings.meta_api_base_url.rstrip('/')}/asr",
+                "role": "Hands-free OT plant walkdown voice field note ASR & multimodal audio extraction",
+                "endpoint_base_url": self.settings.meta_api_base_url,
                 "api_key_configured": meta_ready,
                 "demo_fallback_ready": fallback,
                 "operational_status": _status_label(meta_ready),
@@ -612,8 +819,13 @@ class MetaModelGateway:
                 "role": "High-speed switch CLI (`show arp` / MAC / 802.1Q VLAN) & firewall rule extraction",
                 "endpoint_base_url": self.settings.baseten_api_base_url,
                 "api_key_configured": baseten_ready,
+                "live_meta_spark_fallback_ready": meta_ready,
                 "demo_fallback_ready": fallback,
-                "operational_status": _status_label(baseten_ready),
+                "operational_status": (
+                    "live_ready"
+                    if (baseten_ready or meta_ready)
+                    else _status_label(False)
+                ),
             },
             "modal_glimmer_and_twin": {
                 "model_id": self.settings.muse_glimmer_model,
@@ -626,7 +838,11 @@ class MetaModelGateway:
                 "demo_fallback_ready": fallback,
                 "operational_status": "live_ready"
                 if glimmer_ready
-                else ("sandbox_profile_ready" if self.settings.modal_profile else _status_label(False)),
+                else (
+                    "sandbox_profile_ready"
+                    if self.settings.modal_profile
+                    else _status_label(False)
+                ),
             },
         }
 

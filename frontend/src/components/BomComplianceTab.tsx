@@ -137,7 +137,7 @@ export default function BomComplianceTab({
     const endpoint = getExportEndpointUrl(scenario.id, kind);
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 1600);
+      const timer = setTimeout(() => controller.abort(), 5000);
       const res = await fetch(endpoint, { signal: controller.signal });
       clearTimeout(timer);
       if (res.ok) {
