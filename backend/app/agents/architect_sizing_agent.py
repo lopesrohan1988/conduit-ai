@@ -235,7 +235,10 @@ def synthesize_custom_architecture_plan(
                 f"locally and pushes state snapshots one-way to IT RX replica."
             )
         else:
-            if fl.dst_port in {135} or fl.uses_dynamic_ephemeral_ports:
+            if fl.lateral_movement_suspected:
+                action = "SEVER_CRITICAL_VIOLATION_AT_L1"
+                presc = f"CRITICAL VIOLATION (lateral movement from {fl.src_ip}): Physically sever at Layer 1/2."
+            elif fl.dst_port in {135} or fl.uses_dynamic_ephemeral_ports:
                 action = "DEPLOY_OPC_UA_WRAPPER_THEN_PROXY"
                 presc = "Deploy OT-side OPC-DA-to-OPC-UA wrapper on static TCP/4840 before Diode TX."
             elif fl.dst_port in {139, 445}:

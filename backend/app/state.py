@@ -263,6 +263,7 @@ class ProtocolFlowAnalysis(BaseModel):
     function_detail: str = ""
     has_write_operations: bool = False
     uses_dynamic_ephemeral_ports: bool = False
+    lateral_movement_suspected: bool = False
     packet_count: int = 0
     bytes_transferred: int = 0
     p95_mbps: float = 0.0

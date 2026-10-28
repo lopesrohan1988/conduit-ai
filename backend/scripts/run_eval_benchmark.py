@@ -133,9 +133,18 @@ def run_benchmark(live: bool) -> str:
     per_scenario: list[dict[str, Any]] = []
     totals = {"packets": 0, "fw_rows": 0}
 
+    # One event loop for the whole run so pooled HTTP clients are never closed on a dead loop
+    loop = asyncio.new_event_loop()
+    runs: dict[str, dict[str, Any]] = {}
+    try:
+        for sc_id in gt_scenarios:
+            print(f"[bench] {sc_id} ...", flush=True)
+            runs[sc_id] = loop.run_until_complete(_run_scenario(sc_id, gateway, live))
+    finally:
+        loop.close()
+
     for sc_id, sc in gt_scenarios.items():
-        print(f"[bench] {sc_id} ...", flush=True)
-        run = asyncio.run(_run_scenario(sc_id, gateway, live))
+        run = runs[sc_id]
         sw, tel = run["scratch"]["switch_audit"], run["scratch"]["telemetry_audit"]
         totals["packets"] += tel.pcap_packet_count
         totals["fw_rows"] += tel.firewall_row_count

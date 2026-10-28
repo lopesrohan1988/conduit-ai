@@ -22,6 +22,7 @@ from app.agents.switch_config_agent import SwitchAuditResult, run_switch_config_
 from app.agents.telemetry_duckdb_agent import (
     TelemetryAuditResult,
     run_telemetry_duckdb_agent,
+    zone_map_from_assets,
 )
 from app.agents.vision_sam31_agent import (
     inspect_cabinet_photos,
@@ -106,6 +107,9 @@ def build_conduit_langgraph(
                     "headline": (
                         f"Muse Voice Transcribe extracted {len(transcript.structured_observations)} "
                         f"field engineering observation(s)."
+                        if transcript.source_mode.startswith("live")
+                        else f"Sample field-note transcript loaded ({len(transcript.structured_observations)} "
+                        f"observation(s)); upload or record audio to transcribe live."
                     ),
                 }
             ],
@@ -120,7 +124,7 @@ def build_conduit_langgraph(
             use_live_llm=(use_live_llm and cfg.baseten_api_configured),
         )
         scratch["switch_audit"] = sw_audit
-        active_model = sw_audit.llm_model_used or cfg.baseten_model
+        active_model = sw_audit.llm_model_used or "deterministic CLI parser"
         return {
             "discovered_assets": sw_audit.assets,
             "agent_events": [
@@ -143,6 +147,7 @@ def build_conduit_langgraph(
             state.get("pcap_path"),
             state.get("firewall_csv_path"),
             vlans_observed=sw_audit.vlans_observed if sw_audit else None,
+            zone_map=zone_map_from_assets(sw_audit.assets) if sw_audit else None,
         )
         scratch["telemetry_audit"] = tel_audit
         return {

@@ -251,3 +251,27 @@ def test_verifier_allows_locally_pulled_rtsp_to_stay_green() -> None:
     assert verify_architecture_proposal(
         _decision(raw), telemetry_audit=tel, cabinet_inspections=[DIN_CABINET], video_walkthrough=None
     ) == []
+
+
+def test_verifier_requires_lateral_movement_to_be_severed() -> None:
+    tel = TelemetryAuditResult(
+        peak_bandwidth_mbps=10.0,
+        flows=[
+            _flow(
+                "F-PIVOT", 445, "OT_TO_IT", protocol="SMBv1 / CIFS", preliminary_tier="RED",
+                lateral_movement_suspected=True,
+            )
+        ],
+    )
+    raw = {
+        "flow_decisions": [
+            {"flow_id": "F-PIVOT", "initiator": "OT_TO_IT", "tier": "RED", "action": "REPLACE_SMB_WITH_SFTP_RELAY"}
+        ],
+        "bill_of_materials": [{"archetype_id": "ARCH_A_FIELD_DIODE", "quantity": 1, "mounting": "DIN_RAIL"}],
+        "target_sl": "SL-4",
+        "design_rationale": "",
+    }
+    violations = verify_architecture_proposal(
+        _decision(raw), telemetry_audit=tel, cabinet_inspections=[DIN_CABINET], video_walkthrough=None
+    )
+    assert any("lateral movement" in v for v in violations), violations

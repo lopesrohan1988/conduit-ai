@@ -838,7 +838,9 @@ class MetaModelGateway:
                 "demo_fallback_ready": fallback,
                 "operational_status": (
                     "live_ready"
-                    if (baseten_ready or meta_ready)
+                    if baseten_ready
+                    else "live_via_muse_spark"
+                    if meta_ready
                     else _status_label(False)
                 ),
             },

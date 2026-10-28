@@ -20,7 +20,7 @@ import duckdb
 from scapy.utils import RawPcapReader
 
 from app.agents.switch_config_agent import is_enterprise_it_ip
-from app.state import CutoverTier, ProtocolFlowAnalysis, TrafficConduit
+from app.state import AssetNode, CutoverTier, ProtocolFlowAnalysis, TrafficConduit
 
 _WELL_KNOWN_OT_IT_PORTS: dict[int, tuple[str, str]] = {
     22: ("SSH / SFTP", "SFTP"),
@@ -71,6 +71,11 @@ _IEC104_TYPE_NAMES: dict[int, tuple[str, bool]] = {
     58: ("TypeID 58 Single Command w/ Time", True),
     100: ("TypeID 100 Interrogation Read", False),
 }
+
+
+# One source reaching this many hosts over this many distinct OT/IT services is scanning, not polling
+LATERAL_MIN_HOSTS = 4
+LATERAL_MIN_PORTS = 3
 
 
 @dataclass
@@ -156,9 +161,38 @@ def _inspect_l7_payload(
     return None, False
 
 
-def _determine_flow_direction(src_ip: str, dst_ip: str) -> str:
-    src_is_it = is_enterprise_it_ip(src_ip, None)
-    dst_is_it = is_enterprise_it_ip(dst_ip, None)
+def _subnet24(ip: str) -> str:
+    return ip.rsplit(".", 1)[0]
+
+
+def zone_map_from_assets(assets: list[AssetNode]) -> dict[str, str]:
+    """Map each /24 seen by the switch audit to `IT` (every host Purdue L4) or `OT` (any L0-L3).
+
+    DMZ-only subnets (L3.5) are left out so they fall back to the static heuristic.
+    """
+    levels: dict[str, set[str]] = defaultdict(set)
+    for a in assets:
+        if a.ip_address:
+            levels[_subnet24(str(a.ip_address))].add(a.purdue_level)
+    zones: dict[str, str] = {}
+    for prefix, lv in levels.items():
+        if lv & {"L0", "L1", "L2", "L3"}:
+            zones[prefix] = "OT"
+        elif lv == {"L4"}:
+            zones[prefix] = "IT"
+    return zones
+
+
+def _is_it_ip(ip: str, zones: dict[str, str] | None) -> bool:
+    zone = (zones or {}).get(_subnet24(ip))
+    if zone:
+        return zone == "IT"
+    return is_enterprise_it_ip(ip, None)
+
+
+def _determine_flow_direction(src_ip: str, dst_ip: str, zones: dict[str, str] | None = None) -> str:
+    src_is_it = _is_it_ip(src_ip, zones)
+    dst_is_it = _is_it_ip(dst_ip, zones)
     if src_ip.endswith(".254") and not src_is_it and not dst_is_it:
         return "BYPASS_TO_OT"
     if not src_is_it and dst_is_it:
@@ -178,14 +212,16 @@ def _classify_flow_tier(
     has_write_ops: bool,
     uses_ephemeral_dcom: bool,
     firewall_note: str = "",
+    lateral_movement: bool = False,
 ) -> CutoverTier:
     note_upper = firewall_note.upper()
     proto_upper = protocol_label.upper()
 
-    # Unauthorized remote admin, rogue bypass, or unauthenticated actuation writes -> RED
-    if dst_port in {23, 3389, 5900}:
+    # Unauthorized remote admin, rogue bypass, lateral scanning, or unauthenticated actuation writes -> RED
+    if lateral_movement or dst_port in {23, 3389, 5900}:
         return "RED"
-    if dst_port == 22 and direction == "IT_TO_OT" and "SFTP" not in proto_upper and "SFTP" not in note_upper:
+    # Inbound SSH/SFTP is an interactive IT-initiated session; only OT-initiated SFTP push can cross
+    if dst_port == 22 and direction == "IT_TO_OT":
         return "RED"
     if direction == "BYPASS_TO_OT":
         return "RED"
@@ -427,6 +463,56 @@ def query_firewall_csv_duckdb(csv_path: str | Path | None) -> dict[str, Any]:
         con.close()
 
 
+def _merge_flow_group(members: list[dict[str, Any]], peer_side: str) -> dict[str, Any]:
+    """Fold a fan-in / fan-out group into one row anchored on its highest-volume member."""
+    members = sorted(members, key=lambda m: (m["bytes"], m["packet_count"]), reverse=True)
+    if len(members) == 1:
+        return members[0]
+    rep = dict(members[0])
+    peers = sorted({m[peer_side] for m in members})
+    rep["bytes"] = sum(m["bytes"] for m in members)
+    rep["packet_count"] = sum(m["packet_count"] for m in members)
+    rep["peak_mbps"] = round(sum(m["peak_mbps"] for m in members), 2)
+    rep["fcs"] = sorted({fc for m in members for fc in m["fcs"]})
+    rep["has_write"] = any(m["has_write"] for m in members)
+    rep["ephemeral_dcom"] = any(m["ephemeral_dcom"] for m in members)
+    # A scanner's flow that matches what its whole peer group does (e.g. its own RTSP stream) is normal
+    rep["lateral"] = all(m["lateral"] for m in members)
+    rep["fw_note"] = next((m["fw_note"] for m in members if m["fw_note"]), "")
+    role = "sources" if peer_side == "src_ip" else "destinations"
+    rep["peer_summary"] = f"{len(peers)} {role}: {', '.join(peers[:6])}{' …' if len(peers) > 6 else ''}"
+    return rep
+
+
+def _collapse_fan_out(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Merge repetitive same-service flows so 48 cameras -> one NVR, or one scanner -> 20 hosts,
+    occupy one row each instead of crowding distinct services out of the flow table.
+
+    Fan-in merges clients only within the same /24, so a rogue host polling the same PLC as the
+    SCADA server stays a separate row. Read and write traffic never merge.
+    """
+
+    def service(it: dict[str, Any]) -> tuple[Any, ...]:
+        port: Any = it["dst_port"]
+        if it["transport"] == "UDP" and port >= 49152 and port not in _WELL_KNOWN_OT_IT_PORTS:
+            port = "UDP_DYNAMIC"
+        return (port, it["transport"], it["has_write"], it["direction"])
+
+    fan_in: dict[tuple[Any, ...], list[dict[str, Any]]] = defaultdict(list)
+    for it in items:
+        fan_in[(service(it), it["dst_ip"], _subnet24(it["src_ip"]))].append(it)
+
+    out: list[dict[str, Any]] = []
+    fan_out: dict[tuple[Any, ...], list[dict[str, Any]]] = defaultdict(list)
+    for members in fan_in.values():
+        if len(members) > 1:
+            out.append(_merge_flow_group(members, "src_ip"))
+        else:
+            fan_out[(service(members[0]), members[0]["src_ip"])].append(members[0])
+    out.extend(_merge_flow_group(members, "dst_ip") for members in fan_out.values())
+    return out
+
+
 def run_telemetry_duckdb_agent(
     pcap_path: str | Path | None,
     firewall_csv_path: str | Path | None = None,
@@ -434,6 +520,7 @@ def run_telemetry_duckdb_agent(
     conduit_id: str = "CONDUIT-01",
     conduit_name: str = "OT Control Zone to Enterprise IT Boundary",
     vlans_observed: list[int] | None = None,
+    zone_map: dict[str, str] | None = None,
 ) -> TelemetryAuditResult:
     """Execute Scapy L7 `.pcap` dissection + DuckDB 24h firewall SQL aggregation."""
     pkt_count, pcap_bytes, pcap_flows = (
@@ -495,34 +582,62 @@ def run_telemetry_duckdb_agent(
                 "fw_note": f"{fwf['service']} {fwf['rule_name']}",
             }
 
-    # Collapse repetitive per-camera / per-PLC identical service flows if > 18 rows, keeping all unique anomalies
-    flows_out: list[ProtocolFlowAnalysis] = []
-    tier_counts = {"GREEN": 0, "AMBER": 0, "RED": 0}
+    # Lateral movement: one source probing many hosts across several distinct services
+    reach: dict[str, tuple[set[str], set[int]]] = defaultdict(lambda: (set(), set()))
+    for item in merged_keys.values():
+        if item["dst_port"] in _WELL_KNOWN_OT_IT_PORTS:
+            hosts, ports = reach[item["src_ip"]]
+            hosts.add(item["dst_ip"])
+            ports.add(item["dst_port"])
+    scanners = {
+        src
+        for src, (hosts, ports) in reach.items()
+        if len(hosts) >= LATERAL_MIN_HOSTS and len(ports) >= LATERAL_MIN_PORTS
+    }
 
-    sorted_items = sorted(
-        merged_keys.values(),
-        key=lambda x: (x["has_write"], x["bytes"], x["packet_count"]),
-        reverse=True,
-    )
-
-    for idx, item in enumerate(sorted_items[:24], start=1):
-        direction = _determine_flow_direction(item["src_ip"], item["dst_ip"])
-        tier = _classify_flow_tier(
+    for item in merged_keys.values():
+        item["direction"] = _determine_flow_direction(item["src_ip"], item["dst_ip"], zone_map)
+        item["lateral"] = item["src_ip"] in scanners
+    collapsed = _collapse_fan_out(list(merged_keys.values()))
+    for item in collapsed:
+        if item["lateral"]:
+            hosts, ports = reach[item["src_ip"]]
+            item["fcs"] = sorted(
+                {*item["fcs"], f"Lateral movement: {len(hosts)} hosts x {len(ports)} service ports"}
+            )
+        item["tier"] = _classify_flow_tier(
             src_ip=item["src_ip"],
             dst_ip=item["dst_ip"],
             dst_port=item["dst_port"],
             protocol_label=item["protocol"],
-            direction=direction,
+            direction=item["direction"],
             has_write_ops=item["has_write"],
             uses_ephemeral_dcom=item["ephemeral_dcom"],
             firewall_note=item["fw_note"],
+            lateral_movement=item["lateral"],
         )
+
+    # Every RED anomaly is kept; the remaining rows are filled by traffic volume
+    flows_out: list[ProtocolFlowAnalysis] = []
+    tier_counts = {"GREEN": 0, "AMBER": 0, "RED": 0}
+    sorted_items = sorted(
+        collapsed,
+        key=lambda x: (x["tier"] == "RED", x["has_write"], x["bytes"], x["packet_count"]),
+        reverse=True,
+    )
+    keep = max(24, sum(1 for x in sorted_items if x["tier"] == "RED"))
+
+    for idx, item in enumerate(sorted_items[:keep], start=1):
+        direction = item["direction"]
+        tier = item["tier"]
         tier_counts[tier] += 1
         fc_detail = (
             "; ".join(item["fcs"])
             if item["fcs"]
             else (item["fw_note"].strip() or f"{item['protocol']} ({direction})")
         )
+        if item.get("peer_summary"):
+            fc_detail = f"{fc_detail} [{item['peer_summary']}]"
         flows_out.append(
             ProtocolFlowAnalysis(
                 flow_id=f"FLOW-{idx:02d}",
@@ -536,6 +651,7 @@ def run_telemetry_duckdb_agent(
                 function_detail=fc_detail,
                 has_write_operations=item["has_write"],
                 uses_dynamic_ephemeral_ports=item["ephemeral_dcom"],
+                lateral_movement_suspected=item["lateral"],
                 packet_count=item["packet_count"],
                 bytes_transferred=item["bytes"],
                 p95_mbps=round(item["peak_mbps"] * 0.85, 2),

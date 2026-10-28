@@ -156,6 +156,7 @@ def build_evidence_pack(
             "function_detail": f.function_detail,
             "has_write_operations": f.has_write_operations,
             "uses_dynamic_ephemeral_ports": f.uses_dynamic_ephemeral_ports,
+            "lateral_movement_suspected": f.lateral_movement_suspected,
             "peak_mbps": f.peak_mbps,
             "rule_engine_hint_tier": f.preliminary_tier,
         }
@@ -402,6 +403,11 @@ def verify_architecture_proposal(
             )
         if fl.dst_port == 22 and inbound and d.action != SEVER:
             violations.append(f"SAFETY: {fid} is inbound SSH into OT and must be {SEVER}.")
+        if fl.lateral_movement_suspected and d.action != SEVER:
+            violations.append(
+                f"SAFETY: {fid} source {fl.src_ip} is scanning many hosts across many service ports "
+                f"(lateral movement); it must be {SEVER}, not proxied or relayed."
+            )
         if inbound and d.tier == "GREEN" and not (
             d.initiator == "IT_TO_OT" and fl.dst_port in local_pull_ports
         ):
