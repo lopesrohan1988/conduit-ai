@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
+import hashlib
+import io
 import json
 import mimetypes
 import re
@@ -11,6 +14,7 @@ from typing import Any
 
 import httpx
 from openai import AsyncOpenAI
+from PIL import Image
 
 from app.catalog_loader import load_sam31_vision_prompts
 from app.config import Settings, get_settings
@@ -500,6 +504,107 @@ class MetaModelGateway:
             reasoning_effort=reasoning_effort,
         )
 
+    async def _sam31_boxes(self, data_url: str, prompt: str) -> list[dict[str, Any]]:
+        """One SAM 3.1 concept call: a single noun phrase against one image."""
+        payload = {
+            "model": self.settings.sam_3_1_model,
+            "input": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "input_text", "text": prompt},
+                        {"type": "input_image", "image_url": data_url},
+                    ],
+                }
+            ],
+        }
+        async with httpx.AsyncClient(timeout=35.0) as http:
+            resp = await http.post(
+                f"{self.settings.meta_api_base_url.rstrip('/')}/responses",
+                headers={"Authorization": f"Bearer {self.settings.meta_model_api_key}"},
+                json=payload,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        texts = [
+            str(block["text"])
+            for item in data.get("output", [])
+            for block in item.get("content", [])
+            if isinstance(block, dict) and block.get("text")
+        ]
+        return parse_sam31_response_boxes("\n".join(texts))
+
+    def _sam31_cache_path(self, image_sha: str) -> Path:
+        return self.settings.resolved_data_dir / "cache" / "sam31" / f"{image_sha[:20]}.json"
+
+    async def sam31_concepts(
+        self,
+        image_bytes: bytes,
+        prompts: list[str] | tuple[str, ...],
+        *,
+        live: bool,
+        mime_type: str = "image/jpeg",
+    ) -> dict[str, Any]:
+        """Run every concept prompt against one image and return boxes per prompt.
+
+        Live responses are recorded by image hash; without live access the recorded SAM 3.1
+        output is replayed (`recorded_sam31`). Nothing is synthesised: unknown images with no
+        recording come back empty (`unavailable`).
+        """
+        image_sha = hashlib.sha256(image_bytes).hexdigest()
+        with Image.open(io.BytesIO(image_bytes)) as img:
+            width, height = img.size
+        cache_path = self._sam31_cache_path(image_sha)
+        cached: dict[str, Any] = (
+            json.loads(cache_path.read_text(encoding="utf-8")) if cache_path.exists() else {}
+        )
+        recorded: dict[str, list[list[float]]] = cached.get("prompts", {})
+
+        boxes: dict[str, list[list[float]]] = {}
+        source_mode = "unavailable"
+        missing = [p for p in prompts if p not in recorded]
+        if live and self.settings.meta_api_configured and missing:
+            data_url = f"data:{mime_type};base64,{base64.b64encode(image_bytes).decode('ascii')}"
+            sem = asyncio.Semaphore(8)
+
+            async def _one(p: str) -> tuple[str, list[list[float]] | None]:
+                async with sem:
+                    try:
+                        return p, [b["bbox_xyxy"] for b in await self._sam31_boxes(data_url, p)]
+                    except Exception:
+                        return p, None
+
+            for p, got in await asyncio.gather(*(_one(p) for p in missing)):
+                if got is not None:
+                    recorded[p] = got
+                    source_mode = "live_sam31"
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            cache_path.write_text(
+                json.dumps(
+                    {
+                        "image_sha256": image_sha,
+                        "image_width": width,
+                        "image_height": height,
+                        "model": self.settings.sam_3_1_model,
+                        "prompts": recorded,
+                    },
+                    indent=1,
+                ),
+                encoding="utf-8",
+            )
+        for p in prompts:
+            if p in recorded:
+                boxes[p] = recorded[p]
+                if source_mode == "unavailable":
+                    source_mode = "recorded_sam31"
+        return {
+            "model": self.settings.sam_3_1_model,
+            "source_mode": source_mode,
+            "image_width": width,
+            "image_height": height,
+            "boxes": boxes,
+        }
+
     async def segment_sam31(
         self,
         image_path: str | Path,
@@ -567,24 +672,6 @@ class MetaModelGateway:
             except Exception:
                 if not self.settings.demo_cache_fallback:
                     raise
-
-        if mode == "mode_2_cabinet_rack_sizer":
-            examples = prompt_pack.get("mode_2_cabinet_rack_sizer", {}).get(
-                "few_shot_examples", []
-            )
-            is_din = "din" in path.name.lower() or "rogue" in path.name.lower()
-            chosen = (
-                examples[1]["expected_output"]
-                if is_din and len(examples) > 1
-                else examples[0]["expected_output"]
-            )
-            return {
-                "model": self.settings.sam_3_1_model,
-                "mode": mode,
-                "source_mode": "demo_cache_fallback",
-                "boxes": [],
-                "result": chosen,
-            }
 
         return {
             "model": self.settings.sam_3_1_model,

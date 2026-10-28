@@ -1,0 +1,15 @@
+{
+ "image_sha256": "2af1ffe80afc6d5834056fbca7492e72dda9bf110624969eec3d814a0d227dc2",
+ "image_width": 1280,
+ "image_height": 720,
+ "model": "sam-3.1",
+ "prompts": {
+  "patch panel": [],
+  "rack server": [],
+  "network switch": [],
+  "Cisco switch": [],
+  "steel bar": [],
+  "cellular modem": [],
+  "antenna": []
+ }
+}

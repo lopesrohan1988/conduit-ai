@@ -116,7 +116,8 @@ class CabinetDetection(BaseModel):
     detection_id: str
     semantic_class: str
     label: str
-    confidence: float = Field(..., ge=0.0, le=1.0)
+    # SAM 3.1's API returns boxes without scores, so measured detections leave this unset
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
     bbox_xyxy: list[float] = Field(..., min_length=4, max_length=4)
     hud_color_hex: str
 
@@ -141,6 +142,12 @@ class CabinetVisionInspection(BaseModel):
     compatible_archetype_ids: list[ArchetypeId] = Field(default_factory=list)
     requires_aggregation_switch: bool
     detections: list[CabinetDetection] = Field(default_factory=list)
+    source_image: str | None = None
+    image_width: int | None = None
+    image_height: int | None = None
+    # live_sam31 | recorded_sam31 (replayed SAM output) | reference_profile (not measured)
+    measurement_source: str = "reference_profile"
+    measurement_notes: list[str] = Field(default_factory=list)
 
 
 class VideoTrackObject(BaseModel):
@@ -151,7 +158,7 @@ class VideoTrackObject(BaseModel):
     object_track_id: str
     track_class: str
     label: str
-    confidence: float = Field(default=0.95, ge=0.0, le=1.0)
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
     visible_frame_count: int = Field(..., ge=0)
     first_seen_sec: float = Field(default=0.0, ge=0.0)
     last_seen_sec: float = Field(default=0.0, ge=0.0)
@@ -171,17 +178,23 @@ class VideoWalkthroughResult(BaseModel):
     fps: int = 24
     duration_sec: float = 6.0
     total_frames: int = 144
-    enclosure_type: Literal[
-        "CONTROL_ROOM_19INCH_RACK",
-        "INDUSTRIAL_DIN_RAIL_CABINET",
-        "HYBRID_WALL_ENCLOSURE",
-    ]
+    enclosure_type: (
+        Literal[
+            "CONTROL_ROOM_19INCH_RACK",
+            "INDUSTRIAL_DIN_RAIL_CABINET",
+            "HYBRID_WALL_ENCLOSURE",
+        ]
+        | None
+    ) = None
     verified_empty_1u_slots: int = Field(default=0, ge=0)
     verified_din_rail_mm: float = Field(default=0.0, ge=0.0)
     rogue_bypass_detected: bool = False
     security_finding_code: str | None = None
     security_finding_summary: str | None = None
     tracked_objects: list[VideoTrackObject] = Field(default_factory=list)
+    frames_analyzed: int = 0
+    measurement_source: str = "reference_profile"
+    measurement_notes: list[str] = Field(default_factory=list)
 
 
 class VoiceFieldObservation(BaseModel):

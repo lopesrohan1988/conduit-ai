@@ -294,6 +294,15 @@ _PROGRESS_BY_STAGE: dict[str, int] = {
 }
 
 
+def _vision_payload(state: dict[str, Any]) -> dict[str, Any]:
+    """SAM 3.1 cabinet measurements and video tracks, for drawing real overlays in the UI."""
+    video = state.get("video_walkthrough_result")
+    return {
+        "cabinet_inspections": [c.model_dump() for c in state.get("cabinet_inspections") or []],
+        "video_walkthrough": video.model_dump() if video else None,
+    }
+
+
 @app.get("/api/v1/assessments/{scenario_id}/stream", tags=["Assessments"])
 async def stream_scenario_assessment(
     scenario_id: str,
@@ -459,6 +468,7 @@ async def stream_scenario_assessment(
             "architecture_plan": plan_final.model_dump(),
             "twin_verification": twin_final.model_dump(),
             "voice_transcript": voice_final.model_dump(),
+            **_vision_payload(accumulated_state),
             "switch_cutover_cli": scratch.get("architect_meta", {}).get(
                 "switch_cutover_cli", ""
             ),
@@ -566,6 +576,7 @@ async def analyze_custom_uploaded_site(
         ),
         "planner_trace": scratch.get("architect_meta", {}).get("planner_trace"),
         "agent_events": final_state.get("agent_events", []),
+        **_vision_payload(final_state),
     }
 
 

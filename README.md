@@ -37,7 +37,7 @@ Every number below is computed by [`backend/scripts/run_eval_benchmark.py`](back
 
 | Metric (6 scenarios, 43 labelled flows) | Rule engine only | **Muse Wonder + verifier** |
 | :--- | :--- | :--- |
-| Hardware BoM exact (archetypes + quantity) | 5/6 | **6/6** |
+| Hardware BoM exact (archetypes + quantity) | 4/6 | **5/6** |
 | Flow Green/Amber/Red tier correct | 40/43 (93.0%) | 40/43 (93.0%) |
 | Critical violations severed at L1 | 9/10 (90%) | 9/10 (90%) |
 | Unsafe passes (must-block flow graded GREEN) | 0 | 0 |
@@ -47,6 +47,7 @@ Every number below is computed by [`backend/scripts/run_eval_benchmark.py`](back
 
 - **Where the model adds value:** design choices the rule engine can't make. It picks a field diode plus a video diode for the water plant's mixed PLC + camera traffic, and adds an enterprise diode beside the gateway in the pharma suite.
 - **The verifier catches the model.** In the smart-building run, Muse Wonder first proposed relaying the compromised camera's SMB scan through an SFTP relay. The verifier rejected it (lateral movement must be severed), and the model revised the plan. The Compatibility tab shows each attempt and its violations.
+- **Measured vision changes the answer at one site.** The manufacturing site's answer key expects a 1U rack diode, but its photos show only a DIN-rail cabinet (the rack appears only in a synthetic video). SAM measures 0 free rack units there. The verifier rejected all three of Muse Wonder's rack-diode proposals, and the DIN-mounted alternatives can't proxy the site's OPC-UA and SQL flows. That BoM miss is a real conflict in the scenario's evidence, not a parsing error.
 - **The remaining 3 flow misses** are flows listed in the answer key that don't exist in the scenario's capture or logs (S3 syslog, S3 RDP), or are listed with IPs that don't match the traffic (S5 SMB). They are not counted as wins.
 
 > The six scenarios are synthetic and were written alongside the parsers. Treat perception scores (assets, shadows, peak Mbps) as regression tests, not generalisation evidence. The parsers are also run against **15 real public ICS captures** (CISA, UIUC ITI, Digital Bond): 13 yield Layer-7 decodes.
@@ -61,8 +62,9 @@ Every number below is computed by [`backend/scripts/run_eval_benchmark.py`](back
 | Switch CLI + inventory reconciliation | ✅ Real (deterministic) | Cisco/Stratix, Hirschmann, Aruba, Moxa dumps + OUI table |
 | Architect: Muse Wonder propose → verify | ✅ Live (`muse-wonder-1.0`) | 1–3 attempts, ~10–25 s at `ARCHITECT_REASONING_EFFORT=low`; falls back to the rule engine if no proposal is accepted |
 | Muse Voice Transcribe | ✅ Live for uploaded or recorded audio | Built-in scenarios use a sample transcript |
-| SAM 3.1 diagram / cabinet segmentation | ⚠️ Partial | Live SAM boxes are drawn, but cabinet measurements (empty 1U slots, DIN-rail mm) and rogue-modem detection still come from per-scenario profiles chosen by filename |
-| Video walkthrough tracking | ⚠️ Sample data | Built-in videos replay annotated track files; no live video model yet |
+| SAM 3.1 cabinet measurement | ✅ Live (`sam-3.1`) | Empty rack units, free DIN-rail mm and rogue cellular modems are measured from SAM boxes, scaled by standard dimensions in the photo (see below). Responses are recorded under `data/cache/sam31/`, so offline runs replay real SAM output |
+| SAM 3.1 video tracking | ✅ Live, weak on the sample videos | 8 frames are sampled with PyAV, SAM runs on each and detections are linked into tracks. The two bundled walkthroughs are synthetic renders SAM barely recognises (detections in 2/8 and 5/8 frames), so they add little; real phone footage is needed |
+| SAM 3.1 network-diagram parsing | ⚠️ Partial | Zone boxes on diagrams still come from a reference profile |
 | Muse Image rack card | ✅ Live endpoint | `POST /api/v1/visuals/rack-card` |
 | Baseten `muse-spark-open-1026` | ⏸ Not configured | Switch parsing is deterministic; enrichment falls back to Muse Spark |
 | Air-gapped Muse Glimmer mode | ⏸ Not configured | Requires a Glimmer endpoint; the UI marks it as simulated otherwise |
@@ -133,7 +135,12 @@ flowchart LR
 ## 🧠 How the Meta Models Are Used
 
 - **`Muse Wonder` (`muse-wonder-1.0`, Meta Model API): the architect.** It receives an evidence pack: every measured flow with its L7 detail, peak and sized bandwidth, VLANs, shadow assets, and cabinet/video constraints. It returns strict JSON: per-flow initiator / tier / action / rationale, a bill of materials with mounting, and a target security level. [`architect_llm_planner.py`](backend/app/agents/architect_llm_planner.py) verifies the proposal against catalog-driven rules and returns violations to the model for revision. Reasoning effort is configurable (`ARCHITECT_REASONING_EFFORT`).
-- **`SAM 3.1`:** text-prompted segmentation of diagrams and cabinet photos via `/v1/responses`. Today the live boxes are overlaid on the image; turning them into measurements (free 1U slots, DIN-rail width) is the next step. See *What Runs Live Today*.
+- **`SAM 3.1`: physical survey.** Each cabinet photo gets one concept prompt per call ("patch panel", "rack server", "electrical cabinet", "steel bar", "cellular modem", "antenna", …). [`sam_geometry.py`](backend/app/agents/sam_geometry.py) turns the boxes into measurements using standards visible in the same photo, with no per-site constants:
+  - **Rack units:** a 19-inch panel is 482.6 mm wide and 1U is 44.45 mm, so the gaps between segmented rack gear become empty U.
+  - **DIN rail:** exposed rail is 35 mm tall, so each free segment's length is measured in mm.
+  - **Rogue modems:** a cellular modem counts only when it sits inside a segmented enclosure. Whiteboards and sketches are recognised as non-cabinet photos and skipped.
+
+  These measurements feed the architect's evidence pack and the verifier's physical-fit check, and the UI draws SAM's boxes in the photo's own pixel coordinates.
 - **`Muse Spark` (`muse-spark-1.3`):** multimodal diagram extraction when SAM returns no boxes, and the fallback for switch-dump enrichment.
 - **`Muse Voice Transcribe`:** live transcription of uploaded or browser-recorded field notes into structured observations.
 - **`Muse Image`:** rack / DIN-rail placement card generation.

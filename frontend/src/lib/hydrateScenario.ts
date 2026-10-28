@@ -5,6 +5,7 @@ import {
   ExploitReplayItem,
   FlowTier,
   HardwareBomItem,
+  MeasuredCabinet,
   ModalTwinVerification,
   ProtocolFlowEntry,
   ScenarioDataset,
@@ -212,6 +213,31 @@ export function hydrateArchitectTrace(
   };
 }
 
+function hydrateMeasuredCabinets(raw: Array<Record<string, unknown>>): MeasuredCabinet[] {
+  return raw.map((c) => ({
+    sourceImage: String(c.source_image ?? ""),
+    imageWidth: Number(c.image_width ?? 1),
+    imageHeight: Number(c.image_height ?? 1),
+    enclosureType: String(c.enclosure_type ?? ""),
+    empty1uSlots: Number(c.empty_1u_slots ?? 0),
+    dinRailFreeMm: Number(c.din_rail_available_mm ?? 0),
+    freeRj45Ports: Number(c.free_rj45_ports ?? 0),
+    measurementSource: String(c.measurement_source ?? ""),
+    notes: Array.isArray(c.measurement_notes) ? c.measurement_notes.map(String) : [],
+    detections: (Array.isArray(c.detections) ? (c.detections as Array<Record<string, unknown>>) : []).map(
+      (d) => {
+        const b = Array.isArray(d.bbox_xyxy) ? d.bbox_xyxy.map(Number) : [0, 0, 0, 0];
+        return {
+          semanticClass: String(d.semantic_class ?? ""),
+          label: String(d.label ?? ""),
+          bbox: [b[0], b[1], b[2], b[3]] as [number, number, number, number],
+          color: String(d.hud_color_hex ?? "#22C55E"),
+        };
+      }
+    ),
+  }));
+}
+
 const UDP_PORTS = new Set([69, 123, 161, 162, 514, 1514, 47808]);
 
 function mapCutoverRows(
@@ -311,6 +337,35 @@ export function hydrateScenarioFromBackendPayload(
   }
   if (typeof payload.architect_source_mode === "string") {
     next.architectSourceMode = payload.architect_source_mode;
+  }
+  if (Array.isArray(payload.cabinet_inspections)) {
+    next.measuredCabinets = hydrateMeasuredCabinets(
+      payload.cabinet_inspections as Array<Record<string, unknown>>
+    );
+    const racks = next.measuredCabinets.filter((c) => c.enclosureType === "CONTROL_ROOM_19INCH_RACK");
+    next.samCabinetMetrics = {
+      ...next.samCabinetMetrics,
+      empty1uSlots: Math.max(0, ...racks.map((c) => c.empty1uSlots)),
+      dinRailFreeMm: Math.max(0, ...next.measuredCabinets.map((c) => c.dinRailFreeMm)),
+      rogueModemDetected: next.measuredCabinets.some((c) =>
+        c.detections.some((d) => d.semanticClass === "ROGUE_CELLULAR_BYPASS_MODEM")
+      ),
+    };
+  }
+  if (payload.video_walkthrough && typeof payload.video_walkthrough === "object") {
+    const v = payload.video_walkthrough as Record<string, unknown>;
+    next.measuredVideo = {
+      filename: String(v.video_filename ?? ""),
+      framesAnalyzed: Number(v.frames_analyzed ?? 0),
+      trackCount: Array.isArray(v.tracked_objects) ? v.tracked_objects.length : 0,
+      verifiedEmpty1uSlots: Number(v.verified_empty_1u_slots ?? 0),
+      verifiedDinRailMm: Number(v.verified_din_rail_mm ?? 0),
+      rogueDetected: Boolean(v.rogue_bypass_detected),
+      measurementSource: String(v.measurement_source ?? ""),
+      notes: Array.isArray(v.measurement_notes) ? v.measurement_notes.map(String) : [],
+    };
+  } else if ("video_walkthrough" in payload) {
+    next.measuredVideo = null;
   }
 
   const rawPlan = payload.architecture_plan as

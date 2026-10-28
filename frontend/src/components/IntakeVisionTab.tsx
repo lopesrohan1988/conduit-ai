@@ -18,6 +18,7 @@ import {
   UserLensMode,
 } from "@/types/conduit";
 import { getStaticDataUrl } from "@/lib/api";
+import MeasuredPhoto from "@/components/MeasuredPhoto";
 import { getGuidedNarrative } from "@/lib/guidedCopy";
 
 interface IntakeVisionTabProps {
@@ -148,6 +149,27 @@ export default function IntakeVisionTab({
   const cabinetUrl = getStaticDataUrl(activePhotoRel);
   const videoUrl = getStaticDataUrl(videoOverride);
 
+  const measuredCabinets = scenario.measuredCabinets ?? [];
+  const activeMeasured = measuredCabinets.find(
+    (c) => c.sourceImage && activePhotoRel.endsWith(c.sourceImage)
+  );
+  const visionMeasured = measuredCabinets.length > 0;
+  const measuredRackU = Math.max(
+    0,
+    ...measuredCabinets
+      .filter((c) => c.enclosureType === "CONTROL_ROOM_19INCH_RACK")
+      .map((c) => c.empty1uSlots)
+  );
+  const measuredDinMm = Math.max(0, ...measuredCabinets.map((c) => c.dinRailFreeMm));
+  const measuredHeadline = visionMeasured
+    ? [
+        measuredRackU > 0 ? `${measuredRackU} empty U in the rack photo` : null,
+        measuredDinMm > 0 ? `${measuredDinMm.toFixed(0)} mm free DIN rail` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ") || "No free mounting space measured in the site photos"
+    : null;
+
   const visibleDetections = scenario.samCabinetDetections.filter(
     (d) => enabledOverlays[d.category]
   );
@@ -171,16 +193,24 @@ export default function IntakeVisionTab({
               <span className="text-xs font-medium text-slate-500">
                 Physical Rack Space
               </span>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                SAM 3.1 Verified
+              <span
+                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                  visionMeasured
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    : "bg-slate-50 text-slate-600 border-slate-200"
+                }`}
+              >
+                {visionMeasured ? "Measured by SAM 3.1" : "Reference values"}
               </span>
             </div>
             <h3 className="text-sm sm:text-base font-semibold text-slate-900">
-              {narrative.cabinetFitHeadline}
+              {measuredHeadline ?? narrative.cabinetFitHeadline}
             </h3>
             {!isGuided && (
               <p className="text-xs text-slate-600 leading-relaxed">
-                {narrative.cabinetFitPlainText}
+                {visionMeasured
+                  ? measuredCabinets.flatMap((c) => c.notes).slice(0, 3).join(" ")
+                  : narrative.cabinetFitPlainText}
               </p>
             )}
           </div>
@@ -383,6 +413,9 @@ export default function IntakeVisionTab({
               </div>
 
               {/* Photo Media Frame */}
+              {activeMeasured ? (
+                <MeasuredPhoto url={cabinetUrl} cabinet={activeMeasured} />
+              ) : (
               <div className="relative aspect-[16/10] bg-slate-900 rounded-lg overflow-hidden">
                 {!cabinetLoadFailed ? (
                   <img
@@ -486,6 +519,14 @@ export default function IntakeVisionTab({
                   );
                 })}
               </div>
+              )}
+              {!activeMeasured && (
+                <p className="text-[11px] text-slate-500">
+                  {visionMeasured
+                    ? "SAM 3.1 found no enclosure in this photo, so nothing was measured; boxes shown are reference annotations."
+                    : "Reference annotations. Run Analysis to measure this photo with SAM 3.1."}
+                </p>
+              )}
             </div>
           )}
 
@@ -641,6 +682,29 @@ export default function IntakeVisionTab({
                 Rogue 5G Cabinet Pan
               </button>
             </div>
+          </div>
+
+          <div className="text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 space-y-0.5">
+            {scenario.measuredVideo ? (
+              <>
+                <div className="font-medium text-slate-700">
+                  SAM 3.1 on {scenario.measuredVideo.framesAnalyzed} sampled frames (
+                  {scenario.measuredVideo.measurementSource.replace(/_/g, " ")}):{" "}
+                  {scenario.measuredVideo.trackCount} track(s),{" "}
+                  {scenario.measuredVideo.verifiedEmpty1uSlots} empty U,{" "}
+                  {scenario.measuredVideo.verifiedDinRailMm.toFixed(0)} mm free rail
+                  {scenario.measuredVideo.rogueDetected ? ", cellular modem tracked" : ""}.
+                </div>
+                {scenario.measuredVideo.notes.map((n, i) => (
+                  <div key={i}>· {n}</div>
+                ))}
+                <div>· The HUD drawn on the playback below is illustrative, not SAM output.</div>
+              </>
+            ) : (
+              <div>
+                Playback HUD is illustrative. Run Analysis to track this video with SAM 3.1.
+              </div>
+            )}
           </div>
 
           <div className="relative aspect-video bg-slate-900 rounded-lg overflow-hidden">

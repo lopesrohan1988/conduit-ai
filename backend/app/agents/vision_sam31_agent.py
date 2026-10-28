@@ -3,20 +3,43 @@
 Executes:
 - Mode 1: Network diagram / blueprint / whiteboard segmentation (`sam-3.1`) + multimodal
   crop/node extraction (`muse-spark-1.3`).
-- Mode 2: Physical 19-inch rack & 35mm DIN-rail cabinet sizing (`sam-3.1`) + rogue 5G
-  cellular modem detection.
-- Mode 3: 24fps `.mp4` cabinet/rack walkthrough persistent object tracking (`VideoWalkthroughResult`).
+- Mode 2: Physical 19-inch rack & 35mm DIN-rail free-space measurement from SAM 3.1 boxes
+  (see `sam_geometry`) + rogue cellular modem detection.
+- Mode 3: SAM 3.1 on sampled `.mp4` walkthrough frames, linked into persistent tracks.
 """
 
 from __future__ import annotations
 
+import asyncio
 import base64
+import io
 import json
 import mimetypes
 from pathlib import Path
 from typing import Any
 
-from app.catalog_loader import load_sam31_vision_prompts
+import av
+
+from app.agents.sam_geometry import (
+    ANTENNA_PROMPT,
+    CABINET_PHOTO_PROMPTS,
+    CABINET_PROMPT,
+    DIN_DEVICE_PROMPT,
+    DIN_RAIL_PROMPT,
+    MODEM_PROMPT,
+    RACK_DEVICE_PROMPTS,
+    RACK_PANEL_WIDTH_MM,
+    Box,
+    DinMeasurement,
+    RackMeasurement,
+    classify_enclosure,
+    find_rogue_modems,
+    inside,
+    measure_din_rail,
+    measure_rack,
+    track_boxes,
+)
+from app.catalog_loader import load_hardware_catalog, load_sam31_vision_prompts
 from app.clients.meta_models import MetaModelGateway, extract_json_object
 from app.state import (
     CabinetDetection,
@@ -120,6 +143,129 @@ async def inspect_network_diagram(
     return DiagramSegmentationResult.model_validate(fallback_dict), source_mode
 
 
+def _catalog_fit(empty_u: int, din_mm: float) -> tuple[list[str], list[str]]:
+    """Mounting types and archetypes that physically fit the measured free space."""
+    mounting: list[str] = []
+    archetypes: list[str] = []
+    for arch in load_hardware_catalog().get("archetypes", []):
+        phys = arch.get("physical_requirements", {})
+        fits = []
+        for opt in arch.get("mounting_options", []):
+            if opt in {"1U_19INCH_RACK", "1U_HALF_RACK"} and empty_u >= max(1, int(phys.get("rack_units_u", 1) or 1)):
+                fits.append(opt)
+            elif opt == "DIN_RAIL" and din_mm >= float(phys.get("din_rail_width_mm", 0) or 0) > 0:
+                fits.append(opt)
+        if fits:
+            archetypes.append(arch["archetype_id"])
+            mounting.extend(m for m in fits if m not in mounting)
+    return mounting, archetypes
+
+
+def _detections_from_measurements(
+    rack: RackMeasurement | None,
+    din: DinMeasurement,
+    modems: list[tuple[Box, int]],
+    din_devices: list[Box],
+) -> list[CabinetDetection]:
+    dets: list[CabinetDetection] = []
+
+    def add(cls: str, label: str, box: Box, color: str) -> None:
+        dets.append(
+            CabinetDetection(
+                detection_id=f"CDET-{len(dets) + 1:02d}",
+                semantic_class=cls,
+                label=label,
+                bbox_xyxy=box.as_list(),
+                hud_color_hex=color,
+            )
+        )
+
+    for box, n in (rack.empty_slots if rack else []):
+        add("EMPTY_1U_RACK_SLOT", f"{n}U empty ({box.h / rack.px_per_mm:.0f} mm)", box, "#22C55E")  # type: ignore[union-attr]
+    for box in (rack.devices if rack else []):
+        add("INSTALLED_RACK_EQUIPMENT", "Installed 19-inch equipment", box, "#94A3B8")
+    for box, mm in din.free_segments:
+        add("EMPTY_DIN_RAIL_SEGMENT", f"{mm:.0f} mm free DIN rail", box, "#22C55E")
+    for box in din_devices:
+        add("INSTALLED_DIN_DEVICE", "Installed DIN-rail device", box, "#94A3B8")
+    for box, antennas in modems:
+        add(
+            "ROGUE_CELLULAR_BYPASS_MODEM",
+            f"Cellular modem ({antennas} antenna{'s' if antennas != 1 else ''}) — possible air-gap bypass",
+            box,
+            "#EF4444",
+        )
+    return dets
+
+
+def inspection_from_concepts(
+    concepts: dict[str, Any], *, source_image: str, free_ports_hint: int = 6
+) -> CabinetVisionInspection | None:
+    """Measure one photo from its SAM 3.1 boxes; None when the photo shows no enclosure."""
+    width, height = int(concepts["image_width"]), int(concepts["image_height"])
+
+    def boxes(prompt: str) -> list[Box]:
+        return [Box.of(b) for b in concepts["boxes"].get(prompt, [])]
+
+    rack = measure_rack([b for p in RACK_DEVICE_PROMPTS for b in boxes(p)], width, height)
+    cabinets = [b for b in boxes(CABINET_PROMPT) if b.w * b.h >= 0.2 * width * height]
+    enclosure = max(cabinets, key=lambda b: b.w * b.h) if cabinets else None
+    din = measure_din_rail(boxes(DIN_RAIL_PROMPT), width, height, enclosure)
+    kind = classify_enclosure(rack, cabinets, din)
+    if kind is None:
+        return None
+
+    is_rack = kind == "CONTROL_ROOM_19INCH_RACK"
+    # Only count what sits inside the segmented enclosure
+    din_devices = [] if is_rack else [b for b in boxes(DIN_DEVICE_PROMPT) if inside(b, enclosure)]
+    modems = find_rogue_modems(
+        [m for m in boxes(MODEM_PROMPT) if inside(m, enclosure)], boxes(ANTENNA_PROMPT)
+    )
+    empty_u = rack.empty_1u_slots if rack else 0
+    din_mm = din.max_contiguous_mm
+    mounting, archetypes = _catalog_fit(empty_u, din_mm)
+    notes: list[str] = []
+    if rack:
+        notes.append(
+            f"1U = {rack.rack_unit_px:.0f} px, scaled from {RACK_PANEL_WIDTH_MM} mm 19-inch panel width; "
+            f"{len(rack.devices)} occupied band(s), {empty_u} empty U between them."
+        )
+    if din.free_segments:
+        notes.append(f"DIN rail scaled from its 35 mm height; longest free segment {din_mm:.0f} mm.")
+    elif not is_rack:
+        notes.append("No exposed DIN rail segment was segmented; free rail length not measured.")
+    if modems:
+        notes.append(f"{len(modems)} cellular modem(s) segmented inside the enclosure.")
+    notes.append("RJ45 port counts come from the switch audit, not from vision.")
+
+    return CabinetVisionInspection(
+        enclosure_type=kind,
+        has_19inch_rack=is_rack,
+        empty_1u_slots=empty_u,
+        din_rail_available_mm=din_mm,
+        occupied_rj45_ports=0,
+        free_rj45_ports=free_ports_hint,
+        free_sfp_ports=0,
+        compatible_mounting_types=mounting,  # type: ignore[arg-type]
+        compatible_archetype_ids=archetypes,  # type: ignore[arg-type]
+        requires_aggregation_switch=free_ports_hint < 2,
+        detections=_detections_from_measurements(rack, din, modems, din_devices),
+        source_image=source_image,
+        image_width=width,
+        image_height=height,
+        measurement_source=str(concepts["source_mode"]),
+        measurement_notes=notes,
+    )
+
+
+def _combined_source_mode(modes: list[str]) -> str:
+    if "live_sam31" in modes:
+        return "live_sam31"
+    if "recorded_sam31" in modes:
+        return "recorded_sam31"
+    return "unavailable"
+
+
 async def inspect_cabinet_photos(
     cabinet_paths: list[str | Path],
     *,
@@ -127,166 +273,141 @@ async def inspect_cabinet_photos(
     use_live_llm: bool = False,
     free_ports_hint: int = 6,
 ) -> tuple[list[CabinetVisionInspection], str]:
-    """Run SAM 3.1 Mode 2 physical rack / DIN-rail / rogue modem inspection across site photos."""
-    prompt_pack = load_sam31_vision_prompts()
-    examples = prompt_pack.get("mode_2_cabinet_rack_sizer", {}).get("few_shot_examples", [])
-    rack_template = examples[0]["expected_output"]
-    din_template = examples[1]["expected_output"] if len(examples) > 1 else rack_template
+    """Measure rack / DIN-rail free space and rogue modems in each photo with SAM 3.1.
 
-    if not cabinet_paths:
-        return [CabinetVisionInspection.model_validate(rack_template)], "demo_cache_fallback"
-
+    Photos where SAM finds no enclosure (e.g. whiteboard sketches) are skipped.
+    """
     inspections: list[CabinetVisionInspection] = []
-    overall_source_mode = "deterministic_vision_profile"
-
+    modes: list[str] = []
     for raw_p in cabinet_paths:
         path = Path(raw_p)
-        fname = path.name.lower()
-        is_rogue = "rogue" in fname or "5g" in fname or "modem" in fname
-        is_din = is_rogue or "din" in fname or "plc_cabinet" in fname or "stainless" in fname
-        base_dict = json.loads(json.dumps(din_template if is_din else rack_template))
-
-        if is_rogue:
-            # Ensure explicit rogue 5G cellular modem detection box is present
-            base_dict["detections"].append(
-                {
-                    "detection_id": "CDET-ROGUE-5G",
-                    "semantic_class": "ROGUE_CELLULAR_BYPASS_MODEM",
-                    "label": "Unauthorized 5G Cellular Modem w/ Paddle Antennas (Air-Gap Bypass!)",
-                    "confidence": 0.98,
-                    "bbox_xyxy": [769.0, 143.0, 935.0, 571.0],
-                    "hud_color_hex": "#EF4444",
-                }
-            )
-
-        if use_live_llm and gateway.settings.meta_api_configured and path.exists():
-            sam_res = await gateway.segment_sam31(
-                path,
-                prompts=(
-                    ["cellular modem with antennas", "35mm DIN rail", "industrial Ethernet switch"]
-                    if is_din
-                    else ["empty 1U server rack slot", "48-port rack switch", "RJ45 patch ports"]
-                ),
-                mode="mode_2_cabinet_rack_sizer",
-            )
-            if sam_res.get("source_mode") == "live_sam31":
-                overall_source_mode = "live_sam31"
-                boxes = sam_res.get("boxes", [])
-                for idx, box in enumerate(boxes):
-                    if idx < len(base_dict["detections"]):
-                        base_dict["detections"][idx]["bbox_xyxy"] = box["bbox_xyxy"]
-                    else:
-                        det = CabinetDetection(
-                            detection_id=f"CDET-LIVE-{idx + 1:02d}",
-                            semantic_class=(
-                                "ROGUE_CELLULAR_BYPASS_MODEM"
-                                if is_rogue and idx == 0
-                                else ("DIN_RAIL_TRACK" if is_din else "EMPTY_1U_RACK_SLOT")
-                            ),
-                            label=f"SAM 3.1 Live Segmented Hardware Region #{idx + 1}",
-                            confidence=0.95,
-                            bbox_xyxy=box["bbox_xyxy"],
-                            hud_color_hex="#EF4444" if is_rogue and idx == 0 else "#22C55E",
-                        )
-                        base_dict["detections"].append(det.model_dump())
-
-        if free_ports_hint > 0:
-            base_dict["free_rj45_ports"] = max(int(base_dict.get("free_rj45_ports", 4)), free_ports_hint)
-
-        inspections.append(CabinetVisionInspection.model_validate(base_dict))
-
-    return inspections, overall_source_mode
+        if not path.exists():
+            continue
+        concepts = await gateway.sam31_concepts(
+            path.read_bytes(),
+            CABINET_PHOTO_PROMPTS,
+            live=use_live_llm,
+            mime_type=mimetypes.guess_type(path.name)[0] or "image/jpeg",
+        )
+        modes.append(str(concepts["source_mode"]))
+        if concepts["source_mode"] == "unavailable":
+            continue
+        insp = inspection_from_concepts(concepts, source_image=path.name, free_ports_hint=free_ports_hint)
+        if insp is not None:
+            inspections.append(insp)
+    return inspections, _combined_source_mode(modes)
 
 
-def track_walkthrough_video(
+VIDEO_PROMPTS = (*RACK_DEVICE_PROMPTS, DIN_RAIL_PROMPT, MODEM_PROMPT, ANTENNA_PROMPT)
+
+
+def _sample_video_frames(path: Path, count: int) -> tuple[list[tuple[float, bytes]], float, int, float]:
+    """Decode `count` evenly spaced frames as JPEG bytes: (frames, fps, total_frames, duration)."""
+    with av.open(str(path)) as container:
+        stream = container.streams.video[0]
+        fps = float(stream.average_rate or 24)
+        decoded = [frame.to_image() for frame in container.decode(video=0)]
+    total = len(decoded)
+    if total == 0:
+        return [], fps, 0, 0.0
+    picks = sorted({round(i * (total - 1) / max(1, count - 1)) for i in range(count)})
+    frames: list[tuple[float, bytes]] = []
+    for idx in picks:
+        buf = io.BytesIO()
+        decoded[idx].convert("RGB").save(buf, format="JPEG", quality=90)
+        frames.append((round(idx / fps, 2), buf.getvalue()))
+    return frames, fps, total, round(total / fps, 2)
+
+
+async def track_walkthrough_video(
     video_path: str | Path | None,
     *,
-    scenario_id: str | None = None,
+    gateway: MetaModelGateway,
+    use_live_llm: bool = False,
+    sample_frames: int = 8,
 ) -> VideoWalkthroughResult | None:
-    """Run SAM 3.1 Mode 3 persistent multi-frame object tracking across `.mp4` walkthroughs."""
+    """Run SAM 3.1 on sampled walkthrough frames and link detections into persistent tracks."""
     if not video_path:
         return None
     path = Path(video_path)
     if not path.exists():
         return None
 
-    gt_path = path.with_name(f"{path.stem}_gt.json")
-    is_rogue_pan = "rogue" in path.name.lower() or scenario_id == "scenario_4_water_treatment"
+    frames, fps, total_frames, duration = _sample_video_frames(path, sample_frames)
+    results = await asyncio.gather(
+        *(gateway.sam31_concepts(jpg, VIDEO_PROMPTS, live=use_live_llm) for _, jpg in frames)
+    )
 
-    if gt_path.exists():
-        raw_gt = json.loads(gt_path.read_text(encoding="utf-8"))
-        meta = raw_gt.get("video_metadata", {})
-        catalog = raw_gt.get("tracked_object_catalog", {})
-        eng = meta.get("engineering_conclusion", {})
-        din_cal = meta.get("din_rail_calibration", {})
-        sec_inc = meta.get("security_incident_flagged", {})
+    per_class: dict[str, list[list[Box]]] = {
+        "INSTALLED_RACK_EQUIPMENT": [],
+        "EMPTY_DIN_RAIL_SEGMENT": [],
+        "ROGUE_CELLULAR_BYPASS_MODEM": [],
+        "ANTENNA": [],
+    }
+    empty_u, din_mm, kinds = 0, 0.0, []
+    frames_with_detections = 0
+    for res in results:
+        w, h = int(res["image_width"]), int(res["image_height"])
 
-        tracks: list[VideoTrackObject] = []
-        for idx, (track_key, item) in enumerate(catalog.items(), start=1):
-            sem = str(item.get("semantic_class", "TRACKED_OBJECT"))
-            is_rogue_obj = "ROGUE" in sem.upper() or "MODEM" in track_key.upper() or "5G" in str(item.get("label", "")).upper()
-            tracks.append(
+        def boxes(prompt: str, res: dict[str, Any] = res) -> list[Box]:
+            return [Box.of(b) for b in res["boxes"].get(prompt, [])]
+
+        rack = measure_rack([b for p in RACK_DEVICE_PROMPTS for b in boxes(p)], w, h)
+        din = measure_din_rail(boxes(DIN_RAIL_PROMPT), w, h, None)
+        modems = find_rogue_modems(boxes(MODEM_PROMPT), boxes(ANTENNA_PROMPT))
+        per_class["INSTALLED_RACK_EQUIPMENT"].append(rack.devices if rack else [])
+        per_class["EMPTY_DIN_RAIL_SEGMENT"].append([b for b, _ in din.free_segments])
+        per_class["ROGUE_CELLULAR_BYPASS_MODEM"].append([b for b, _ in modems])
+        per_class["ANTENNA"].append(boxes(ANTENNA_PROMPT))
+        if any(res["boxes"].get(p) for p in VIDEO_PROMPTS):
+            frames_with_detections += 1
+        empty_u = max(empty_u, rack.empty_1u_slots if rack else 0)
+        din_mm = max(din_mm, din.max_contiguous_mm)
+        kind = classify_enclosure(rack, [], din)
+        if kind:
+            kinds.append(kind)
+
+    tracked: list[VideoTrackObject] = []
+    rogue = False
+    for cls, frame_boxes in per_class.items():
+        for track in track_boxes(frame_boxes):
+            first, last = track[0][0], track[-1][0]
+            if cls == "ROGUE_CELLULAR_BYPASS_MODEM" and len(track) >= 2:
+                rogue = True
+            tracked.append(
                 VideoTrackObject(
-                    object_track_id=f"TRK-{idx:02d}-{track_key[:14].upper()}",
-                    track_class=sem,
-                    label=str(item.get("label", track_key)),
-                    confidence=0.97 if is_rogue_obj else 0.94,
-                    visible_frame_count=int(item.get("visible_frame_count", 40)),
-                    first_seen_sec=round((idx - 1) * 0.8, 1),
-                    last_seen_sec=round(min(6.0, idx * 1.3 + 1.2), 1),
-                    world_bbox_xyxy=[
-                        float(v) for v in item.get("world_bbox_xyxy", [0, 0, 100, 100])[:4]
-                    ],
-                    hud_color_hex="#EF4444" if is_rogue_obj else "#22C55E",
+                    object_track_id=f"TRK-{len(tracked) + 1:02d}-{cls[:12]}",
+                    track_class=cls,
+                    label=f"{cls.replace('_', ' ').title()} (seen in {len(track)}/{len(frames)} sampled frames)",
+                    visible_frame_count=len(track),
+                    first_seen_sec=frames[first][0],
+                    last_seen_sec=frames[last][0],
+                    world_bbox_xyxy=track[-1][1].as_list(),
+                    hud_color_hex="#EF4444" if cls == "ROGUE_CELLULAR_BYPASS_MODEM" else "#22C55E",
                 )
             )
 
-        enclosure_type = (
-            "INDUSTRIAL_DIN_RAIL_CABINET"
-            if ("din_rail" in str(meta.get("scenario_alignment", "")).lower() or din_cal)
-            else "CONTROL_ROOM_19INCH_RACK"
-        )
-        return VideoWalkthroughResult(
-            video_filename=path.name,
-            video_url=f"/static/data/videos/{path.name}",
-            fps=int(meta.get("fps", 24)),
-            duration_sec=float(meta.get("duration_sec", 6.0)),
-            total_frames=int(meta.get("total_frames", 144)),
-            enclosure_type=enclosure_type,  # type: ignore[arg-type]
-            verified_empty_1u_slots=int(eng.get("verified_empty_1u_slots", 0)),
-            verified_din_rail_mm=float(din_cal.get("computed_empty_din_width_mm", 0.0)),
-            rogue_bypass_detected=bool(sec_inc) or is_rogue_pan,
-            security_finding_code=sec_inc.get("finding_code") if sec_inc else None,
-            security_finding_summary=(
-                f"{sec_inc.get('device')} on {sec_inc.get('physical_switch_port')}"
-                if sec_inc
-                else None
-            ),
-            tracked_objects=tracks,
-        )
-
-    # Custom uploaded `.mp4` walkthrough fallback
+    modes = [str(r["source_mode"]) for r in results]
+    notes = [
+        f"SAM 3.1 returned detections in {frames_with_detections}/{len(frames)} sampled frames.",
+        "Free space is the largest measured in any single frame; gaps spanning frames are not stitched.",
+    ]
     return VideoWalkthroughResult(
         video_filename=path.name,
-        video_url=None,
-        fps=24,
-        duration_sec=6.0,
-        total_frames=144,
-        enclosure_type="INDUSTRIAL_DIN_RAIL_CABINET" if is_rogue_pan else "CONTROL_ROOM_19INCH_RACK",
-        verified_empty_1u_slots=0 if is_rogue_pan else 1,
-        verified_din_rail_mm=240.0 if is_rogue_pan else 0.0,
-        rogue_bypass_detected=is_rogue_pan,
-        tracked_objects=[
-            VideoTrackObject(
-                object_track_id="TRK-01-CUSTOM",
-                track_class="EMPTY_1U_RACK_SLOT" if not is_rogue_pan else "DIN_RAIL_TRACK",
-                label="SAM 3.1 Verified Enclosure Mounting Clearance",
-                confidence=0.93,
-                visible_frame_count=72,
-                first_seen_sec=0.5,
-                last_seen_sec=5.5,
-                world_bbox_xyxy=[180.0, 220.0, 980.0, 340.0],
-                hud_color_hex="#22C55E",
-            )
-        ],
+        video_url=f"/static/data/videos/{path.name}",
+        fps=round(fps),
+        duration_sec=duration,
+        total_frames=total_frames,
+        enclosure_type=max(set(kinds), key=kinds.count) if kinds else None,
+        verified_empty_1u_slots=empty_u,
+        verified_din_rail_mm=din_mm,
+        rogue_bypass_detected=rogue,
+        security_finding_code="ROGUE_CELLULAR_BYPASS" if rogue else None,
+        security_finding_summary=(
+            "Cellular modem tracked across multiple walkthrough frames" if rogue else None
+        ),
+        tracked_objects=tracked,
+        frames_analyzed=len(frames),
+        measurement_source=_combined_source_mode(modes),
+        measurement_notes=notes,
     )

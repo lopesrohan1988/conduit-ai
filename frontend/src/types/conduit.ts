@@ -224,9 +224,43 @@ export interface ArchitectTrace {
   attempts: ArchitectAttempt[];
 }
 
+export interface MeasuredDetection {
+  semanticClass: string;
+  label: string;
+  bbox: [number, number, number, number];
+  color: string;
+}
+
+/** One cabinet photo measured from SAM 3.1 boxes (pixel coordinates of the source image) */
+export interface MeasuredCabinet {
+  sourceImage: string;
+  imageWidth: number;
+  imageHeight: number;
+  enclosureType: string;
+  empty1uSlots: number;
+  dinRailFreeMm: number;
+  freeRj45Ports: number;
+  measurementSource: string;
+  notes: string[];
+  detections: MeasuredDetection[];
+}
+
+export interface MeasuredVideo {
+  filename: string;
+  framesAnalyzed: number;
+  trackCount: number;
+  verifiedEmpty1uSlots: number;
+  verifiedDinRailMm: number;
+  rogueDetected: boolean;
+  measurementSource: string;
+  notes: string[];
+}
+
 export interface ScenarioDataset {
   id: string;
   provenance?: DataProvenance;
+  measuredCabinets?: MeasuredCabinet[];
+  measuredVideo?: MeasuredVideo | null;
   architectSourceMode?: string;
   architectTrace?: ArchitectTrace | null;
   shortIndex: number;

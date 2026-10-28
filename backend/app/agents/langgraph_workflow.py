@@ -54,7 +54,6 @@ def build_conduit_langgraph(
         diag_path = state.get("diagram_image_path")
         cab_paths = state.get("cabinet_image_paths") or []
         vid_path = state.get("video_walkthrough_path")
-        scenario_id = state.get("scenario_id")
 
         diag_seg, diag_mode = await inspect_network_diagram(
             diag_path, gateway=gw, use_live_llm=use_live_llm
@@ -62,20 +61,23 @@ def build_conduit_langgraph(
         cab_insps, cab_mode = await inspect_cabinet_photos(
             cab_paths, gateway=gw, use_live_llm=use_live_llm
         )
-        vid_res = track_walkthrough_video(vid_path, scenario_id=scenario_id)
+        vid_res = await track_walkthrough_video(vid_path, gateway=gw, use_live_llm=use_live_llm)
 
-        primary_cab = cab_insps[0]
-        mount_str = (
-            primary_cab.compatible_mounting_types[0]
-            if primary_cab.compatible_mounting_types
-            else "DIN_RAIL"
+        racks = [c for c in cab_insps if c.has_19inch_rack]
+        dins = [c for c in cab_insps if not c.has_19inch_rack]
+        parts = []
+        if racks:
+            parts.append(f"{max(c.empty_1u_slots for c in racks)} empty U measured in rack photo")
+        if dins:
+            parts.append(f"{max(c.din_rail_available_mm for c in dins):.0f} mm free DIN rail measured")
+        if vid_res:
+            parts.append(f"{len(vid_res.tracked_objects)} object track(s) across {vid_res.frames_analyzed} video frames")
+        headline = f"SAM 3.1 ({cab_mode}): " + ("; ".join(parts) if parts else "no enclosure measured") + "."
+        rogue_photo = any(
+            d.semantic_class == "ROGUE_CELLULAR_BYPASS_MODEM" for c in cab_insps for d in c.detections
         )
-        headline = (
-            f"SAM 3.1 ({cab_mode}) segmented {diag_seg.source_image_type} & verified "
-            f"{mount_str} physical enclosure clearance."
-        )
-        if vid_res and vid_res.rogue_bypass_detected:
-            headline += " CRITICAL ALERT: Rogue 5G cellular modem tracked in cabinet!"
+        if rogue_photo or (vid_res and vid_res.rogue_bypass_detected):
+            headline += " CRITICAL ALERT: cellular modem segmented inside the OT cabinet!"
 
         return {
             "diagram_segmentation": diag_seg,
@@ -85,7 +87,7 @@ def build_conduit_langgraph(
                 {
                     "stage": "sam_3_1_vision",
                     "model": cfg.sam_3_1_model,
-                    "source_mode": cab_mode if cab_mode == "live_sam31" else diag_mode,
+                    "source_mode": cab_mode,
                     "headline": headline,
                 }
             ],
