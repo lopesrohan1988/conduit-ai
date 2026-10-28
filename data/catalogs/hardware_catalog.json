@@ -66,7 +66,9 @@
         "MODBUS_TCP",
         "SYSLOG_UDP",
         "DNP3",
-        "IEC_104"
+        "IEC_104",
+        "SFTP",
+        "HTTPS_PUSH"
       ],
       "max_iec62443_sl": "SL-4",
       "estimated_bom_unit_cost_usd": 4500,
@@ -179,6 +181,7 @@
         "SMTP",
         "SYSLOG_UDP",
         "MODBUS_TCP",
+        "DNP3",
         "RTSP"
       ],
       "max_iec62443_sl": "SL-4",
