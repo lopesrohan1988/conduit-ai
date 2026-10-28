@@ -302,9 +302,8 @@ print(json.dumps({"replays": replays, "leaked": leaked, "ms": round((time.perf_c
         "print(json.dumps({'sandbox_id': sb.object_id, 'stdout': out}))\n"
     )
     try:
-        # Use system python/modal CLI environment where `modal` profile is authenticated
         proc = subprocess.run(
-            ["python", "-c", driver_code],
+            [sys.executable, "-c", driver_code],
             capture_output=True,
             text=True,
             timeout=timeout_sec + 8,

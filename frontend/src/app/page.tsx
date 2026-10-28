@@ -22,6 +22,7 @@ import {
   fetchBackendScenariosList,
   fetchScenarioPreview,
 } from "@/lib/api";
+import { hydrateScenarioFromBackendPayload } from "@/lib/hydrateScenario";
 import { getGuidedNarrative } from "@/lib/guidedCopy";
 import WorkbenchHeader from "@/components/WorkbenchHeader";
 import SiteIntakeStep from "@/components/SiteIntakeStep";
@@ -57,10 +58,34 @@ export default function ConduitWorkbenchPage() {
   const [modelStack, setModelStack] = useState<ModelServiceHealth[]>(() =>
     getDefaultModelStack("cloud_frontier")
   );
+  const [liveOverrides, setLiveOverrides] = useState<
+    Record<string, ScenarioDataset>
+  >({});
 
-  const selectedScenario: ScenarioDataset = getScenarioById(selectedScenarioId);
+  const baseScenario: ScenarioDataset = getScenarioById(selectedScenarioId);
+  const selectedScenario: ScenarioDataset =
+    liveOverrides[selectedScenarioId] ?? baseScenario;
   const narrative = getGuidedNarrative(selectedScenario);
   const isGuided = userLens === "guided_collab";
+
+  const handleLivePayloadHydrate = useCallback(
+    (payload: Record<string, unknown>, isCustomUpload?: boolean) => {
+      setBackendConnected(true);
+      setLiveOverrides((prev) => {
+        const current =
+          prev[selectedScenarioId] ?? getScenarioById(selectedScenarioId);
+        return {
+          ...prev,
+          [selectedScenarioId]: hydrateScenarioFromBackendPayload(
+            current,
+            payload,
+            { isCustomUpload }
+          ),
+        };
+      });
+    },
+    [selectedScenarioId]
+  );
 
   const [timelineSteps, setTimelineSteps] = useState<AgentTimelineStep[]>(() =>
     buildTimelineTemplate(FALLBACK_SCENARIOS[0], "cloud_frontier").map((s) => ({
@@ -227,6 +252,24 @@ export default function ConduitWorkbenchPage() {
             stageName === "done" ||
             parsed.done === true
           ) {
+            if (
+              parsed.architecture_plan ||
+              parsed.twin_verification ||
+              parsed.voice_transcript
+            ) {
+              setLiveOverrides((prev) => {
+                const current =
+                  prev[selectedScenarioId] ??
+                  getScenarioById(selectedScenarioId);
+                return {
+                  ...prev,
+                  [selectedScenarioId]: hydrateScenarioFromBackendPayload(
+                    current,
+                    parsed
+                  ),
+                };
+              });
+            }
             setTimelineSteps((prev) =>
               prev.map((s) => ({
                 ...s,
@@ -490,6 +533,7 @@ export default function ConduitWorkbenchPage() {
               onSelectScenario={setSelectedScenarioId}
               userLens={userLens}
               onAnalyzeAndAdvance={handleAnalyzeAndAdvanceFromStep1}
+              onLivePayloadHydrate={handleLivePayloadHydrate}
             />
           )}
           {activeTab === "intake_vision" && (

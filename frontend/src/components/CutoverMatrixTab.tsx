@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import {
   ArrowRight,
   CheckCircle2,
+  Cloud,
   Play,
   RefreshCw,
   ShieldCheck,
@@ -11,10 +12,13 @@ import {
 } from "lucide-react";
 import {
   FlowTier,
+  ModalTwinVerification,
   ProtocolFlowEntry,
   ScenarioDataset,
   UserLensMode,
 } from "@/types/conduit";
+import { API_BASE } from "@/lib/api";
+import { hydrateTwinVerification } from "@/lib/hydrateScenario";
 import {
   explainFlowInPlainEnglish,
   getPlainEnglishTierSummary,
@@ -66,6 +70,9 @@ export default function CutoverMatrixTab({
   );
   const [replayingTwin, setReplayingTwin] = useState(false);
   const [twinTestedBanner, setTwinTestedBanner] = useState(false);
+  const [useModalCloud, setUseModalCloud] = useState(false);
+  const [liveTwin, setLiveTwin] = useState<ModalTwinVerification | null>(null);
+  const activeTwin = liveTwin ?? scenario.digitalTwin;
   const [visibleLogLines, setVisibleLogLines] = useState<number>(
     scenario.digitalTwin.consoleTrace.length
   );
@@ -81,25 +88,56 @@ export default function CutoverMatrixTab({
     setSelectedFlow(scenario.flows[0]);
     setReplayingTwin(false);
     setTwinTestedBanner(false);
+    setLiveTwin(null);
     setVisibleLogLines(scenario.digitalTwin.consoleTrace.length);
   }, [scenario]);
 
-  const triggerModalReplay = () => {
-    if (replayingTwin) return;
-    setReplayingTwin(true);
-    setTwinTestedBanner(false);
+  const animateConsoleLines = (totalLines: number) => {
     setVisibleLogLines(1);
-    const total = scenario.digitalTwin.consoleTrace.length;
+    const target = Math.max(1, totalLines);
     let current = 1;
     const interval = setInterval(() => {
       current += 1;
       setVisibleLogLines(current);
-      if (current >= total) {
+      if (current >= target) {
         clearInterval(interval);
         setReplayingTwin(false);
         setTwinTestedBanner(true);
       }
-    }, 320);
+    }, 240);
+  };
+
+  const triggerModalReplay = async () => {
+    if (replayingTwin) return;
+    setReplayingTwin(true);
+    setTwinTestedBanner(false);
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(
+        () => controller.abort(),
+        useModalCloud ? 45000 : 8000
+      );
+      const res = await fetch(`${API_BASE}/api/v1/twin/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          scenario_id: scenario.id,
+          use_modal_cloud: useModalCloud,
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        const raw = (await res.json()) as Record<string, unknown>;
+        const hydrated = hydrateTwinVerification(scenario.digitalTwin, raw);
+        setLiveTwin(hydrated);
+        animateConsoleLines(hydrated.consoleTrace.length);
+        return;
+      }
+    } catch {
+      // Fallback to local scenario digitalTwin trace
+    }
+    animateConsoleLines(activeTwin.consoleTrace.length);
   };
 
   const counts = {
@@ -132,11 +170,24 @@ export default function CutoverMatrixTab({
 
         <div className="flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-white text-emerald-700 border border-emerald-200">
-            0% Downtime
+            {activeTwin.operationalDowntimePct}% Downtime
           </span>
           <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-white text-emerald-700 border border-emerald-200">
-            100% Attacks Dropped
+            {activeTwin.inboundExploitDropPct}% Attacks Dropped
           </span>
+          <button
+            type="button"
+            onClick={() => setUseModalCloud((v) => !v)}
+            title="Switch between local OS kernel os.pipe() twin and remote Modal Cloud Linux Sandbox"
+            className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+              useModalCloud
+                ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+            }`}
+          >
+            <Cloud className="w-3.5 h-3.5" />
+            <span>{useModalCloud ? "Modal Cloud" : "Local Kernel"}</span>
+          </button>
           <button
             type="button"
             onClick={triggerModalReplay}
@@ -162,10 +213,11 @@ export default function CutoverMatrixTab({
         <div className="bg-white border border-emerald-200 rounded-xl px-4 py-2.5 text-xs text-emerald-800 flex items-center justify-between gap-2 shadow-sm">
           <span className="inline-flex items-center gap-1.5 font-medium">
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-            Digital Twin Replay Complete:{" "}
-            {scenario.digitalTwin.legitimatePayloadsDelivered.toLocaleString()}{" "}
-            legitimate messages delivered (0% downtime) ·{" "}
-            {scenario.digitalTwin.inboundExploitDropPct}% attack packets dropped.
+            Digital Twin Replay Complete ({activeTwin.sandboxId}):{" "}
+            {activeTwin.legitimatePayloadsDelivered.toLocaleString()}{" "}
+            legitimate messages delivered ({activeTwin.operationalDowntimePct}% downtime ·{" "}
+            {activeTwin.medianForwardLatencyMs}ms p50) ·{" "}
+            {activeTwin.inboundExploitDropPct}% attack packets dropped.
           </span>
           {subTab !== "engineer_rules" && (
             <button
@@ -300,7 +352,7 @@ export default function CutoverMatrixTab({
 
           {/* Compact 3-Card Attack Test Summary */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {scenario.digitalTwin.exploitsTested.map((ex) => (
+            {activeTwin.exploitsTested.map((ex) => (
               <div
                 key={ex.id}
                 className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm flex items-center justify-between gap-3"
@@ -424,8 +476,9 @@ export default function CutoverMatrixTab({
               <div className="text-xs font-semibold text-slate-900 flex items-center gap-1.5">
                 <Terminal className="w-4 h-4 text-slate-600" />
                 <span>
-                  Digital Twin Socket Log ({scenario.digitalTwin.sandboxId} ·{" "}
-                  {scenario.digitalTwin.medianForwardLatencyMs}ms p50)
+                  Digital Twin Socket Log ({activeTwin.sandboxId} ·{" "}
+                  {activeTwin.medianForwardLatencyMs}ms p50 ·{" "}
+                  {activeTwin.kernelMechanism})
                 </span>
               </div>
               <button
@@ -440,13 +493,16 @@ export default function CutoverMatrixTab({
             </div>
 
             <div className="rounded-lg bg-slate-900 text-slate-100 p-3.5 font-mono text-xs space-y-1">
-              {scenario.digitalTwin.consoleTrace
+              {activeTwin.consoleTrace
                 .slice(0, visibleLogLines)
                 .map((line, i) => (
                   <div
                     key={i}
                     className={
-                      line.includes("VERIFIED") || line.includes("PASS")
+                      line.includes("VERIFIED") ||
+                      line.includes("PASS") ||
+                      line.includes("100.0% physically dropped") ||
+                      line.includes("rejected by OS kernel")
                         ? "text-emerald-400"
                         : "text-slate-200"
                     }

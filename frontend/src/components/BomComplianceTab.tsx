@@ -8,10 +8,13 @@ import {
   FileCode2,
   FileSpreadsheet,
   FileText,
+  Image as ImageIcon,
+  Loader2,
   Mail,
+  Sparkles,
 } from "lucide-react";
 import { ArchetypeId, ScenarioDataset, UserLensMode } from "@/types/conduit";
-import { getExportEndpointUrl } from "@/lib/api";
+import { API_BASE, getExportEndpointUrl } from "@/lib/api";
 import { buildCustomerProposalEmail } from "@/lib/guidedCopy";
 
 interface BomComplianceTabProps {
@@ -89,10 +92,49 @@ export default function BomComplianceTab({
   const [copiedCli, setCopiedCli] = useState(false);
   const [copiedProposalEmail, setCopiedProposalEmail] = useState(false);
   const [exportNotice, setExportNotice] = useState<string | null>(null);
+  const [rackCardUrl, setRackCardUrl] = useState<string | null>(null);
+  const [rackCardSource, setRackCardSource] = useState<string | null>(null);
+  const [generatingRackCard, setGeneratingRackCard] = useState(false);
 
   useEffect(() => {
     setSubTab(userLens === "engineer_deep" ? "engineer_kit" : "sales_proposal");
   }, [userLens]);
+
+  useEffect(() => {
+    setRackCardUrl(null);
+    setRackCardSource(null);
+    setGeneratingRackCard(false);
+  }, [scenario.id]);
+
+  const handleGenerateRackCard = async () => {
+    if (generatingRackCard) return;
+    setGeneratingRackCard(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/visuals/rack-card`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scenario_id: scenario.id }),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as Record<string, unknown>;
+        if (typeof data.image_url === "string" && data.image_url.length > 0) {
+          setRackCardUrl(data.image_url);
+          setRackCardSource(
+            `${String(data.model ?? "muse-image-1.0")} (${String(
+              data.source ?? "live"
+            )})`
+          );
+          setExportNotice("Generated rack/DIN elevation card via muse-image-1.0");
+          setTimeout(() => setExportNotice(null), 3500);
+        }
+      }
+    } catch {
+      setExportNotice("Backend offline — start FastAPI on :8008 for muse-image-1.0");
+      setTimeout(() => setExportNotice(null), 3500);
+    } finally {
+      setGeneratingRackCard(false);
+    }
+  };
 
   const selectedIds = new Set(scenario.bom.items.map((i) => i.archetypeId));
   const utilizationPct = Math.min(
@@ -488,35 +530,35 @@ ${scenario.flows
                 <div className="p-2.5 rounded-lg bg-slate-100 text-slate-700 shrink-0">
                   <FileText className="w-4 h-4" />
                 </div>
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold text-slate-900 truncate">
-                    Executive Summary (.md)
-                  </div>
-                  <div className="text-xs text-slate-500 truncate">
-                    Sign-off &amp; compliance report
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-slate-900 truncate">
+                      Executive Report (.pdf)
+                    </div>
+                    <div className="text-xs text-slate-500 truncate">
+                      IEC 62443 compliance sign-off
+                    </div>
                   </div>
                 </div>
-              </div>
-              <Download className="w-4 h-4 text-slate-400 shrink-0" />
-            </button>
+                <Download className="w-4 h-4 text-slate-400 shrink-0" />
+              </button>
 
-            <button
-              type="button"
-              onClick={() => handleExport("zip")}
-              className="bg-white hover:bg-slate-50 border border-slate-200 rounded-xl p-4 shadow-sm text-left flex items-center justify-between gap-3 transition-colors"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="p-2.5 rounded-lg bg-blue-50 text-blue-600 shrink-0">
-                  <FileCode2 className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold text-slate-900 truncate">
-                    Switch &amp; Proxy Scripts (.conf)
+              <button
+                type="button"
+                onClick={() => handleExport("zip")}
+                className="bg-white hover:bg-slate-50 border border-slate-200 rounded-xl p-4 shadow-sm text-left flex items-center justify-between gap-3 transition-colors"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="p-2.5 rounded-lg bg-blue-50 text-blue-600 shrink-0">
+                    <FileCode2 className="w-4 h-4" />
                   </div>
-                  <div className="text-xs text-slate-500 truncate">
-                    VLAN CLI + TX/RX configs
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-slate-900 truncate">
+                      Cutover Bundle (.zip)
+                    </div>
+                    <div className="text-xs text-slate-500 truncate">
+                      Switch CLI + TX/RX proxy configs
+                    </div>
                   </div>
-                </div>
               </div>
               <Download className="w-4 h-4 text-blue-600 shrink-0" />
             </button>
@@ -634,6 +676,89 @@ ${scenario.flows
                 {scenario.bom.switchCutoverCli}
               </pre>
             </div>
+          </div>
+
+          {/* Live Meta muse-image-1.0 Rack / DIN Elevation Card Generator */}
+          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600">
+                  <ImageIcon className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-900">
+                    Hardware Rack / DIN-Rail Installation Card (Meta{" "}
+                    <span className="font-mono text-xs text-indigo-700">
+                      muse-image-1.0
+                    </span>
+                    )
+                  </h4>
+                  <p className="text-xs text-slate-500">
+                    Synthesize an annotated field installation card for{" "}
+                    {scenario.bom.items.map((i) => i.name).join(" + ")} (
+                    {scenario.bom.physicalFitStatus})
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {rackCardUrl && (
+                  <a
+                    href={rackCardUrl}
+                    download={`conduitai_${scenario.id}_rack_elevation.webp`}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-medium text-slate-800 transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Save Image</span>
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={handleGenerateRackCard}
+                  disabled={generatingRackCard}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-xs font-medium shadow-sm transition-colors"
+                >
+                  {generatingRackCard ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Generating via muse-image-1.0...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>
+                        {rackCardUrl
+                          ? "Regenerate Rack Card"
+                          : "Generate Rack Elevation Card"}
+                      </span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {rackCardUrl && (
+              <div className="border border-slate-200 rounded-xl bg-slate-50 p-3 space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-500 px-1">
+                  <span>
+                    Target Conduit: {scenario.conduitId} ({scenario.postCutoverSl})
+                  </span>
+                  {rackCardSource && (
+                    <span className="font-mono text-indigo-700">
+                      {rackCardSource}
+                    </span>
+                  )}
+                </div>
+                <div className="flex justify-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={rackCardUrl}
+                    alt={`${scenario.facilityName} Diode Installation Elevation`}
+                    className="max-h-96 rounded-lg border border-slate-200 shadow-sm object-contain bg-white"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -154,6 +154,25 @@ async def test_custom_multipart_site_upload_pipeline() -> None:
 
 
 @pytest.mark.asyncio
+async def test_on_demand_digital_twin_verify_endpoint() -> None:
+    """Verify `POST /api/v1/twin/verify` executes kernel `os.pipe()` + TCP socket replay."""
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://testserver"
+    ) as client:
+        resp = await client.post(
+            "/api/v1/twin/verify",
+            json={"scenario_id": "scenario_2_substation", "use_modal_cloud": False},
+        )
+        assert resp.status_code == 200
+        twin = ModalTwinVerificationResult.model_validate(resp.json())
+        assert twin.overall_verdict == "VERIFIED_ZERO_DOWNTIME_LOCKDOWN"
+        assert twin.telemetry_continuity_pct == 100.0
+        assert twin.inbound_exploit_block_rate_pct == 100.0
+        assert "rejected by OS kernel" in twin.sandbox_stdout_log
+
+
+@pytest.mark.asyncio
 async def test_live_meta_api_sse_and_rack_card_smoke() -> None:
     """Smoke-test live Meta API (`sam-3.1`, `muse-spark-1.3`, `muse-wonder-1.0`, `muse-image-1.0`) when configured."""
     cfg = get_settings()
