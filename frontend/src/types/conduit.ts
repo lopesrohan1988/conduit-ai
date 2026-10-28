@@ -256,6 +256,31 @@ export interface MeasuredVideo {
   notes: string[];
 }
 
+export interface AttackReplayPath {
+  flowId: string;
+  attacker: string;
+  target: string;
+  port: number;
+  protocol: string;
+  via: string;
+  frames: Array<{ label: string; sourceCapture: string | null }>;
+  reachedPlantToday: number;
+  reachedPlantProposed: number;
+  proposedOutcome: string;
+}
+
+/** Real command packets replayed from a hacked IT network: today vs. the proposed design */
+export interface AttackReplay {
+  threatModel: string;
+  commandFrameSources: string[];
+  today: { attempts: number; reachedPlant: number };
+  proposed: { attempts: number; reachedPlant: number };
+  realCommandFrames: number;
+  feedsKept: number;
+  caveat: string;
+  paths: AttackReplayPath[];
+}
+
 /** Counts behind the "today vs. proposed" story, computed from the run */
 export interface TopologySummary {
   itToOtPathsToday: number;
@@ -270,6 +295,7 @@ export interface TopologySummary {
 export interface ScenarioDataset {
   id: string;
   topologySummary?: TopologySummary | null;
+  attackReplay?: AttackReplay | null;
   provenance?: DataProvenance;
   measuredCabinets?: MeasuredCabinet[];
   measuredVideo?: MeasuredVideo | null;

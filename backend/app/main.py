@@ -45,6 +45,7 @@ from app.state import (
     InferenceMode,
     VoiceFieldNoteTranscript,
 )
+from app.attack_replay import replay_attacks
 from app.topology_view import build_topology_view
 from app.twin.modal_cutover_twin import verify_cutover_in_digital_twin
 
@@ -302,6 +303,15 @@ def _measured_payload(state: dict[str, Any], scratch: dict[str, Any]) -> dict[st
     return {
         "cabinet_inspections": [c.model_dump() for c in state.get("cabinet_inspections") or []],
         "video_walkthrough": video.model_dump() if video else None,
+        "attack_replay": (
+            replay_attacks(
+                plan=plan,
+                telemetry_audit=scratch.get("telemetry_audit"),
+                switch_audit=scratch.get("switch_audit"),
+            )
+            if plan
+            else None
+        ),
         "topology": (
             build_topology_view(
                 plan=plan,

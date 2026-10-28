@@ -20,6 +20,7 @@ import {
 import { API_BASE } from "@/lib/api";
 import { hydrateTwinVerification } from "@/lib/hydrateScenario";
 import ArchitectDecisionPanel from "@/components/ArchitectDecisionPanel";
+import AttackReplayPanel from "@/components/AttackReplayPanel";
 import {
   explainFlowInPlainEnglish,
   getPlainEnglishTierSummary,
@@ -167,6 +168,8 @@ export default function CutoverMatrixTab({
 
   return (
     <div className="space-y-4">
+      <AttackReplayPanel replay={scenario.attackReplay} />
+
       <ArchitectDecisionPanel scenario={scenario} />
 
       {twinError && (

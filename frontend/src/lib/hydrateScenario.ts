@@ -340,6 +340,37 @@ export function hydrateScenarioFromBackendPayload(
   if (typeof payload.architect_source_mode === "string") {
     next.architectSourceMode = payload.architect_source_mode;
   }
+  if (payload.attack_replay && typeof payload.attack_replay === "object") {
+    const r = payload.attack_replay as Record<string, unknown>;
+    const counts = (v: unknown) => {
+      const o = (v ?? {}) as Record<string, unknown>;
+      return { attempts: Number(o.attempts ?? 0), reachedPlant: Number(o.reached_plant ?? 0) };
+    };
+    next.attackReplay = {
+      threatModel: String(r.threat_model ?? ""),
+      commandFrameSources: Array.isArray(r.command_frame_sources) ? r.command_frame_sources.map(String) : [],
+      today: counts(r.today),
+      proposed: counts(r.proposed),
+      realCommandFrames: Number(r.real_command_frames ?? 0),
+      feedsKept: Number(r.feeds_kept ?? 0),
+      caveat: String(r.caveat ?? ""),
+      paths: (Array.isArray(r.paths) ? (r.paths as Array<Record<string, unknown>>) : []).map((p) => ({
+        flowId: String(p.flow_id ?? ""),
+        attacker: String(p.attacker ?? ""),
+        target: String(p.target ?? ""),
+        port: Number(p.port ?? 0),
+        protocol: String(p.protocol ?? ""),
+        via: String(p.via ?? ""),
+        frames: (Array.isArray(p.frames) ? (p.frames as Array<Record<string, unknown>>) : []).map((f) => ({
+          label: String(f.label ?? ""),
+          sourceCapture: f.source_capture ? String(f.source_capture) : null,
+        })),
+        reachedPlantToday: Number(p.reached_plant_today ?? 0),
+        reachedPlantProposed: Number(p.reached_plant_proposed ?? 0),
+        proposedOutcome: String(p.proposed_outcome ?? ""),
+      })),
+    };
+  }
   if (payload.topology && typeof payload.topology === "object") {
     const topo = payload.topology as Record<string, unknown>;
     if (Array.isArray(topo.nodes) && topo.nodes.length > 0) {
