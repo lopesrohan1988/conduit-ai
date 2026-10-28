@@ -19,6 +19,7 @@ import {
 } from "@/types/conduit";
 import { API_BASE } from "@/lib/api";
 import { hydrateTwinVerification } from "@/lib/hydrateScenario";
+import ArchitectDecisionPanel from "@/components/ArchitectDecisionPanel";
 import {
   explainFlowInPlainEnglish,
   getPlainEnglishTierSummary,
@@ -72,6 +73,7 @@ export default function CutoverMatrixTab({
   const [twinTestedBanner, setTwinTestedBanner] = useState(false);
   const [useModalCloud, setUseModalCloud] = useState(false);
   const [liveTwin, setLiveTwin] = useState<ModalTwinVerification | null>(null);
+  const [twinError, setTwinError] = useState<string | null>(null);
   const activeTwin = liveTwin ?? scenario.digitalTwin;
   const [visibleLogLines, setVisibleLogLines] = useState<number>(
     scenario.digitalTwin.consoleTrace.length
@@ -89,6 +91,7 @@ export default function CutoverMatrixTab({
     setReplayingTwin(false);
     setTwinTestedBanner(false);
     setLiveTwin(null);
+    setTwinError(null);
     setVisibleLogLines(scenario.digitalTwin.consoleTrace.length);
   }, [scenario]);
 
@@ -111,6 +114,7 @@ export default function CutoverMatrixTab({
     if (replayingTwin) return;
     setReplayingTwin(true);
     setTwinTestedBanner(false);
+    setTwinError(null);
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(
@@ -134,11 +138,16 @@ export default function CutoverMatrixTab({
         animateConsoleLines(hydrated.consoleTrace.length);
         return;
       }
-    } catch {
-      // Fallback to local scenario digitalTwin trace
+      setTwinError(`Twin replay failed (HTTP ${res.status}).`);
+    } catch (err) {
+      setTwinError(`Twin replay could not reach ${API_BASE} (${String(err)}).`);
     }
-    animateConsoleLines(activeTwin.consoleTrace.length);
+    setReplayingTwin(false);
   };
+
+  const twinIsMeasured = liveTwin !== null || (scenario.provenance ?? "reference") !== "reference";
+  const twinPassed =
+    activeTwin.operationalDowntimePct === 0 && activeTwin.inboundExploitDropPct === 100;
 
   const counts = {
     GREEN: scenario.flows.filter((f) => f.classification === "GREEN").length,
@@ -158,13 +167,36 @@ export default function CutoverMatrixTab({
 
   return (
     <div className="space-y-4">
+      <ArchitectDecisionPanel scenario={scenario} />
+
+      {twinError && (
+        <div className="bg-rose-50 border border-rose-200 text-rose-800 rounded-xl px-4 py-2.5 text-xs sm:text-sm">
+          {twinError}
+        </div>
+      )}
+
       {/* Compact Proof Header */}
-      <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl px-5 py-3.5 flex flex-wrap justify-between items-center gap-3">
+      <div
+        className={`rounded-xl px-5 py-3.5 flex flex-wrap justify-between items-center gap-3 border ${
+          !twinIsMeasured
+            ? "bg-slate-50 border-slate-200"
+            : twinPassed
+              ? "bg-emerald-50/70 border-emerald-200"
+              : "bg-rose-50/70 border-rose-200"
+        }`}
+      >
         <div className="flex items-center gap-2.5">
-          <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
+          <ShieldCheck
+            className={`w-5 h-5 shrink-0 ${
+              twinIsMeasured && twinPassed ? "text-emerald-600" : "text-slate-400"
+            }`}
+          />
           <span className="text-sm font-semibold text-slate-900">
-            Zero-Downtime Verified: Existing dashboards keep working; inbound
-            attacks are physically blocked.
+            {!twinIsMeasured
+              ? "Reference result — replay the twin to measure it on this machine."
+              : twinPassed
+                ? "Twin replay: legitimate telemetry delivered, every inbound exploit dropped."
+                : "Twin replay found a problem: see downtime and exploit results below."}
           </span>
         </div>
 

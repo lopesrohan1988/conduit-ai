@@ -244,15 +244,26 @@ export default function WorkbenchHeader({
                       ? "bg-emerald-500"
                       : m.status === "airgapped"
                         ? "bg-blue-500"
-                        : "bg-amber-500";
+                        : m.status === "simulated"
+                          ? "bg-amber-500"
+                          : "bg-slate-300";
+                  const statusNote =
+                    m.status === "simulated"
+                      ? "simulated (no credentials)"
+                      : m.status === "standby"
+                        ? "status unknown"
+                        : m.status;
                   return (
                     <span
                       key={m.id}
-                      title={`${m.label} — ${m.sublabel} (${m.provider})`}
+                      title={`${m.label} — ${m.sublabel} (${m.provider}) · ${statusNote}`}
                       className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white border border-slate-200 text-xs text-slate-700"
                     >
                       <span className={`w-1.5 h-1.5 rounded-full ${dotClass}`} />
                       <span className="font-medium">{m.label}</span>
+                      {m.status === "simulated" && (
+                        <span className="text-[10px] text-amber-700">sim</span>
+                      )}
                     </span>
                   );
                 })}

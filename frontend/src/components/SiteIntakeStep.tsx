@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   Camera,
@@ -13,7 +13,7 @@ import {
   Upload,
   Video,
 } from "lucide-react";
-import { ScenarioDataset, UserLensMode } from "@/types/conduit";
+import { InferenceMode, ScenarioDataset, UserLensMode } from "@/types/conduit";
 import { API_BASE } from "@/lib/api";
 import { encodeAudioBlobToWav } from "@/lib/hydrateScenario";
 import {
@@ -31,6 +31,26 @@ interface SiteIntakeStepProps {
     payload: Record<string, unknown>,
     isCustomUpload?: boolean
   ) => void;
+  onCustomAnalysisComplete?: (payload: Record<string, unknown>) => void;
+  inferenceMode?: InferenceMode;
+}
+
+/** Route an uploaded file to the multipart field the custom-analyze endpoint expects */
+function formFieldForUpload(slot: string, file: File): string {
+  const lower = file.name.toLowerCase();
+  if (slot === "diagram") return "diagram_file";
+  if (slot === "cabinet") return "cabinet_file";
+  if (slot === "video") return "video_file";
+  if (slot === "voice") return "voice_file";
+  if (lower.endsWith(".csv")) {
+    return lower.includes("inventory") || lower.includes("asset")
+      ? "asset_inventory_file"
+      : "firewall_csv_file";
+  }
+  if (lower.endsWith(".txt") || lower.endsWith(".conf") || lower.endsWith(".cfg")) {
+    return "switch_dump_file";
+  }
+  return "pcap_file";
 }
 
 export default function SiteIntakeStep({
@@ -40,6 +60,8 @@ export default function SiteIntakeStep({
   userLens,
   onAnalyzeAndAdvance,
   onLivePayloadHydrate,
+  onCustomAnalysisComplete,
+  inferenceMode,
 }: SiteIntakeStepProps) {
   const [copiedChecklist, setCopiedChecklist] = useState(false);
   const [customAttachedNames, setCustomAttachedNames] = useState<
@@ -51,6 +73,16 @@ export default function SiteIntakeStep({
   const audioChunksRef = useRef<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [pendingSlotKey, setPendingSlotKey] = useState<string | null>(null);
+  // Uploaded files are staged per form field and sent together in one analyze request
+  const [stagedFiles, setStagedFiles] = useState<Record<string, File>>({});
+  const [isAnalyzingCustom, setIsAnalyzingCustom] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setStagedFiles({});
+    setCustomAttachedNames({});
+    setUploadError(null);
+  }, [selectedScenario.id]);
 
   const isGuided = userLens === "guided_collab";
   const requestEmailText = buildNetworkEngineerRequestTemplate(selectedScenario);
@@ -120,62 +152,75 @@ export default function SiteIntakeStep({
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const files = Array.from(e.target.files ?? []);
     e.target.value = "";
-    if (!file || !pendingSlotKey) return;
+    if (files.length === 0 || !pendingSlotKey) return;
 
     const slot = pendingSlotKey;
+    setUploadError(null);
     setCustomAttachedNames((prev) => ({
       ...prev,
-      [slot]: file.name,
+      [slot]: files.map((f) => f.name).join(", "),
     }));
-    setUploadingSlot(slot);
+    setStagedFiles((prev) => {
+      const next = { ...prev };
+      files.forEach((f) => {
+        next[formFieldForUpload(slot, f)] = f;
+      });
+      return next;
+    });
 
-    const form = new FormData();
-    try {
-      if (slot === "voice") {
-        form.append("file", file);
-        form.append("scenario_id", selectedScenario.id);
+    // Voice memos also get an immediate transcript preview
+    if (slot === "voice") {
+      setUploadingSlot("voice");
+      const form = new FormData();
+      form.append("file", files[0]);
+      form.append("scenario_id", selectedScenario.id);
+      try {
         const res = await fetch(`${API_BASE}/api/v1/voice/transcribe`, {
           method: "POST",
           body: form,
         });
-        if (res.ok) {
-          const vt = (await res.json()) as Record<string, unknown>;
-          onLivePayloadHydrate?.({ voice_transcript: vt }, false);
-        }
-      } else {
-        const lower = file.name.toLowerCase();
-        const fieldMap: Record<string, string> = {
-          diagram: "diagram_file",
-          cabinet: "cabinet_file",
-          video: "video_file",
-          logs: lower.endsWith(".csv")
-            ? lower.includes("inventory")
-              ? "asset_inventory_file"
-              : "firewall_csv_file"
-            : lower.endsWith(".txt") || lower.endsWith(".conf")
-              ? "switch_dump_file"
-              : "pcap_file",
-        };
-        form.append(fieldMap[slot] ?? "pcap_file", file);
-        form.append("facility_name", `${selectedScenario.shortLabel} (Custom Intake)`);
-        const res = await fetch(
-          `${API_BASE}/api/v1/assessments/custom/analyze?live_llm=true`,
-          {
-            method: "POST",
-            body: form,
-          }
-        );
-        if (res.ok) {
-          const body = (await res.json()) as Record<string, unknown>;
-          onLivePayloadHydrate?.(body, true);
-        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const vt = (await res.json()) as Record<string, unknown>;
+        onLivePayloadHydrate?.({ voice_transcript: vt }, false);
+      } catch (err) {
+        setUploadError(`Voice transcription failed: ${String(err)}`);
+      } finally {
+        setUploadingSlot(null);
       }
-    } catch {
-      // Offline mode fallback preserved
+    }
+  };
+
+  const stagedCount = Object.keys(stagedFiles).length;
+  const hasTrafficEvidence = Boolean(
+    stagedFiles.pcap_file || stagedFiles.firewall_csv_file
+  );
+
+  const handleAnalyzeCustomFiles = async () => {
+    setIsAnalyzingCustom(true);
+    setUploadError(null);
+    const form = new FormData();
+    Object.entries(stagedFiles).forEach(([field, file]) => form.append(field, file));
+    form.append("facility_name", `${selectedScenario.shortLabel} (Custom Intake)`);
+    const mode = inferenceMode === "airgapped_glimmer" ? "air_gapped_open_weights" : "cloud_meta_api";
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/v1/assessments/custom/analyze?live_llm=true&inference_mode=${mode}`,
+        { method: "POST", body: form }
+      );
+      if (!res.ok) {
+        const detail = await res.text().catch(() => "");
+        throw new Error(`HTTP ${res.status} ${detail.slice(0, 200)}`);
+      }
+      const body = (await res.json()) as Record<string, unknown>;
+      onCustomAnalysisComplete?.(body);
+    } catch (err) {
+      setUploadError(
+        `Analysis of uploaded files failed (${String(err)}). Is the backend running at ${API_BASE}?`
+      );
     } finally {
-      setUploadingSlot(null);
+      setIsAnalyzingCustom(false);
     }
   };
 
@@ -231,6 +276,7 @@ export default function SiteIntakeStep({
       <input
         ref={fileInputRef}
         type="file"
+        multiple={pendingSlotKey === "logs"}
         className="hidden"
         onChange={handleFileChange}
       />
@@ -334,12 +380,18 @@ export default function SiteIntakeStep({
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span
+                    className={`hidden sm:inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium border ${
+                      customAttachedNames[art.key]
+                        ? "bg-blue-50 text-blue-700 border-blue-200"
+                        : "bg-slate-50 text-slate-600 border-slate-200"
+                    }`}
+                  >
                     {uploadingSlot === art.key
-                      ? "Analyzing..."
+                      ? "Transcribing..."
                       : customAttachedNames[art.key]
-                        ? "Live Synced"
-                        : "Ready"}
+                        ? "Your file"
+                        : "Sample"}
                   </span>
                   {art.key === "voice" && (
                     <button
@@ -379,14 +431,43 @@ export default function SiteIntakeStep({
         </div>
 
         {/* Primary Step 1 CTA */}
-        <button
-          type="button"
-          onClick={onAnalyzeAndAdvance}
-          className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium shadow-sm transition-colors"
-        >
-          <span>Analyze Site &amp; Continue to Step 2</span>
-          <ArrowRight className="w-4 h-4" />
-        </button>
+        {uploadError && (
+          <div className="bg-rose-50 border border-rose-200 text-rose-800 rounded-lg px-3 py-2 text-xs">
+            {uploadError}
+          </div>
+        )}
+        {stagedCount > 0 ? (
+          <div className="space-y-2">
+            {!hasTrafficEvidence && (
+              <p className="text-xs text-amber-800">
+                Add a pcap or firewall CSV under &quot;Switch &amp; Traffic Logs&quot; — without
+                traffic there are no flows to size or classify.
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={handleAnalyzeCustomFiles}
+              disabled={isAnalyzingCustom}
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white text-sm font-medium shadow-sm transition-colors"
+            >
+              <span>
+                {isAnalyzingCustom
+                  ? "Analyzing your files (the architect model can take ~30 s)..."
+                  : `Analyze ${stagedCount} Uploaded File${stagedCount === 1 ? "" : "s"}`}
+              </span>
+              {!isAnalyzingCustom && <ArrowRight className="w-4 h-4" />}
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={onAnalyzeAndAdvance}
+            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium shadow-sm transition-colors"
+          >
+            <span>Analyze Sample Site &amp; Continue to Step 2</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Right Card (5 cols): Ask the Network Engineer (1-Click Request) */}

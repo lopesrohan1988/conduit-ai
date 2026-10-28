@@ -88,17 +88,12 @@ export default function ConduitWorkbenchPage() {
   );
 
   const [timelineSteps, setTimelineSteps] = useState<AgentTimelineStep[]>(() =>
-    buildTimelineTemplate(FALLBACK_SCENARIOS[0], "cloud_frontier").map((s) => ({
-      ...s,
-      status:
-        s.detail.includes("ALERT") || s.detail.includes("CRITICAL")
-          ? "alert"
-          : "completed",
-    }))
+    buildTimelineTemplate(FALLBACK_SCENARIOS[0], "cloud_frontier")
   );
   const [timelineExpanded, setTimelineExpanded] = useState<boolean>(false);
   const [isAssessing, setIsAssessing] = useState<boolean>(false);
-  const [assessmentCompleted, setAssessmentCompleted] = useState<boolean>(true);
+  const [assessmentCompleted, setAssessmentCompleted] = useState<boolean>(false);
+  const [runError, setRunError] = useState<string | null>(null);
 
   const eventSourceRef = useRef<EventSource | null>(null);
   const fallbackTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
@@ -139,19 +134,10 @@ export default function ConduitWorkbenchPage() {
   useEffect(() => {
     clearRunningStreams();
     setIsAssessing(false);
-    setAssessmentCompleted(true);
+    setRunError(null);
 
     const scenario = getScenarioById(selectedScenarioId);
-    const freshTemplate = buildTimelineTemplate(scenario, inferenceMode).map(
-      (step) => ({
-        ...step,
-        status:
-          step.detail.includes("ALERT") || step.detail.includes("CRITICAL")
-            ? ("alert" as const)
-            : ("completed" as const),
-      })
-    );
-    setTimelineSteps(freshTemplate);
+    setTimelineSteps(buildTimelineTemplate(scenario, inferenceMode));
 
     let active = true;
     fetchScenarioPreview(selectedScenarioId).then((preview) => {
@@ -166,48 +152,15 @@ export default function ConduitWorkbenchPage() {
     };
   }, [selectedScenarioId, inferenceMode, clearRunningStreams]);
 
-  // Client-side multi-agent trace fallback when SSE backend is unreachable
-  const runClientFallbackTrace = useCallback(
+  // Backend unreachable: say so instead of animating a pipeline that never ran
+  const markBackendUnreachable = useCallback(
     (scenario: ScenarioDataset, mode: InferenceMode) => {
-      const base = buildTimelineTemplate(scenario, mode);
-      setTimelineSteps(
-        base.map((step, idx) => ({
-          ...step,
-          status: idx === 0 ? "running" : "idle",
-        }))
+      setTimelineSteps(buildTimelineTemplate(scenario, mode));
+      setIsAssessing(false);
+      setBackendConnected(false);
+      setRunError(
+        `Backend unreachable at ${API_BASE}. Start it with "uv run uvicorn app.main:app --port 8008" — the screens below show reference data until a run completes.`
       );
-
-      base.forEach((_, idx) => {
-        const timer = setTimeout(() => {
-          setTimelineSteps((prev) =>
-            prev.map((item, i) => {
-              if (i < idx) {
-                return item;
-              }
-              if (i === idx) {
-                const isCriticalStep =
-                  item.detail.includes("ALERT") ||
-                  item.detail.includes("CRITICAL");
-                return {
-                  ...item,
-                  status: isCriticalStep ? "alert" : "completed",
-                };
-              }
-              if (i === idx + 1) {
-                return { ...item, status: "running" };
-              }
-              return item;
-            })
-          );
-
-          if (idx === base.length - 1) {
-            setIsAssessing(false);
-            setAssessmentCompleted(true);
-          }
-        }, (idx + 1) * 320);
-
-        fallbackTimersRef.current.push(timer);
-      });
     },
     []
   );
@@ -217,6 +170,7 @@ export default function ConduitWorkbenchPage() {
     clearRunningStreams();
     setIsAssessing(true);
     setAssessmentCompleted(false);
+    setRunError(null);
     setTimelineExpanded(true);
 
     const scenario = getScenarioById(selectedScenarioId);
@@ -257,18 +211,13 @@ export default function ConduitWorkbenchPage() {
               parsed.twin_verification ||
               parsed.voice_transcript
             ) {
-              setLiveOverrides((prev) => {
-                const current =
-                  prev[selectedScenarioId] ??
-                  getScenarioById(selectedScenarioId);
-                return {
-                  ...prev,
-                  [selectedScenarioId]: hydrateScenarioFromBackendPayload(
-                    current,
-                    parsed
-                  ),
-                };
-              });
+              setLiveOverrides((prev) => ({
+                ...prev,
+                [selectedScenarioId]: hydrateScenarioFromBackendPayload(
+                  getScenarioById(selectedScenarioId),
+                  parsed
+                ),
+              }));
             }
             setTimelineSteps((prev) =>
               prev.map((s) => ({
@@ -351,7 +300,7 @@ export default function ConduitWorkbenchPage() {
         es.close();
         eventSourceRef.current = null;
         if (!receivedAnyServerEvent) {
-          runClientFallbackTrace(scenario, inferenceMode);
+          markBackendUnreachable(scenario, inferenceMode);
         } else {
           setTimelineSteps((prev) =>
             prev.map((s) => ({
@@ -367,12 +316,12 @@ export default function ConduitWorkbenchPage() {
         }
       };
     } catch {
-      runClientFallbackTrace(scenario, inferenceMode);
+      markBackendUnreachable(scenario, inferenceMode);
     }
   }, [
     clearRunningStreams,
     inferenceMode,
-    runClientFallbackTrace,
+    markBackendUnreachable,
     selectedScenarioId,
   ]);
 
@@ -391,6 +340,21 @@ export default function ConduitWorkbenchPage() {
     handleRunAssessment();
     navigateToStep("intake_vision");
   }, [handleRunAssessment, navigateToStep]);
+
+  const handleCustomAnalysisComplete = useCallback(
+    (payload: Record<string, unknown>) => {
+      clearRunningStreams();
+      handleLivePayloadHydrate(payload, true);
+      setIsAssessing(false);
+      setAssessmentCompleted(true);
+      setRunError(null);
+      navigateToStep("intake_vision");
+    },
+    [clearRunningStreams, handleLivePayloadHydrate, navigateToStep]
+  );
+
+  const provenance = selectedScenario.provenance ?? "reference";
+  const twin = selectedScenario.digitalTwin;
 
   const activeStepIndex = WORKFLOW_STEPS.findIndex((s) => s.id === activeTab);
   const currentStepMeta = WORKFLOW_STEPS[activeStepIndex] ?? WORKFLOW_STEPS[0];
@@ -478,8 +442,17 @@ export default function ConduitWorkbenchPage() {
 
             <div>
               <div className="text-xs text-slate-500">Downtime</div>
-              <div className="text-sm font-semibold text-emerald-700 font-mono">
-                0% Verified
+              <div
+                className={`text-sm font-semibold font-mono ${
+                  twin.operationalDowntimePct === 0
+                    ? "text-emerald-700"
+                    : "text-rose-700"
+                }`}
+              >
+                {twin.operationalDowntimePct}%
+              </div>
+              <div className="text-[11px] text-slate-500">
+                {provenance === "reference" ? "reference" : "twin replay"}
               </div>
             </div>
 
@@ -491,6 +464,29 @@ export default function ConduitWorkbenchPage() {
             </div>
           </div>
         </section>
+
+        {runError ? (
+          <div className="bg-rose-50 border border-rose-200 text-rose-800 rounded-xl px-4 py-2.5 text-xs sm:text-sm">
+            {runError}
+          </div>
+        ) : provenance === "reference" ? (
+          <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-2.5 text-xs sm:text-sm">
+            {isAssessing
+              ? "Pipeline running — results replace the reference data when the architect and twin finish."
+              : "Showing hand-authored reference data for this sample site. Run Analysis to compute every number live from its pcap, firewall log, switch dump and photos."}
+          </div>
+        ) : (
+          <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl px-4 py-2.5 text-xs sm:text-sm">
+            {provenance === "custom_upload"
+              ? "Computed from your uploaded files"
+              : "Computed live by the pipeline"}
+            {" · architect: "}
+            {selectedScenario.architectTrace?.accepted
+              ? `${selectedScenario.architectTrace.model} proposed, verifier accepted (attempt ${selectedScenario.architectTrace.attempts.length})`
+              : "deterministic rule engine"}
+            {". Topology layout and the video overlay remain illustrative."}
+          </div>
+        )}
 
         {/* Simple 5-Step Stepper */}
         <nav
@@ -534,6 +530,8 @@ export default function ConduitWorkbenchPage() {
               userLens={userLens}
               onAnalyzeAndAdvance={handleAnalyzeAndAdvanceFromStep1}
               onLivePayloadHydrate={handleLivePayloadHydrate}
+              onCustomAnalysisComplete={handleCustomAnalysisComplete}
+              inferenceMode={inferenceMode}
             />
           )}
           {activeTab === "intake_vision" && (

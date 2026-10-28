@@ -56,27 +56,37 @@ export async function fetchBackendModelHealth(
       const remoteStatus = String(
         remoteEntry.operational_status ?? remoteEntry.status ?? ""
       ).toLowerCase();
+      const isLive =
+        remoteStatus === "live" ||
+        remoteStatus === "live_ready" ||
+        remoteStatus === "live_via_muse_spark" ||
+        remoteStatus === "online" ||
+        remoteStatus === "ready" ||
+        remoteStatus === "configured" ||
+        remoteStatus === "sandbox_profile_ready";
+      // Air-gapped mode is only real when an on-prem Glimmer endpoint is configured
+      const glimmerReady = Boolean(
+        data?.integrations?.modal_glimmer_and_twin?.glimmer_endpoint_configured
+      );
+      const status: ModelServiceHealth["status"] =
+        mode === "airgapped_glimmer" && badge.id !== "modal_twin"
+          ? glimmerReady
+            ? "airgapped"
+            : "simulated"
+          : isLive
+            ? "online"
+            : "simulated";
       return {
         ...badge,
-        status:
-          mode === "airgapped_glimmer" && badge.id !== "modal_twin"
-            ? ("airgapped" as const)
-            : remoteStatus === "live" ||
-                remoteStatus === "live_ready" ||
-                remoteStatus === "online" ||
-                remoteStatus === "ready" ||
-                remoteStatus === "configured" ||
-                remoteStatus === "sandbox_profile_ready"
-              ? ("online" as const)
-              : remoteStatus === "demo_fallback_ready" ||
-                  remoteStatus === "simulated" ||
-                  remoteStatus === "fallback"
-                ? ("online" as const)
-                : badge.status,
+        status,
+        provider:
+          remoteStatus === "live_via_muse_spark"
+            ? "Muse Spark (Baseten not configured)"
+            : badge.provider,
         latencyMs:
           typeof remoteEntry.latency_ms === "number"
             ? remoteEntry.latency_ms
-            : badge.latencyMs,
+            : undefined,
       };
     });
     return { backendConnected: true, status: data?.status ?? "ok", models: merged };

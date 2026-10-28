@@ -1,5 +1,6 @@
 import {
   ArchetypeId,
+  ArchitectTrace,
   ComplianceClauseRow,
   ExploitReplayItem,
   FlowTier,
@@ -109,9 +110,12 @@ export function hydrateTwinVerification(
           protocolVector: `${String(ex.target_ip ?? "OT")}:${String(
             ex.target_port ?? 502
           )}`,
-          injectedPackets: Number(ex.packets_injected_from_it ?? 50),
+          injectedPackets: Number(ex.packets_injected_from_it ?? 0),
           packetsCrossedBarrier: Number(ex.packets_reaching_ot ?? 0),
-          result: "100% PHYSICALLY DROPPED",
+          result:
+            ex.physically_blocked === false || Number(ex.packets_reaching_ot ?? 0) > 0
+              ? `CROSSED BARRIER (${Number(ex.packets_reaching_ot ?? 0)} pkts)`
+              : "DROPPED (0 pkts crossed)",
         }))
       : baseTwin.exploitsTested;
 
@@ -185,6 +189,111 @@ export function hydrateVoiceTranscript(
   };
 }
 
+export function hydrateArchitectTrace(
+  rawTrace: Record<string, unknown>
+): ArchitectTrace {
+  const attempts = Array.isArray(rawTrace.attempts)
+    ? (rawTrace.attempts as Array<Record<string, unknown>>)
+    : [];
+  return {
+    model: String(rawTrace.model ?? ""),
+    accepted: Boolean(rawTrace.accepted),
+    finalSourceMode: String(rawTrace.final_source_mode ?? "deterministic_rule_engine"),
+    totalLatencyMs: Number(rawTrace.total_latency_ms ?? 0),
+    attempts: attempts.map((a, idx) => ({
+      attempt: Number(a.attempt ?? idx + 1),
+      sourceMode: String(a.source_mode ?? ""),
+      model: String(a.model ?? rawTrace.model ?? ""),
+      latencyMs: Number(a.latency_ms ?? 0),
+      violations: Array.isArray(a.violations) ? a.violations.map(String) : [],
+      proposedBom: Array.isArray(a.proposed_bom) ? a.proposed_bom.map(String) : [],
+      reasoningExcerpt: a.reasoning_excerpt ? String(a.reasoning_excerpt) : undefined,
+    })),
+  };
+}
+
+const UDP_PORTS = new Set([69, 123, 161, 162, 514, 1514, 47808]);
+
+function mapCutoverRows(
+  cutoverArr: Array<Record<string, unknown>>,
+  proxyArr: Array<Record<string, unknown>>
+): ProtocolFlowEntry[] {
+  return cutoverArr.map((row, idx) => {
+    const tierRaw = String(row.cutover_tier ?? "AMBER").toUpperCase();
+    const actionRaw = String(row.cutover_action_type ?? "");
+    const classification: FlowTier =
+      tierRaw === "GREEN"
+        ? "GREEN"
+        : tierRaw === "AMBER"
+          ? "AMBER"
+          : actionRaw === "SEVER_CRITICAL_VIOLATION_AT_L1"
+            ? "CRITICAL_VIOLATION"
+            : "RED_BLOCKER";
+    const port = Number(row.port ?? 0);
+    const src = String(row.observed_src_ip ?? "");
+    const dst = String(row.observed_dst_ip ?? "");
+    // Proxy rules exist only for carried flows, so match on the OT endpoint, never by index
+    const proxy = proxyArr.find(
+      (p) =>
+        Number(p.ot_source_port) === port &&
+        (String(p.ot_source_ip) === src || String(p.ot_source_ip) === dst)
+    );
+    const protocol = String(row.protocol ?? `TCP/${port}`);
+    return {
+      flowId: String(row.flow_id ?? `FLOW-${idx + 1}`),
+      srcIp: src,
+      dstIp: dst,
+      dstPort: port,
+      transport: UDP_PORTS.has(port) ? "UDP" : "TCP",
+      protocol,
+      functionDetail: String(row.function_code_detail ?? ""),
+      direction: String(row.observed_initiator ?? "IT_TO_OT"),
+      classification,
+      catalogProtocolId: proxy ? String(proxy.target_protocol) : protocol,
+      prescribedCutoverAction: String(row.engineering_prescription ?? ""),
+      txInnerConfig: proxy
+        ? `${String(proxy.tx_operating_mode)} on ${String(proxy.tx_inner_vip)} -> OT ${String(
+            proxy.ot_source_ip
+          )}:${String(proxy.ot_source_port)}`
+        : actionRaw === "SEVER_CRITICAL_VIOLATION_AT_L1"
+          ? "PHYSICALLY SEVERED AT LAYER 1/2"
+          : "No proxy rule (remediate first)",
+      rxOuterConfig: proxy
+        ? `Expose RX Replica ${String(proxy.rx_outer_vip)}:${String(
+            proxy.rx_exposed_port
+          )} to IT ${String(proxy.it_consumer_ip)}`
+        : "ZERO PROXY EXPOSURE",
+    };
+  });
+}
+
+function mapShadowAssets(
+  shadowArr: Array<Record<string, unknown>>,
+  reference: ShadowAssetFinding[]
+): ShadowAssetFinding[] {
+  return shadowArr.map((s, idx) => {
+    const ips = Array.isArray(s.ip_addresses) ? s.ip_addresses.map(String) : [];
+    const anomType = String(s.anomaly_type ?? "UNDOCUMENTED_SHADOW_ASSET");
+    // Keep hand-labelled hostnames/models when the pipeline found the same device
+    const known = reference.find((r) => ips.includes(r.ipAddress));
+    return {
+      ipAddress: ips[0] ?? "unknown",
+      macAddress: String(s.mac_address ?? known?.macAddress ?? ""),
+      vendor: String(s.vendor ?? known?.vendor ?? "Unknown vendor"),
+      model:
+        known?.model ??
+        (anomType === "ROGUE_IT_BRIDGE" ? "Cellular bypass modem" : "Undocumented device"),
+      hostname: known?.hostname ?? `unlisted-${idx + 1}`,
+      purdueLevel: known?.purdueLevel ?? "L1",
+      vlan: known?.vlan ?? 0,
+      anomalyType: anomType,
+      discoverySources: [String(s.evidence_source ?? "Switch ARP + PCAP")],
+      description: String(s.remediation_action ?? known?.description ?? ""),
+      isRogueBypass: anomType === "ROGUE_IT_BRIDGE",
+    };
+  });
+}
+
 export function hydrateScenarioFromBackendPayload(
   baseScenario: ScenarioDataset,
   payload: Record<string, unknown>,
@@ -192,6 +301,17 @@ export function hydrateScenarioFromBackendPayload(
 ): ScenarioDataset {
   const next: ScenarioDataset = { ...baseScenario };
   const isCustom = Boolean(options?.isCustomUpload);
+
+  if (payload.planner_trace && typeof payload.planner_trace === "object") {
+    next.architectTrace = hydrateArchitectTrace(
+      payload.planner_trace as Record<string, unknown>
+    );
+  } else if (payload.architecture_plan) {
+    next.architectTrace = null;
+  }
+  if (typeof payload.architect_source_mode === "string") {
+    next.architectSourceMode = payload.architect_source_mode;
+  }
 
   const rawPlan = payload.architecture_plan as
     | Record<string, unknown>
@@ -218,6 +338,7 @@ export function hydrateScenarioFromBackendPayload(
   if (!rawPlan) {
     return next;
   }
+  next.provenance = isCustom ? "custom_upload" : "live_pipeline";
 
   const exec = (rawPlan.executive_summary ?? {}) as Record<string, unknown>;
   const sizingArr = Array.isArray(rawPlan.conduit_sizing_recommendations)
@@ -279,69 +400,13 @@ export function hydrateScenarioFromBackendPayload(
     shadowAssetCount: shadowCount,
   };
 
-  if (isCustom && shadowArr.length > 0) {
-    const mappedShadows: ShadowAssetFinding[] = shadowArr.map((s, idx) => {
-      const ips = Array.isArray(s.ip_addresses) ? s.ip_addresses : [];
-      const anomType = String(s.anomaly_type ?? "UNDOCUMENTED_SHADOW_ASSET");
-      return {
-        ipAddress: String(ips[0] ?? `192.168.10.${15 + idx}`),
-        macAddress: String(s.mac_address ?? "00:1B:1B:00:00:01"),
-        vendor: String(s.vendor ?? "Industrial Vendor"),
-        model: anomType.includes("ROGUE") ? "Cellular Bypass Modem" : "Shadow OT Node",
-        hostname: `shadow-node-${idx + 1}`,
-        purdueLevel: "L1",
-        vlan: 10,
-        anomalyType: anomType,
-        discoverySources: [String(s.evidence_source ?? "Switch ARP + PCAP")],
-        description: String(s.remediation_action ?? ""),
-        isRogueBypass: anomType === "ROGUE_IT_BRIDGE",
-      };
-    });
-    next.shadowAssets = mappedShadows;
-    next.isCriticalRogueScenario = mappedShadows.some((m) => m.isRogueBypass);
+  if (shadowArr.length > 0 || isCustom) {
+    next.shadowAssets = mapShadowAssets(shadowArr, baseScenario.shadowAssets);
+    next.isCriticalRogueScenario = next.shadowAssets.some((m) => m.isRogueBypass);
   }
 
-  if (isCustom && cutoverArr.length > 0) {
-    const mappedFlows: ProtocolFlowEntry[] = cutoverArr.map((row, idx) => {
-      const tierRaw = String(row.cutover_tier ?? "AMBER").toUpperCase();
-      const actionRaw = String(row.cutover_action_type ?? "");
-      const classification: FlowTier =
-        tierRaw === "GREEN"
-          ? "GREEN"
-          : tierRaw === "AMBER"
-            ? "AMBER"
-            : actionRaw === "SEVER_CRITICAL_VIOLATION_AT_L1"
-              ? "CRITICAL_VIOLATION"
-              : "RED_BLOCKER";
-
-      const matchingProxy = proxyArr[idx];
-      return {
-        flowId: String(row.flow_id ?? `FLOW-${idx + 1}`),
-        srcIp: String(row.observed_src_ip ?? ""),
-        dstIp: String(row.observed_dst_ip ?? ""),
-        dstPort: Number(row.port ?? 502),
-        transport: "TCP",
-        protocol: String(row.protocol ?? "MODBUS_TCP"),
-        functionDetail: String(row.function_code_detail ?? ""),
-        direction: String(row.observed_initiator ?? "IT_TO_OT"),
-        classification,
-        catalogProtocolId: String(row.protocol ?? "MODBUS_TCP"),
-        prescribedCutoverAction: String(row.engineering_prescription ?? ""),
-        txInnerConfig: matchingProxy
-          ? `${String(matchingProxy.tx_operating_mode)} on ${String(
-              matchingProxy.tx_inner_vip
-            )} -> OT ${String(matchingProxy.ot_source_ip)}:${String(
-              matchingProxy.ot_source_port
-            )}`
-          : "PHYSICALLY SEVERED AT LAYER 1/2",
-        rxOuterConfig: matchingProxy
-          ? `Expose RX Replica ${String(matchingProxy.rx_outer_vip)}:${String(
-              matchingProxy.rx_exposed_port
-            )} to IT ${String(matchingProxy.it_consumer_ip)}`
-          : "ZERO PROXY EXPOSURE",
-      };
-    });
-    next.flows = mappedFlows;
+  if (cutoverArr.length > 0 || isCustom) {
+    next.flows = mapCutoverRows(cutoverArr, proxyArr);
   }
 
   if (bomArr.length > 0) {

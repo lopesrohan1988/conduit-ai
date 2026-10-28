@@ -138,7 +138,7 @@ export interface ExploitReplayItem {
   protocolVector: string;
   injectedPackets: number;
   packetsCrossedBarrier: number;
-  result: "100% PHYSICALLY DROPPED";
+  result: string;
 }
 
 export interface ModalTwinVerification {
@@ -202,8 +202,33 @@ export interface ComplianceClauseRow {
   diodeSatisfactionNote: string;
 }
 
+/** Where the numbers on screen came from */
+export type DataProvenance = "reference" | "live_pipeline" | "custom_upload";
+
+export interface ArchitectAttempt {
+  attempt: number;
+  sourceMode: string;
+  model: string;
+  latencyMs: number;
+  violations: string[];
+  proposedBom: string[];
+  reasoningExcerpt?: string;
+}
+
+/** Muse Wonder propose -> deterministic verify loop, as reported by the backend */
+export interface ArchitectTrace {
+  model: string;
+  accepted: boolean;
+  finalSourceMode: string;
+  totalLatencyMs: number;
+  attempts: ArchitectAttempt[];
+}
+
 export interface ScenarioDataset {
   id: string;
+  provenance?: DataProvenance;
+  architectSourceMode?: string;
+  architectTrace?: ArchitectTrace | null;
   shortIndex: number;
   shortLabel: string;
   badgeTag?: string;
