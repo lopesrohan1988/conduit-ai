@@ -232,8 +232,20 @@ function PurdueAssetNodeComponent({
   );
 }
 
+type LaneLabelNode = Node<{ label: string }, "laneLabel">;
+
+/** Row title drawn inside the graph so it stays aligned when the map is zoomed or fitted */
+function LaneLabelComponent({ data }: NodeProps<LaneLabelNode>) {
+  return (
+    <div className="px-2.5 py-1 rounded-md bg-white/90 border border-slate-200 text-xs font-semibold text-slate-600 shadow-sm whitespace-nowrap">
+      {data.label}
+    </div>
+  );
+}
+
 const nodeTypes = {
   purdueAsset: PurdueAssetNodeComponent,
+  laneLabel: LaneLabelComponent,
 };
 
 function describeNodeShort(spec: TopologyNodeSpec, isAfter: boolean): string {
@@ -282,26 +294,46 @@ export default function PurdueTopologyTab({
     [scenario.bom.items]
   );
 
-  const nodes: PurdueGraphNode[] = useMemo(
-    () =>
-      scenario.topologyNodes.map((spec) => ({
-        id: spec.id,
-        type: "purdueAsset",
-        position: { x: spec.x, y: spec.y },
-        data: {
-          spec,
-          mode: cutoverMode,
-          archetypeSummary,
-          preSl: scenario.preCutoverSl,
-          postSl: scenario.postCutoverSl,
-        },
-      })),
+  const nodes: Array<PurdueGraphNode | LaneLabelNode> = useMemo(() => {
+    const assetNodes: PurdueGraphNode[] = scenario.topologyNodes.map((spec) => ({
+      id: spec.id,
+      type: "purdueAsset",
+      position: { x: spec.x, y: spec.y },
+      data: {
+        spec,
+        mode: cutoverMode,
+        archetypeSummary,
+        preSl: scenario.preCutoverSl,
+        postSl: scenario.postCutoverSl,
+      },
+    }));
+    const specs = scenario.topologyNodes;
+    if (specs.length === 0) return assetNodes;
+    const left = Math.min(...specs.map((n) => n.x)) - 210;
+    const ys = specs.filter((n) => !n.isBoundaryNode && !n.isRogueBypass).map((n) => n.y);
+    const boundary = specs.find((n) => n.isBoundaryNode);
+    const lanes: Array<[string, number]> = [
+      [isGuided ? "Office network (IT)" : "Enterprise IT · Purdue L4", Math.min(...ys)],
+      [isGuided ? "The wall between them" : "IT/OT boundary · L3.5", boundary?.y ?? 230],
+      [isGuided ? "Plant network (OT)" : "Plant OT · Purdue L0–L3", Math.max(...ys)],
+    ];
+    const laneNodes: LaneLabelNode[] = lanes.map(([label, y], i) => ({
+      id: `lane-${i}`,
+      type: "laneLabel",
+      position: { x: left, y: y + 20 },
+      data: { label },
+      draggable: false,
+      selectable: false,
+    }));
+    return [...laneNodes, ...assetNodes];
+  },
     [
       scenario.topologyNodes,
       cutoverMode,
       archetypeSummary,
       scenario.preCutoverSl,
       scenario.postCutoverSl,
+      isGuided,
     ]
   );
 
@@ -518,26 +550,6 @@ export default function PurdueTopologyTab({
       {/* Light-Mode Blueprint Graph + Concise Side Inspector */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
         <div className="xl:col-span-9 h-[560px] rounded-xl border border-slate-200 bg-slate-50/80 shadow-sm relative overflow-hidden">
-          {/* Clean Light Swimlane Labels */}
-          <div className="absolute left-3 top-4 z-10 pointer-events-none space-y-[118px] text-[11px] font-medium">
-            <div className="px-2.5 py-0.5 rounded-md bg-white/90 border border-slate-200 text-slate-600 shadow-sm">
-              {isGuided ? "Corporate Office (L4)" : "Purdue L4 · Enterprise IT"}
-            </div>
-            <div className="px-2.5 py-0.5 rounded-md bg-white/90 border border-slate-200 text-slate-600 shadow-sm">
-              {isGuided
-                ? "Security Barrier (L3.5)"
-                : "Purdue L3.5 · Conduit Boundary"}
-            </div>
-            <div className="px-2.5 py-0.5 rounded-md bg-white/90 border border-slate-200 text-slate-600 shadow-sm">
-              {isGuided ? "Control Room (L2/L3)" : "Purdue L3/L2 · SCADA & HMI"}
-            </div>
-            <div className="px-2.5 py-0.5 rounded-md bg-white/90 border border-slate-200 text-slate-600 shadow-sm">
-              {isGuided
-                ? "Plant Equipment (L1)"
-                : "Purdue L1/L0 · PLCs & Relays"}
-            </div>
-          </div>
-
           <ReactFlow
             nodes={nodes}
             edges={edges}

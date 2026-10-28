@@ -256,8 +256,20 @@ export interface MeasuredVideo {
   notes: string[];
 }
 
+/** Counts behind the "today vs. proposed" story, computed from the run */
+export interface TopologySummary {
+  itToOtPathsToday: number;
+  commandPathsToday: number;
+  bypassPathsToday: number;
+  rogueModemInPhoto: boolean;
+  itToOtPathsAfter: number;
+  feedsKept: number;
+  connectionsCut: number;
+}
+
 export interface ScenarioDataset {
   id: string;
+  topologySummary?: TopologySummary | null;
   provenance?: DataProvenance;
   measuredCabinets?: MeasuredCabinet[];
   measuredVideo?: MeasuredVideo | null;

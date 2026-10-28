@@ -45,6 +45,7 @@ from app.state import (
     InferenceMode,
     VoiceFieldNoteTranscript,
 )
+from app.topology_view import build_topology_view
 from app.twin.modal_cutover_twin import verify_cutover_in_digital_twin
 
 settings = get_settings()
@@ -294,12 +295,23 @@ _PROGRESS_BY_STAGE: dict[str, int] = {
 }
 
 
-def _vision_payload(state: dict[str, Any]) -> dict[str, Any]:
-    """SAM 3.1 cabinet measurements and video tracks, for drawing real overlays in the UI."""
+def _measured_payload(state: dict[str, Any], scratch: dict[str, Any]) -> dict[str, Any]:
+    """SAM 3.1 measurements, video tracks and the today-vs-proposed map built from the run."""
     video = state.get("video_walkthrough_result")
+    plan = state.get("architecture_plan")
     return {
         "cabinet_inspections": [c.model_dump() for c in state.get("cabinet_inspections") or []],
         "video_walkthrough": video.model_dump() if video else None,
+        "topology": (
+            build_topology_view(
+                plan=plan,
+                switch_audit=scratch.get("switch_audit"),
+                telemetry_audit=scratch.get("telemetry_audit"),
+                cabinet_inspections=state.get("cabinet_inspections"),
+            )
+            if plan
+            else None
+        ),
     }
 
 
@@ -468,7 +480,7 @@ async def stream_scenario_assessment(
             "architecture_plan": plan_final.model_dump(),
             "twin_verification": twin_final.model_dump(),
             "voice_transcript": voice_final.model_dump(),
-            **_vision_payload(accumulated_state),
+            **_measured_payload(accumulated_state, scratch),
             "switch_cutover_cli": scratch.get("architect_meta", {}).get(
                 "switch_cutover_cli", ""
             ),
@@ -576,7 +588,7 @@ async def analyze_custom_uploaded_site(
         ),
         "planner_trace": scratch.get("architect_meta", {}).get("planner_trace"),
         "agent_events": final_state.get("agent_events", []),
-        **_vision_payload(final_state),
+        **_measured_payload(final_state, scratch),
     }
 
 

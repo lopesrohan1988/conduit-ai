@@ -10,6 +10,8 @@ import {
   ProtocolFlowEntry,
   ScenarioDataset,
   ShadowAssetFinding,
+  TopologyEdgeSpec,
+  TopologyNodeSpec,
   VoiceTranscriptEntry,
 } from "@/types/conduit";
 
@@ -337,6 +339,23 @@ export function hydrateScenarioFromBackendPayload(
   }
   if (typeof payload.architect_source_mode === "string") {
     next.architectSourceMode = payload.architect_source_mode;
+  }
+  if (payload.topology && typeof payload.topology === "object") {
+    const topo = payload.topology as Record<string, unknown>;
+    if (Array.isArray(topo.nodes) && topo.nodes.length > 0) {
+      next.topologyNodes = topo.nodes as TopologyNodeSpec[];
+      next.topologyEdges = (Array.isArray(topo.edges) ? topo.edges : []) as TopologyEdgeSpec[];
+    }
+    const sm = (topo.summary ?? {}) as Record<string, unknown>;
+    next.topologySummary = {
+      itToOtPathsToday: Number(sm.it_to_ot_paths_today ?? 0),
+      commandPathsToday: Number(sm.command_paths_today ?? 0),
+      bypassPathsToday: Number(sm.bypass_paths_today ?? 0),
+      rogueModemInPhoto: Boolean(sm.rogue_modem_in_photo),
+      itToOtPathsAfter: Number(sm.it_to_ot_paths_after ?? 0),
+      feedsKept: Number(sm.feeds_kept ?? 0),
+      connectionsCut: Number(sm.connections_cut ?? 0),
+    };
   }
   if (Array.isArray(payload.cabinet_inspections)) {
     next.measuredCabinets = hydrateMeasuredCabinets(
