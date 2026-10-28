@@ -181,9 +181,9 @@ async def test_live_meta_api_sse_and_rack_card_smoke() -> None:
 
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(
-        transport=transport, base_url="http://testserver", timeout=90.0
+        transport=transport, base_url="http://testserver", timeout=600.0
     ) as client:
-        # 1. Live SSE assessment with `live_llm=true`
+        # 1. Live SSE assessment with `live_llm=true` (includes Muse Wonder propose -> verify loop)
         r_sse = await client.get(
             "/api/v1/assessments/scenario_4_water_treatment/stream",
             params={"inference_mode": "cloud_meta_api", "step_delay_ms": 0, "live_llm": "true"},

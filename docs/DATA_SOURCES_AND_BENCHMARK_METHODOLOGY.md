@@ -203,3 +203,5 @@ A scenario achieves $\text{Pass}_{\text{Twin}} = 1$ **only** when legitimate His
 | **M3** | Hardware Diode Archetype & BoM Exact-Match ($\text{EM}_{\text{sizing}}$) | `hardware_catalog.json` + `6` vertical sizing solutions | **6 / 6 (100%)** |
 | **M4** | `SAM 3.1` Rack/Cabinet Video Tracking ($\text{mIoU}_{\text{video}}$) | `rack_1u_slot_walkthrough_gt.json` & `cabinet_rogue_modem_pan_gt.json` (`288` frames) | **$\ge$ 0.90 mIoU** |
 | **M5** | Modal Sandbox Cutover Verification ($\text{Continuity}$ / $\text{BlockRate}$) | Live `modal_cutover_twin.py` packet replay trace | **100% / 100%** |
+
+These are design **targets**. Measured results — produced by running the pipeline on raw artifacts and scoring against ground truth only afterwards — are in [`BENCHMARK_SCORECARD.md`](BENCHMARK_SCORECARD.md).

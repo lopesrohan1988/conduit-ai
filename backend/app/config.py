@@ -58,6 +58,8 @@ class Settings(BaseSettings):
     meta_api_base_url: str = Field(default="https://api.meta.ai/v1")
     muse_spark_model: str = Field(default="muse-spark-1.3")
     muse_wonder_model: str = Field(default="muse-wonder-1.0")
+    # `low` keeps the propose -> verify loop at ~20s per attempt; raise for offline benchmarks
+    architect_reasoning_effort: str = Field(default="low")
     sam_3_1_model: str = Field(default="sam-3.1")
     muse_image_model: str = Field(default="muse-image-1.0")
     muse_voice_transcribe_model: str = Field(default="muse-voice-transcribe-1.0")

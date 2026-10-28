@@ -312,6 +312,8 @@ class MetaModelGateway:
         temperature: float = 0.1,
         max_tokens: int = 8192,
         response_format: dict[str, Any] | None = None,
+        timeout: float | None = None,
+        reasoning_effort: str | None = None,
     ) -> dict[str, Any]:
         """Invoke Meta `muse-wonder-1.0` frontier reasoning model for OT architecture synthesis."""
         if not self.settings.meta_api_configured:
@@ -334,6 +336,10 @@ class MetaModelGateway:
             }
             if response_format is not None:
                 kwargs["response_format"] = response_format
+            if timeout is not None:
+                kwargs["timeout"] = timeout
+            if reasoning_effort:
+                kwargs["reasoning_effort"] = reasoning_effort
 
             completion = await client.chat.completions.create(**kwargs)
             msg = completion.choices[0].message
@@ -346,6 +352,7 @@ class MetaModelGateway:
                 "model": completion.model,
                 "provider": "meta_model_api",
                 "source_mode": "live",
+                "finish_reason": completion.choices[0].finish_reason,
             }
         except Exception as exc:
             if not self.settings.demo_cache_fallback:
@@ -420,6 +427,7 @@ class MetaModelGateway:
         *,
         temperature: float = 0.1,
         max_tokens: int = 8192,
+        timeout: float | None = None,
     ) -> dict[str, Any]:
         """Route reasoning to Modal vLLM `meta-models/Muse-Glimmer-30B` (Apache 2.0 on-prem mode)."""
         if not self.settings.glimmer_endpoint_configured:
@@ -441,6 +449,7 @@ class MetaModelGateway:
                 messages=messages,
                 temperature=temperature,
                 max_tokens=max_tokens,
+                timeout=timeout,
             )
             msg = completion.choices[0].message
             raw_content = msg.content or ""
@@ -470,6 +479,8 @@ class MetaModelGateway:
         inference_mode: InferenceMode | None = None,
         temperature: float = 0.1,
         max_tokens: int = 8192,
+        timeout: float | None = None,
+        reasoning_effort: str | None = None,
     ) -> dict[str, Any]:
         """Switch architect reasoning between Cloud `Muse Wonder` and Air-Gapped `Muse Glimmer 30B`."""
         effective_mode: InferenceMode = inference_mode or (
@@ -479,10 +490,14 @@ class MetaModelGateway:
         )
         if effective_mode == "air_gapped_open_weights":
             return await self.chat_air_gapped_glimmer(
-                messages, temperature=temperature, max_tokens=max_tokens
+                messages, temperature=temperature, max_tokens=max_tokens, timeout=timeout
             )
         return await self.chat_muse_wonder(
-            messages, temperature=temperature, max_tokens=max_tokens
+            messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            timeout=timeout,
+            reasoning_effort=reasoning_effort,
         )
 
     async def segment_sam31(

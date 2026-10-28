@@ -12,13 +12,14 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.agents.architect_llm_planner import (
+    ArchitectureDecision,
+    propose_and_verify_architecture,
+)
 from app.agents.switch_config_agent import SwitchAuditResult
 from app.agents.telemetry_duckdb_agent import TelemetryAuditResult
-from app.catalog_loader import (
-    build_scenario_architecture_plan,
-    load_hardware_catalog,
-)
-from app.clients.meta_models import MetaModelGateway, extract_json_object
+from app.catalog_loader import load_hardware_catalog
+from app.clients.meta_models import MetaModelGateway
 from app.state import (
     ArchetypeId,
     BomLineItem,
@@ -110,6 +111,21 @@ def generate_switch_cutover_cli(
     return "\n".join(lines)
 
 
+_ACTION_PRESCRIPTIONS: dict[str, str] = {
+    "DROP_IN_PROXY_MAPPING": "Route {proto} unidirectionally across {arch} TX -> RX replica.",
+    "PULL_TO_PUSH_PROXY_REVERSAL": (
+        "Reverse inbound {proto} poll: Diode TX polls OT {dst} locally and pushes state "
+        "snapshots one-way to IT RX replica."
+    ),
+    "ROUTE_VIA_ARCH_D_OT_LOCKED_GATEWAY": (
+        "Route {proto} through ARCH_D with TCP SYN locked to the OT side and a deterministic command whitelist."
+    ),
+    "DEPLOY_OPC_UA_WRAPPER_THEN_PROXY": "Deploy OT-side OPC-DA-to-OPC-UA wrapper on static TCP/4840 before Diode TX.",
+    "REPLACE_SMB_WITH_SFTP_RELAY": "Replace legacy SMB share with OT-initiated SFTP file push across Diode TX.",
+    "SEVER_CRITICAL_VIOLATION_AT_L1": "CRITICAL VIOLATION ({detail}): Physically sever at Layer 1/2.",
+}
+
+
 def synthesize_custom_architecture_plan(
     *,
     facility_name: str,
@@ -118,8 +134,14 @@ def synthesize_custom_architecture_plan(
     cabinet_inspections: list[CabinetVisionInspection],
     video_walkthrough: VideoWalkthroughResult | None,
     voice_transcript: VoiceFieldNoteTranscript | None,
+    decision: ArchitectureDecision | None = None,
 ) -> ConduitArchitecturePlan:
-    """Synthesize a deterministic `ConduitArchitecturePlan` directly from raw artifact audits."""
+    """Synthesize a `ConduitArchitecturePlan` from raw artifact audits.
+
+    Without a `decision`, every choice comes from the deterministic rule engine. With a
+    verifier-accepted `decision` from Muse Wonder / Glimmer, its per-flow tiers, BoM,
+    mounting and target SL replace the rule-engine choices.
+    """
     hw_catalog = load_hardware_catalog()
     arch_by_id = {a["archetype_id"]: a for a in hw_catalog.get("archetypes", [])}
 
@@ -160,10 +182,33 @@ def synthesize_custom_architecture_plan(
         target_sl = "SL-4"
 
     arch_meta = arch_by_id[chosen_arch]
-    sustained_ceiling = float(arch_meta.get("sustained_throughput_ceiling_mbps", 80.0))
+    sustained_ceiling = float(arch_meta.get("recommended_sustained_mbps", 80.0))
     qty = max(1, int((sized_mbps + sustained_ceiling - 0.01) // sustained_ceiling))
-    unit_cost = float(arch_meta.get("estimated_unit_cost_usd", 4500.0))
-    ext_cost = round(unit_cost * qty, 2)
+    bom_choices: list[tuple[str, int, str]] = [(chosen_arch, qty, chosen_mount)]
+
+    if decision is not None:
+        bom_choices = [(b.archetype_id, b.quantity, b.mounting) for b in decision.bill_of_materials]
+        # Primary conduit hardware = first unidirectional item (ARCH_D only carries return paths)
+        primary = next((b for b in bom_choices if b[0] != "ARCH_D_BIDIRECTIONAL_GATEWAY"), bom_choices[0])
+        chosen_arch, qty, chosen_mount = primary[0], primary[1], primary[2]  # type: ignore[assignment]
+        arch_meta = arch_by_id[chosen_arch]
+        target_sl = decision.target_sl
+
+    bom_lines: list[BomLineItem] = []
+    for idx, (code, n, _mount) in enumerate(bom_choices, start=1):
+        unit = float(arch_by_id[code].get("estimated_bom_unit_cost_usd", 4500.0))
+        bom_lines.append(
+            BomLineItem(
+                line_item=idx,
+                item_code=code,
+                description=str(arch_by_id[code].get("name", code)),
+                quantity=n,
+                estimated_unit_cost_usd=unit,
+                estimated_extended_cost_usd=round(unit * n, 2),
+            )
+        )
+    ext_cost = round(sum(b.estimated_extended_cost_usd for b in bom_lines), 2)
+    total_units = sum(b.quantity for b in bom_lines)
 
     ot_vlans = [v for v in switch_audit.vlans_observed if v not in {50, 70, 80, 90, 100}] or [10]
     it_vlans = [v for v in switch_audit.vlans_observed if v in {50, 70, 80, 90, 100}] or [50]
@@ -175,6 +220,7 @@ def synthesize_custom_architecture_plan(
 
     for fl in telemetry_audit.flows:
         initiator = "OT_TO_IT" if fl.direction == "OT_TO_IT" else "IT_TO_OT"
+        tier = fl.preliminary_tier
         if fl.preliminary_tier == "GREEN":
             action: CutoverActionType = "DROP_IN_PROXY_MAPPING"
             presc = f"Route {fl.protocol} unidirectionally across {chosen_arch} TX -> RX replica."
@@ -198,7 +244,19 @@ def synthesize_custom_architecture_plan(
             else:
                 action = "SEVER_CRITICAL_VIOLATION_AT_L1"
                 presc = f"CRITICAL VIOLATION ({fl.function_detail}): Physically sever at Layer 1/2."
-                critical_severed += 1
+
+        flow_decision = decision.flow_decisions.get(fl.flow_id) if decision else None
+        if flow_decision is not None:
+            initiator = "OT_TO_IT" if flow_decision.initiator == "OT_TO_IT" else "IT_TO_OT"
+            tier = flow_decision.tier  # type: ignore[assignment]
+            action = flow_decision.action  # type: ignore[assignment]
+            presc = _ACTION_PRESCRIPTIONS[action].format(
+                proto=fl.protocol, arch=chosen_arch, dst=f"{fl.dst_ip}:{fl.dst_port}", detail=fl.function_detail
+            )
+            if flow_decision.rationale:
+                presc += f" Rationale: {flow_decision.rationale}"
+        if action == "SEVER_CRITICAL_VIOLATION_AT_L1":
+            critical_severed += 1
 
         cutover_rows.append(
             ProtocolCutoverRow(
@@ -209,7 +267,7 @@ def synthesize_custom_architecture_plan(
                 protocol=fl.protocol,
                 observed_initiator=initiator,  # type: ignore[arg-type]
                 function_code_detail=fl.function_detail,
-                cutover_tier=fl.preliminary_tier,
+                cutover_tier=tier,
                 cutover_action_type=action,
                 engineering_prescription=presc,
             )
@@ -223,7 +281,9 @@ def synthesize_custom_architecture_plan(
             tx_vip = f"{ot_parts[0]}.{ot_parts[1]}.{ot_parts[2]}.250" if len(ot_parts) == 4 else "192.168.10.250"
             rx_vip = f"{it_parts[0]}.{it_parts[1]}.{it_parts[2]}.250" if len(it_parts) == 4 else "10.50.1.250"
             tx_mode: TxOperatingMode = (
-                "RTSP_STREAM_PULLER"
+                "OT_SESSION_INITIATOR"
+                if action == "ROUTE_VIA_ARCH_D_OT_LOCKED_GATEWAY"
+                else "RTSP_STREAM_PULLER"
                 if fl.dst_port == 554
                 else (
                     "LOCAL_POLLER"
@@ -236,7 +296,11 @@ def synthesize_custom_architecture_plan(
                 TxRxProxyRule(
                     proxy_rule_id=f"PRX-{prx_idx:02d}",
                     assigned_conduit_id="CONDUIT-01",
-                    assigned_archetype_id=chosen_arch,
+                    assigned_archetype_id=(
+                        "ARCH_D_BIDIRECTIONAL_GATEWAY"
+                        if action == "ROUTE_VIA_ARCH_D_OT_LOCKED_GATEWAY"
+                        else chosen_arch
+                    ),
                     vlan_id=ot_vlans[0],
                     ot_source_ip=ot_ip,
                     ot_source_port=rem_port,
@@ -264,11 +328,15 @@ def synthesize_custom_architecture_plan(
             total_discovered_assets=total_assets,
             undocumented_shadow_asset_count=len(switch_audit.shadow_anomalies),
             critical_violations_severed=critical_severed,
-            recommended_diode_total_units=qty,
+            recommended_diode_total_units=total_units,
             estimated_hardware_bom_usd=ext_cost,
             headline_synthesis=(
-                f"Sized {qty}x {chosen_arch} ({chosen_mount}) for {peak_mbps} Mbps peak "
-                f"({sized_mbps} Mbps w/ 1.25x headroom), severing {critical_severed} critical inbound risk(s)."
+                decision.design_rationale
+                if decision is not None and decision.design_rationale
+                else (
+                    f"Sized {' + '.join(f'{n}x {c}' for c, n, _ in bom_choices)} for {peak_mbps} Mbps peak "
+                    f"({sized_mbps} Mbps w/ 1.25x headroom), severing {critical_severed} critical inbound risk(s)."
+                )
             ),
         ),
         reconciled_zones=[
@@ -292,29 +360,28 @@ def synthesize_custom_architecture_plan(
         shadow_assets_and_bypasses=switch_audit.shadow_anomalies,
         conduit_sizing_recommendations=[
             ConduitSizingRecommendation(
-                conduit_id="CONDUIT-01",
+                conduit_id=f"CONDUIT-{idx:02d}",
                 source_zone_id="ZONE_OT_PRIMARY",
                 destination_zone_id="ZONE_IT_ENTERPRISE",
                 observed_peak_mbps=peak_mbps,
                 sized_capacity_with_headroom_mbps=sized_mbps,
-                recommended_archetype_id=chosen_arch,
-                quantity=qty,
-                mounting_selection=chosen_mount,
+                recommended_archetype_id=code,  # type: ignore[arg-type]
+                quantity=n,
+                mounting_selection=mount,  # type: ignore[arg-type]
                 cabinet_fit_verified=True,
-                cabinet_fit_notes=f"SAM 3.1 verified {chosen_mount} enclosure clearance and switch port availability.",
-                sizing_justification=f"Peak {peak_mbps} Mbps * 1.25 safety headroom = {sized_mbps} Mbps -> {qty}x {chosen_arch}.",
+                cabinet_fit_notes=f"SAM 3.1 verified {mount} enclosure clearance and switch port availability.",
+                sizing_justification=(
+                    f"Peak {peak_mbps} Mbps * 1.25 safety headroom = {sized_mbps} Mbps -> {n}x {code}."
+                    + (
+                        f" {decision.bill_of_materials[idx - 1].purpose}"
+                        if decision is not None and decision.bill_of_materials[idx - 1].purpose
+                        else ""
+                    )
+                ),
             )
+            for idx, (code, n, mount) in enumerate(bom_choices, start=1)
         ],
-        bill_of_materials=[
-            BomLineItem(
-                line_item=1,
-                item_code=chosen_arch,
-                description=str(arch_meta.get("name", chosen_arch)),
-                quantity=qty,
-                estimated_unit_cost_usd=unit_cost,
-                estimated_extended_cost_usd=ext_cost,
-            )
-        ],
+        bill_of_materials=bom_lines,
         protocol_cutover_matrix=cutover_rows,
         tx_rx_proxy_translation_table=proxy_rules,
         modal_digital_twin_verification_plan=ModalDigitalTwinVerificationPlan(
@@ -360,79 +427,56 @@ async def run_architect_sizing_agent(
     gateway: MetaModelGateway,
     use_live_llm: bool = False,
 ) -> tuple[ConduitArchitecturePlan, dict[str, Any]]:
-    """Run deterministic diode sizing + optional live `muse-wonder-1.0` / `Muse-Glimmer-30B` synthesis."""
-    if scenario_id:
-        try:
-            plan = build_scenario_architecture_plan(scenario_id)
-        except KeyError:
-            plan = synthesize_custom_architecture_plan(
-                facility_name=facility_name,
-                switch_audit=switch_audit,
-                telemetry_audit=telemetry_audit,
-                cabinet_inspections=cabinet_inspections,
-                video_walkthrough=video_walkthrough,
-                voice_transcript=voice_transcript,
-            )
-    else:
-        plan = synthesize_custom_architecture_plan(
+    """Design the cutover from measured evidence only (never from benchmark ground truth).
+
+    With `use_live_llm`, `muse-wonder-1.0` (or air-gapped `Muse-Glimmer-30B`) proposes the
+    design and the deterministic verifier must accept it; otherwise — or if every proposal is
+    rejected — the deterministic rule engine designs it.
+    """
+    decision: ArchitectureDecision | None = None
+    planner_trace: dict[str, Any] | None = None
+    if use_live_llm:
+        decision, trace = await propose_and_verify_architecture(
             facility_name=facility_name,
             switch_audit=switch_audit,
             telemetry_audit=telemetry_audit,
             cabinet_inspections=cabinet_inspections,
             video_walkthrough=video_walkthrough,
             voice_transcript=voice_transcript,
+            gateway=gateway,
+            inference_mode=inference_mode,
         )
+        planner_trace = trace.to_dict()
 
+    plan = synthesize_custom_architecture_plan(
+        facility_name=facility_name,
+        switch_audit=switch_audit,
+        telemetry_audit=telemetry_audit,
+        cabinet_inspections=cabinet_inspections,
+        video_walkthrough=video_walkthrough,
+        voice_transcript=voice_transcript,
+        decision=decision,
+    )
+
+    default_model = (
+        gateway.settings.muse_glimmer_model
+        if inference_mode == "air_gapped_open_weights"
+        else gateway.settings.muse_wonder_model
+    )
     meta_info: dict[str, Any] = {
-        "architect_model": (
-            gateway.settings.muse_glimmer_model
-            if inference_mode == "air_gapped_open_weights"
-            else gateway.settings.muse_wonder_model
+        "architect_model": (planner_trace or {}).get("model", default_model),
+        "source_mode": (planner_trace or {}).get("final_source_mode", "deterministic_rule_engine"),
+        "planner_trace": planner_trace,
+        "reasoning_excerpt": next(
+            (
+                a["reasoning_excerpt"]
+                for a in reversed((planner_trace or {}).get("attempts", []))
+                if a.get("reasoning_excerpt")
+            ),
+            None,
         ),
-        "source_mode": "deterministic_rule_engine",
-        "reasoning_excerpt": None,
         "switch_cutover_cli": generate_switch_cutover_cli(
             plan, switch_hostname=switch_audit.switch_hostname
         ),
     }
-
-    if not use_live_llm:
-        return plan, meta_info
-
-    # Invoke live `muse-wonder-1.0` (or Air-Gapped `Muse-Glimmer-30B`) to verify & enrich executive synthesis
-    prompt = (
-        f"You are ConduitAI's Principal OT Hardware Data Diode Solutions Architect.\n"
-        f"Facility: {facility_name}\n"
-        f"Telemetry Ground Truth: {switch_audit.total_discovered_assets} endpoints, "
-        f"{len(switch_audit.shadow_anomalies)} undocumented shadow/bypass OT anomalies, "
-        f"Peak Conduit Bandwidth = {telemetry_audit.peak_bandwidth_mbps} Mbps "
-        f"({telemetry_audit.sized_bandwidth_with_1_25x_headroom_mbps} Mbps w/ 1.25x headroom), "
-        f"Selected Diode = {plan.conduit_sizing_recommendations[0].quantity}x "
-        f"{plan.conduit_sizing_recommendations[0].recommended_archetype_id} "
-        f"({plan.conduit_sizing_recommendations[0].mounting_selection}).\n"
-        "Return strict JSON ONLY with keys: "
-        '{"headline_synthesis": "2-sentence boardroom + OT engineering cutover justification", '
-        '"sizing_justification": "1-sentence 1.25x bandwidth & protocol proxy proof"}'
-    )
-    llm_res = await gateway.route_architect_reasoning(
-        [{"role": "user", "content": prompt}],
-        inference_mode=inference_mode,
-        temperature=0.1,
-        max_tokens=4096,
-    )
-    meta_info["architect_model"] = str(llm_res.get("model") or meta_info["architect_model"])
-    meta_info["source_mode"] = str(llm_res.get("source_mode") or "deterministic_rule_engine")
-    if llm_res.get("reasoning"):
-        meta_info["reasoning_excerpt"] = str(llm_res["reasoning"])[:600]
-
-    parsed = extract_json_object(llm_res.get("content", ""))
-    if parsed:
-        if parsed.get("headline_synthesis"):
-            plan.executive_summary.headline_synthesis = str(parsed["headline_synthesis"]).strip()
-        if parsed.get("sizing_justification") and plan.conduit_sizing_recommendations:
-            plan.conduit_sizing_recommendations[0].sizing_justification = str(
-                parsed["sizing_justification"]
-            ).strip()
-
     return plan, meta_info
-

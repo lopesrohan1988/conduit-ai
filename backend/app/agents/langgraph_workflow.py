@@ -228,6 +228,21 @@ def build_conduit_langgraph(
             use_live_llm=use_live_llm,
         )
         scratch["architect_meta"] = arch_meta
+        trace = arch_meta.get("planner_trace") or {}
+        rejected = sum(1 for a in trace.get("attempts", []) if a.get("violations"))
+        if arch_meta["source_mode"] == "live_verified":
+            author = (
+                f"{arch_meta['architect_model']} proposed & verifier accepted (attempt "
+                f"{trace.get('attempt_count')}, {rejected} rejected revision(s))"
+            )
+        elif arch_meta["source_mode"] == "deterministic_fallback_after_rejection":
+            author = (
+                f"Verifier rejected all {trace.get('attempt_count')} {arch_meta['architect_model']} "
+                "proposals — deterministic rule engine"
+            )
+        else:
+            author = "Deterministic rule engine"
+        bom_str = " + ".join(f"{b.quantity}x {b.item_code}" for b in plan.bill_of_materials)
         return {
             "architecture_plan": plan,
             "agent_events": [
@@ -236,9 +251,8 @@ def build_conduit_langgraph(
                     "model": arch_meta["architect_model"],
                     "source_mode": arch_meta["source_mode"],
                     "headline": (
-                        f"{arch_meta['architect_model']} synthesized {plan.executive_summary.target_security_posture_sl} "
-                        f"cutover plan: {plan.executive_summary.recommended_diode_total_units}x diode unit(s) "
-                        f"(${plan.executive_summary.estimated_hardware_bom_usd:,.0f} BoM) & "
+                        f"{author}: {plan.executive_summary.target_security_posture_sl} cutover with "
+                        f"{bom_str} (${plan.executive_summary.estimated_hardware_bom_usd:,.0f} BoM) & "
                         f"{len(plan.tx_rx_proxy_translation_table)} TX/RX proxy rules."
                     ),
                 }

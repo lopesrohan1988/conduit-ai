@@ -25,7 +25,6 @@ from app.agents.langgraph_workflow import (
     build_scenario_initial_state,
 )
 from app.catalog_loader import (
-    build_scenario_architecture_plan,
     get_scenario_preview,
     list_real_ics_captures,
     list_scenarios,
@@ -40,11 +39,37 @@ from app.exporters.deliverables import (
     export_drawio_xml,
     export_executive_pdf,
 )
-from app.state import ConduitGraphState, InferenceMode, VoiceFieldNoteTranscript
+from app.state import (
+    ConduitArchitecturePlan,
+    ConduitGraphState,
+    InferenceMode,
+    VoiceFieldNoteTranscript,
+)
 from app.twin.modal_cutover_twin import verify_cutover_in_digital_twin
 
 settings = get_settings()
 gateway = MetaModelGateway(settings=settings)
+
+# Most recent pipeline-computed plan per scenario, so exports match what the user just saw
+_LATEST_SCENARIO_PLANS: dict[str, ConduitArchitecturePlan] = {}
+
+
+async def _resolve_scenario_plan(scenario_id: str) -> ConduitArchitecturePlan:
+    """Return the last streamed plan for a scenario, or compute one with the rule engine."""
+    if get_scenario_preview(scenario_id) is None:
+        raise HTTPException(status_code=404, detail=f"Scenario '{scenario_id}' not found.")
+    cached = _LATEST_SCENARIO_PLANS.get(scenario_id)
+    if cached is not None:
+        return cached
+    compiled_graph, _ = build_conduit_langgraph(
+        settings=settings, gateway=gateway, use_live_llm=False
+    )
+    final_state = await compiled_graph.ainvoke(
+        build_scenario_initial_state(scenario_id, settings=settings)
+    )
+    plan: ConduitArchitecturePlan = final_state["architecture_plan"]
+    _LATEST_SCENARIO_PLANS[scenario_id] = plan
+    return plan
 
 app = FastAPI(
     title="ConduitAI — Autonomous OT Isolation & Hardware Diode Workbench API",
@@ -375,6 +400,7 @@ async def stream_scenario_assessment(
                             "switch_cutover_cli": scratch.get("architect_meta", {}).get(
                                 "switch_cutover_cli", ""
                             ),
+                            "planner_trace": scratch.get("architect_meta", {}).get("planner_trace"),
                         }
                     )
                 elif node_name == "modal_socket_twin" and accumulated_state.get("twin_verification"):
@@ -404,6 +430,7 @@ async def stream_scenario_assessment(
             await asyncio.sleep(delay_sec)
 
         plan_final = accumulated_state["architecture_plan"]
+        _LATEST_SCENARIO_PLANS[scenario_id] = plan_final
         twin_final = accumulated_state["twin_verification"]
         voice_final = accumulated_state["voice_transcript"]
         architect_model = scratch.get("architect_meta", {}).get(
@@ -423,6 +450,10 @@ async def stream_scenario_assessment(
             "inference_mode": effective_mode,
             "architect_model_used": architect_model,
             "live_llm_executed": effective_live_llm,
+            "architect_source_mode": scratch.get("architect_meta", {}).get(
+                "source_mode", "deterministic_rule_engine"
+            ),
+            "planner_trace": scratch.get("architect_meta", {}).get("planner_trace"),
             "progress_pct": 100,
             "total_elapsed_ms": round((time.perf_counter() - started) * 1000.0, 1),
             "architecture_plan": plan_final.model_dump(),
@@ -530,6 +561,10 @@ async def analyze_custom_uploaded_site(
         "switch_cutover_cli": scratch.get("architect_meta", {}).get(
             "switch_cutover_cli", generate_switch_cutover_cli(plan)
         ),
+        "architect_source_mode": scratch.get("architect_meta", {}).get(
+            "source_mode", "deterministic_rule_engine"
+        ),
+        "planner_trace": scratch.get("architect_meta", {}).get("planner_trace"),
         "agent_events": final_state.get("agent_events", []),
     }
 
@@ -543,12 +578,7 @@ async def export_scenario_deliverable(
     export_format: str,
 ) -> Response:
     """Download `.drawio` topology XML, ReportLab `.pdf` report, or `.zip` cutover bundle."""
-    try:
-        plan = build_scenario_architecture_plan(scenario_id)
-    except KeyError as exc:
-        raise HTTPException(
-            status_code=404, detail=f"Scenario '{scenario_id}' not found."
-        ) from exc
+    plan = await _resolve_scenario_plan(scenario_id)
 
     twin = verify_cutover_in_digital_twin(plan, scenario_id=scenario_id)
     fmt = export_format.strip().lower()
@@ -590,12 +620,7 @@ async def export_scenario_deliverable(
 @app.post("/api/v1/twin/verify", tags=["Digital Twin"])
 async def verify_scenario_digital_twin(req: TwinVerifyRequest) -> dict[str, Any]:
     """Execute on-demand Layer-1/2 `os.pipe()` + TCP socket Digital Twin verification."""
-    try:
-        plan = build_scenario_architecture_plan(req.scenario_id)
-    except KeyError as exc:
-        raise HTTPException(
-            status_code=404, detail=f"Scenario '{req.scenario_id}' not found."
-        ) from exc
+    plan = await _resolve_scenario_plan(req.scenario_id)
 
     twin = await asyncio.to_thread(
         verify_cutover_in_digital_twin,
@@ -614,7 +639,7 @@ async def generate_rack_installation_card(req: RackCardRequest) -> dict[str, Any
     else:
         sc_id = req.scenario_id or "scenario_1_manufacturing"
         try:
-            plan = build_scenario_architecture_plan(sc_id)
+            plan = await _resolve_scenario_plan(sc_id)
             rec = plan.conduit_sizing_recommendations[0]
             prompt = (
                 f"Clean industrial engineering elevation diagram of {rec.quantity}x "
@@ -622,7 +647,7 @@ async def generate_rack_installation_card(req: RackCardRequest) -> dict[str, Any
                 f"{rec.mounting_selection} for {plan.executive_summary.facility_name}, "
                 f"showing green TX fiber output to blue RX replica switch, high-contrast technical blueprint style"
             )
-        except KeyError:
+        except HTTPException:
             prompt = (
                 "Clean technical blueprint elevation of a 1U hardware data diode optical isolation "
                 "appliance in a 19-inch OT server rack with green TX to RX fiber link"
