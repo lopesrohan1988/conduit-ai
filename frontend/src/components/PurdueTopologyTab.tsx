@@ -29,6 +29,10 @@ import {
 interface PurdueTopologyTabProps {
   scenario: ScenarioDataset;
   userLens?: UserLensMode;
+  /** Pin the map to one view (story mode) instead of showing the today/proposed switch */
+  fixedMode?: "before" | "after";
+  /** Map only: no control bar or device inspector */
+  embedded?: boolean;
 }
 
 type CutoverViewMode = "before" | "after";
@@ -277,9 +281,12 @@ function describeNodeShort(spec: TopologyNodeSpec, isAfter: boolean): string {
 export default function PurdueTopologyTab({
   scenario,
   userLens = "guided_collab",
+  fixedMode,
+  embedded = false,
 }: PurdueTopologyTabProps) {
   const isGuided = userLens === "guided_collab";
-  const [cutoverMode, setCutoverMode] = useState<CutoverViewMode>("before");
+  const [modeState, setCutoverMode] = useState<CutoverViewMode>("before");
+  const cutoverMode = fixedMode ?? modeState;
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -496,6 +503,7 @@ export default function PurdueTopologyTab({
   return (
     <div className="space-y-4">
       {/* Clean Single-Row Control Bar */}
+      {!embedded && (
       <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm flex flex-wrap justify-between items-center gap-3">
         {/* Segmented Before vs After Switch */}
         <div
@@ -547,12 +555,19 @@ export default function PurdueTopologyTab({
         </div>
       </div>
 
+      )}
+
       {/* Light-Mode Blueprint Graph + Concise Side Inspector */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
-        <div className="xl:col-span-9 h-[560px] rounded-xl border border-slate-200 bg-slate-50/80 shadow-sm relative overflow-hidden">
+        <div
+          className={`${
+            embedded ? "xl:col-span-12 h-[420px]" : "xl:col-span-9 h-[560px]"
+          } rounded-xl border border-slate-200 bg-slate-50/80 shadow-sm relative overflow-hidden`}
+        >
           <ReactFlow
             nodes={nodes}
-            edges={edges}
+            // Story maps rely on colour alone: per-connection labels pile up at the boundary
+            edges={embedded ? edges.map((e) => ({ ...e, label: undefined })) : edges}
             nodeTypes={nodeTypes}
             onNodeClick={(_, node) => setSelectedNodeId(node.id)}
             fitView
@@ -567,7 +582,7 @@ export default function PurdueTopologyTab({
 
         {/* Concise Right-Hand Node Inspector */}
         <div className="xl:col-span-3">
-          {selectedSpec && (
+          {selectedSpec && !embedded && (
             <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3.5">
               <div>
                 <div className="text-xs font-medium text-slate-500">

@@ -29,6 +29,7 @@ import SiteIntakeStep from "@/components/SiteIntakeStep";
 import IntakeVisionTab from "@/components/IntakeVisionTab";
 import PurdueTopologyTab from "@/components/PurdueTopologyTab";
 import CutoverMatrixTab from "@/components/CutoverMatrixTab";
+import StoryView, { StoryStep } from "@/components/StoryView";
 import BomComplianceTab from "@/components/BomComplianceTab";
 
 interface WorkflowStepMeta {
@@ -36,6 +37,12 @@ interface WorkflowStepMeta {
   stepNum: number;
   shortName: string;
 }
+
+const STORY_STEPS: Array<{ step: StoryStep; title: string }> = [
+  { step: 1, title: "What we found" },
+  { step: 2, title: "Our fix" },
+  { step: 3, title: "Proof" },
+];
 
 const WORKFLOW_STEPS: WorkflowStepMeta[] = [
   { id: "site_setup", stepNum: 1, shortName: "Site & Files" },
@@ -53,6 +60,7 @@ export default function ConduitWorkbenchPage() {
   const [inferenceMode, setInferenceMode] =
     useState<InferenceMode>("cloud_frontier");
   const [activeTab, setActiveTab] = useState<WorkbenchTabId>("site_setup");
+  const [storyStep, setStoryStep] = useState<StoryStep>(1);
 
   const [backendConnected, setBackendConnected] = useState<boolean>(false);
   const [modelStack, setModelStack] = useState<ModelServiceHealth[]>(() =>
@@ -171,7 +179,8 @@ export default function ConduitWorkbenchPage() {
     setIsAssessing(true);
     setAssessmentCompleted(false);
     setRunError(null);
-    setTimelineExpanded(true);
+    // The engineering pipeline drawer would bury the story for non-specialists
+    setTimelineExpanded(!isGuided);
 
     const scenario = getScenarioById(selectedScenarioId);
     const initialSteps = buildTimelineTemplate(scenario, inferenceMode).map(
@@ -323,6 +332,7 @@ export default function ConduitWorkbenchPage() {
     inferenceMode,
     markBackendUnreachable,
     selectedScenarioId,
+    isGuided,
   ]);
 
   useEffect(() => {
@@ -415,7 +425,8 @@ export default function ConduitWorkbenchPage() {
             </p>
           </div>
 
-          {/* 4 Clean Key Numbers */}
+          {/* 4 Clean Key Numbers (engineer detail only) */}
+          {!isGuided && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 lg:border-l lg:border-slate-200 lg:pl-6 shrink-0">
             <div>
               <div className="text-xs text-slate-500">Peak Traffic</div>
@@ -463,9 +474,10 @@ export default function ConduitWorkbenchPage() {
               </div>
             </div>
           </div>
+          )}
         </section>
 
-        {runError ? (
+        {isGuided && !runError ? null : runError ? (
           <div className="bg-rose-50 border border-rose-200 text-rose-800 rounded-xl px-4 py-2.5 text-xs sm:text-sm">
             {runError}
           </div>
@@ -488,6 +500,70 @@ export default function ConduitWorkbenchPage() {
           </div>
         )}
 
+        {isGuided ? (
+          <>
+            <nav
+              className="bg-white border border-slate-200 rounded-xl p-1.5 shadow-sm grid grid-cols-3 gap-1"
+              aria-label="Story Steps"
+            >
+              {STORY_STEPS.map(({ step, title }) => (
+                <button
+                  key={step}
+                  type="button"
+                  onClick={() => setStoryStep(step)}
+                  className={`px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                    storyStep === step
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  }`}
+                >
+                  {step}. {title}
+                </button>
+              ))}
+            </nav>
+
+            <StoryView
+              scenario={selectedScenario}
+              step={storyStep}
+              isAssessing={isAssessing}
+              onRun={() => {
+                setStoryStep(1);
+                handleRunAssessment();
+              }}
+            />
+
+            <section className="pt-2 pb-4 flex items-center justify-between gap-3">
+              <div>
+                {storyStep > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setStoryStep((storyStep - 1) as StoryStep)}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-sm font-medium text-slate-700 shadow-sm"
+                  >
+                    <ArrowLeft className="w-4 h-4 text-slate-500" />
+                    <span>Back</span>
+                  </button>
+                )}
+              </div>
+              <div className="text-xs text-slate-500">
+                Network engineer? Switch to <strong>Engineer detail</strong> at the top for every flow, rule and file.
+              </div>
+              <div>
+                {storyStep < 3 && (
+                  <button
+                    type="button"
+                    onClick={() => setStoryStep((storyStep + 1) as StoryStep)}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium shadow-sm"
+                  >
+                    <span>Next: {STORY_STEPS[storyStep].title}</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </section>
+          </>
+        ) : (
+          <>
         {/* Simple 5-Step Stepper */}
         <nav
           className="bg-white border border-slate-200 rounded-xl p-1.5 shadow-sm grid grid-cols-2 sm:grid-cols-5 gap-1"
@@ -602,6 +678,8 @@ export default function ConduitWorkbenchPage() {
             )}
           </div>
         </section>
+          </>
+        )}
       </main>
     </div>
   );

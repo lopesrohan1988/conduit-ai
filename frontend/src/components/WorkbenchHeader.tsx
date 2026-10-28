@@ -166,7 +166,7 @@ export default function WorkbenchHeader({
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              Simple View
+              Simple story
             </button>
             <button
               type="button"
@@ -177,7 +177,7 @@ export default function WorkbenchHeader({
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              Engineer View
+              Engineer detail
             </button>
           </div>
 

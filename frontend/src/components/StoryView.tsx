@@ -1,0 +1,197 @@
+"use client";
+
+import React from "react";
+import { Loader2, Play } from "lucide-react";
+import { ArchetypeId, ScenarioDataset } from "@/types/conduit";
+import PurdueTopologyTab from "@/components/PurdueTopologyTab";
+import AttackReplayPanel from "@/components/AttackReplayPanel";
+
+export type StoryStep = 1 | 2 | 3;
+
+interface StoryViewProps {
+  scenario: ScenarioDataset;
+  step: StoryStep;
+  isAssessing: boolean;
+  onRun: () => void;
+}
+
+const PLAIN_DEVICE: Record<ArchetypeId, string> = {
+  ARCH_A_FIELD_DIODE: "field data diode",
+  ARCH_B_VIDEO_IOT_DIODE: "video & sensor data diode",
+  ARCH_C_ENTERPRISE_1U_DIODE: "rack-mount data diode",
+  ARCH_D_BIDIRECTIONAL_GATEWAY: "plant-controlled gateway",
+};
+
+function plural(n: number, one: string, many: string = `${one}s`): string {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
+function Explainer({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-lg bg-blue-50/70 border border-blue-100 px-4 py-3 text-sm text-slate-700 leading-relaxed">
+      {children}
+    </div>
+  );
+}
+
+function Point({ children, tone = "neutral" }: { children: React.ReactNode; tone?: "bad" | "good" | "neutral" }) {
+  const dot = tone === "bad" ? "bg-rose-500" : tone === "good" ? "bg-emerald-500" : "bg-slate-400";
+  return (
+    <li className="flex gap-2.5 text-sm text-slate-800 leading-relaxed">
+      <span className={`mt-2 w-2 h-2 rounded-full shrink-0 ${dot}`} />
+      <span>{children}</span>
+    </li>
+  );
+}
+
+/** Three plain-language steps for someone who isn't a network engineer. */
+export default function StoryView({ scenario, step, isAssessing, onRun }: StoryViewProps) {
+  const summary = scenario.topologySummary;
+  const computed = (scenario.provenance ?? "reference") !== "reference" && summary;
+
+  if (!computed) {
+    return (
+      <div className="bg-white border border-slate-200 rounded-xl p-8 shadow-sm text-center space-y-4">
+        <h2 className="text-lg font-semibold text-slate-900">{scenario.facilityName}</h2>
+        <p className="text-sm text-slate-600 max-w-xl mx-auto leading-relaxed">
+          ConduitAI reads the files a plant can hand over without letting anyone onto its network:
+          traffic recordings, the firewall log, the switch settings and photos of the equipment
+          cabinet. It then shows how a hacker in the office could reach the plant, and how to stop
+          that with a one-way data diode.
+        </p>
+        <button
+          type="button"
+          onClick={onRun}
+          disabled={isAssessing}
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white text-sm font-medium shadow-sm"
+        >
+          {isAssessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-current" />}
+          {isAssessing ? "Analyzing this plant (about 30 seconds)…" : "Run analysis"}
+        </button>
+      </div>
+    );
+  }
+
+  const cabinets = scenario.measuredCabinets ?? [];
+  const rackU = Math.max(0, ...cabinets.filter((c) => c.enclosureType === "CONTROL_ROOM_19INCH_RACK").map((c) => c.empty1uSlots));
+  const dinMm = Math.max(0, ...cabinets.map((c) => c.dinRailFreeMm));
+  const kit = scenario.bom.items.map((i) => `${i.quantity} ${PLAIN_DEVICE[i.archetypeId] ?? i.shortName}`).join(" and ");
+  const trace = scenario.architectTrace;
+  const rejected = trace ? trace.attempts.filter((a) => a.violations.length > 0).length : 0;
+  const unlisted = scenario.shadowAssets.length;
+
+  if (step === 1) {
+    return (
+      <div className="space-y-4">
+        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+          <h2 className="text-lg sm:text-xl font-semibold text-slate-900">
+            Today, the office network can reach the plant in {plural(summary.itToOtPathsToday, "way")}.
+          </h2>
+          <ul className="space-y-2">
+            {summary.commandPathsToday > 0 && (
+              <Point tone="bad">
+                {plural(summary.commandPathsToday, "of them", "of them")} can send control commands,
+                for example tripping a breaker or changing a chemical dose.
+              </Point>
+            )}
+            {summary.bypassPathsToday > 0 && (
+              <Point tone="bad">
+                {plural(summary.bypassPathsToday, "hidden backdoor")} skips the firewall completely
+                {summary.rogueModemInPhoto ? ": a cellular modem that Meta SAM 3.1 spotted in the cabinet photo." : "."}
+              </Point>
+            )}
+            {unlisted > 0 && (
+              <Point tone="bad">
+                {plural(unlisted, "device")} on the network {unlisted === 1 ? "is" : "are"} missing from the plant&apos;s own records.
+              </Point>
+            )}
+          </ul>
+          <Explainer>
+            <strong>IT</strong> is the office network: email, laptops, business servers.{" "}
+            <strong>OT</strong> is the plant network that runs physical equipment such as breakers,
+            pumps and chemical dosing. Today a firewall sits between them, but it lets connections
+            go <em>both ways</em>, so a hacker who gets into the office can reach the plant.
+          </Explainer>
+        </div>
+        <div className="space-y-1.5">
+          <div className="text-xs font-medium text-slate-500 px-1">
+            Today&apos;s connections between the office (top) and the plant (bottom). Red and orange lines are
+            opened from outside the plant, and each one is a path a hacker could use. Green lines only carry data out.
+          </div>
+          <PurdueTopologyTab scenario={scenario} fixedMode="before" embedded />
+        </div>
+      </div>
+    );
+  }
+
+  if (step === 2) {
+    return (
+      <div className="space-y-4">
+        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+          <h2 className="text-lg sm:text-xl font-semibold text-slate-900">
+            Install {kit} between the office and the plant
+            <span className="text-slate-500 font-normal"> · ${scenario.bom.totalHardwareCostUsd.toLocaleString()}</span>
+          </h2>
+          <Explainer>
+            A <strong>data diode</strong> is hardware that lets data travel in only one direction,
+            out of the plant, like a one-way valve. Nothing can be sent back in, whatever a hacker
+            in the office does.
+          </Explainer>
+          <ul className="space-y-2">
+            <Point tone="good">{plural(summary.connectionsCut, "dangerous connection")} {summary.connectionsCut === 1 ? "is" : "are"} cut.</Point>
+            <Point tone="good">
+              {plural(summary.feedsKept, "data feed")} to the office keep working. Where the office
+              used to ask the plant for data, the diode now reads it inside the plant and sends a
+              copy out.
+            </Point>
+            {summary.bypassPathsToday > 0 && (
+              <Point tone="bad">The cellular modem must be physically removed: no diode can protect a backdoor.</Point>
+            )}
+            {(rackU > 0 || dinMm > 0) && (
+              <Point>
+                It fits: Meta SAM 3.1 measured{" "}
+                {rackU > 0 ? `${plural(rackU, "free rack slot")}` : `${dinMm.toFixed(0)} mm of free mounting rail`} in
+                the cabinet photo.
+              </Point>
+            )}
+            {trace && trace.accepted && (
+              <Point>
+                Designed by Meta Muse Wonder and approved by an independent rule checker
+                {rejected > 0 ? `, which sent back ${plural(rejected, "unsafe draft")} first` : ""}.
+              </Point>
+            )}
+          </ul>
+        </div>
+        <div className="space-y-1.5">
+          <div className="text-xs font-medium text-slate-500 px-1">
+            After the change: green arrows are one-way data leaving the plant; grey crossed lines are cut.
+          </div>
+          <PurdueTopologyTab scenario={scenario} fixedMode="after" embedded />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <AttackReplayPanel replay={scenario.attackReplay} />
+      <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-3">
+        <h3 className="text-sm font-semibold text-slate-900">Why you can trust this result</h3>
+        <ul className="space-y-2">
+          <Point>
+            The attack packets are real: control commands recorded from real industrial equipment in
+            public datasets. This demo plant itself is synthetic.
+          </Point>
+          <Point>
+            The test can fail. If the plan left a backdoor open, its commands would show up above as
+            reaching the plant.
+          </Point>
+          <Point>
+            The map, the numbers and the design were computed from this plant&apos;s files in this run;
+            nothing on these pages is pre-written.
+          </Point>
+        </ul>
+      </div>
+    </div>
+  );
+}

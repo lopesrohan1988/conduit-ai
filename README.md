@@ -191,7 +191,7 @@ uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8008
 cd frontend && npm install && npm run dev
 ```
 
-Open **http://localhost:3000**. Pick one of the two demo plants and press **Run Analysis**. Alternatively, use **Upload** on each row of the Site Files checklist (traffic logs accept several files at once), then **Analyze Uploaded Files**.
+Open **http://localhost:3000**. Pick one of the two demo plants and press **Run Analysis**. The default **Simple story** view walks through three plain-language steps (*What we found → Our fix → Proof*); **Engineer detail** shows every flow, rule, measurement and file. Alternatively, use **Upload** on each row of the Site Files checklist (traffic logs accept several files at once), then **Analyze Uploaded Files**.
 
 **Reproduce the benchmark:**
 
