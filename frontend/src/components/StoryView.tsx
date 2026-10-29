@@ -1,7 +1,7 @@
 "use client";
 
-import React from "react";
-import { Loader2, Play } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Loader2, Play, ShieldAlert, ShieldCheck } from "lucide-react";
 import { ArchetypeId, ScenarioDataset } from "@/types/conduit";
 import PurdueTopologyTab from "@/components/PurdueTopologyTab";
 import AttackReplayPanel from "@/components/AttackReplayPanel";
@@ -41,6 +41,63 @@ function Point({ children, tone = "neutral" }: { children: React.ReactNode; tone
       <span className={`mt-2 w-2 h-2 rounded-full shrink-0 ${dot}`} />
       <span>{children}</span>
     </li>
+  );
+}
+
+const PHASE_SEC = 7;
+
+/** The replay as a moving picture: today's attack reaches the plant, then the same attack meets the plan. */
+function AttackFilm({ scenario }: { scenario: ScenarioDataset }) {
+  const [phase, setPhase] = useState<"today" | "plan">("today");
+  const replay = scenario.attackReplay;
+
+  useEffect(() => {
+    const t = setTimeout(() => setPhase((p) => (p === "today" ? "plan" : "today")), PHASE_SEC * 1000);
+    return () => clearTimeout(t);
+  }, [phase]);
+
+  if (!replay) return null;
+  const today = phase === "today";
+  const reached = today ? replay.today.reachedPlant : replay.proposed.reachedPlant;
+  const total = today ? replay.today.attempts : replay.proposed.attempts;
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="inline-flex bg-slate-100 p-1 rounded-lg border border-slate-200" role="group" aria-label="Attack replay phase">
+          {(["today", "plan"] as const).map((ph) => (
+            <button
+              key={ph}
+              type="button"
+              onClick={() => setPhase(ph)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                phase === ph
+                  ? ph === "today"
+                    ? "bg-white text-rose-700 shadow-sm"
+                    : "bg-white text-emerald-700 shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              {ph === "today" ? <ShieldAlert className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
+              {ph === "today" ? "Today" : "With the plan"}
+            </button>
+          ))}
+        </div>
+        <div className={`text-base sm:text-lg font-semibold ${reached > 0 ? "text-rose-700" : "text-emerald-700"}`}>
+          {reached} of {total} attack commands reach plant equipment
+        </div>
+      </div>
+      <PurdueTopologyTab
+        key={phase}
+        scenario={scenario}
+        fixedMode={today ? "before" : "after"}
+        embedded
+        attackPhase={phase}
+      />
+      <div className="text-xs text-slate-500">
+        Each red dot is a real control command from a public industrial capture, sent from a hacked office
+        computer down a path this plant uses today. {today ? "Today they reach the equipment." : "With the plan they stop at the diode; the backdoor modem is removed."}
+      </div>
+    </div>
   );
 }
 
@@ -156,7 +213,8 @@ export default function StoryView({ scenario, step, isAssessing, onRun }: StoryV
             )}
             {trace && trace.accepted && (
               <Point>
-                Designed by Meta Muse Wonder and approved by an independent rule checker
+                Designed by {/open|glimmer/i.test(trace.model) ? "Meta's open-weights Muse Spark Open, which can run on the plant's own server," : "Meta Muse Wonder"}{" "}
+                and approved by an independent rule checker
                 {rejected > 0 ? `, which sent back ${plural(rejected, "unsafe draft")} first` : ""}.
               </Point>
             )}
@@ -183,6 +241,7 @@ export default function StoryView({ scenario, step, isAssessing, onRun }: StoryV
 
   return (
     <div className="space-y-4">
+      <AttackFilm scenario={scenario} />
       <AttackReplayPanel replay={scenario.attackReplay} />
       <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-3">
         <h3 className="text-sm font-semibold text-slate-900">Why you can trust this result</h3>

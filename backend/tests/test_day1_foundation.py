@@ -164,8 +164,9 @@ async def test_gateway_routing_and_secret_redaction() -> None:
         [{"role": "user", "content": "size diode"}],
         inference_mode="air_gapped_open_weights",
     )
-    assert airgap_res["model"] == "meta-models/Muse-Glimmer-30B"
-    assert airgap_res["provider"] == "modal_vllm_air_gapped"
+    # With a Baseten key and no self-hosted Glimmer endpoint, air-gapped mode uses Muse Spark Open
+    assert airgap_res["model"] == "meta-models/muse-spark-open-1026"
+    assert airgap_res["provider"] == "baseten_open_weights"
 
     stack = gw.get_stack_status()
     serialized = json.dumps(stack)
@@ -204,6 +205,7 @@ async def test_fastapi_rest_endpoints_and_static_files() -> None:
             "muse_image",
             "muse_voice_transcribe",
             "baseten_muse_spark_open_1026",
+            "open_weights_architect",
             "modal_glimmer_and_twin",
         }
         assert set(m_data["integrations"].keys()) == expected_keys

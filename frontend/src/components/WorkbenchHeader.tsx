@@ -144,7 +144,7 @@ export default function WorkbenchHeader({
                   ? "bg-white text-slate-900 shadow-sm"
                   : "text-slate-600 hover:text-slate-900"
               }`}
-              title="Air-Gapped On-Prem Mode (Muse Glimmer 30B Open Weights)"
+              title="Air-gapped mode: reasoning runs on Meta open weights (Muse Spark Open), which a plant can host on its own hardware"
             >
               <Lock className="w-3.5 h-3.5 text-emerald-600" />
               <span>Air-Gapped</span>

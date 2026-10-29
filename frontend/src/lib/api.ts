@@ -64,13 +64,13 @@ export async function fetchBackendModelHealth(
         remoteStatus === "ready" ||
         remoteStatus === "configured" ||
         remoteStatus === "sandbox_profile_ready";
-      // Air-gapped mode is only real when an on-prem Glimmer endpoint is configured
-      const glimmerReady = Boolean(
-        data?.integrations?.modal_glimmer_and_twin?.glimmer_endpoint_configured
-      );
+      // In air-gapped mode only the reasoning models move to open weights; that is real when an
+      // open-weights endpoint (Baseten Muse Spark Open or a self-hosted Glimmer) is configured
+      const openWeightsReady = Boolean(data?.integrations?.open_weights_architect?.ready);
+      const movesToOpenWeights = badge.id === "muse_wonder" || badge.id === "muse_spark";
       const status: ModelServiceHealth["status"] =
-        mode === "airgapped_glimmer" && badge.id !== "modal_twin"
-          ? glimmerReady
+        mode === "airgapped_glimmer" && movesToOpenWeights
+          ? openWeightsReady
             ? "airgapped"
             : "simulated"
           : isLive

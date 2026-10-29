@@ -56,12 +56,13 @@ def build_conduit_langgraph(
         cab_paths = state.get("cabinet_image_paths") or []
         vid_path = state.get("video_walkthrough_path")
 
+        open_weights = state.get("inference_mode") == "air_gapped_open_weights"
         diag_seg, _diag_mode, diag_reading = await inspect_network_diagram(
-            diag_path, gateway=gw, use_live_llm=use_live_llm
+            diag_path, gateway=gw, use_live_llm=use_live_llm, open_weights=open_weights
         )
         scratch["diagram_reading"] = diag_reading
         cab_insps, cab_mode = await inspect_cabinet_photos(
-            cab_paths, gateway=gw, use_live_llm=use_live_llm
+            cab_paths, gateway=gw, use_live_llm=use_live_llm, open_weights=open_weights
         )
         vid_res = await track_walkthrough_video(vid_path, gateway=gw, use_live_llm=use_live_llm)
 
@@ -191,8 +192,9 @@ def build_conduit_langgraph(
         else:
             drawing = "No network drawing could be read"
 
-        if use_live_llm and cfg.meta_api_configured:
-            spark_res = await gw.chat_muse_spark(
+        open_weights = state.get("inference_mode") == "air_gapped_open_weights"
+        if use_live_llm and (open_weights or cfg.meta_api_configured):
+            spark_res = await (gw.chat_air_gapped_glimmer if open_weights else gw.chat_muse_spark)(
                 [
                     {
                         "role": "user",

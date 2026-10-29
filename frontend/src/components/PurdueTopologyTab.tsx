@@ -25,6 +25,7 @@ import {
   TopologyNodeSpec,
   UserLensMode,
 } from "@/types/conduit";
+import AttackPacketEdge, { type AttackPacketEdgeType } from "@/components/AttackPacketEdge";
 
 interface PurdueTopologyTabProps {
   scenario: ScenarioDataset;
@@ -33,6 +34,8 @@ interface PurdueTopologyTabProps {
   fixedMode?: "before" | "after";
   /** Map only: no control bar or device inspector */
   embedded?: boolean;
+  /** Animate the attack replay's command packets: reaching the plant today, or stopped by the plan */
+  attackPhase?: "today" | "plan";
 }
 
 type CutoverViewMode = "before" | "after";
@@ -252,6 +255,10 @@ const nodeTypes = {
   laneLabel: LaneLabelComponent,
 };
 
+const edgeTypes = {
+  attackPacket: AttackPacketEdge,
+};
+
 function describeNodeShort(spec: TopologyNodeSpec, isAfter: boolean): string {
   if (spec.isBoundaryNode) {
     return isAfter
@@ -283,6 +290,7 @@ export default function PurdueTopologyTab({
   userLens = "guided_collab",
   fixedMode,
   embedded = false,
+  attackPhase,
 }: PurdueTopologyTabProps) {
   const isGuided = userLens === "guided_collab";
   const [modeState, setCutoverMode] = useState<CutoverViewMode>("before");
@@ -492,6 +500,39 @@ export default function PurdueTopologyTab({
     });
   }, [scenario.topologyEdges, scenario.topologyNodes, cutoverMode]);
 
+  // One packet per attacker → target pair from the replay; under the plan, IT attacks stop at the
+  // diode and a bypass modem's packets stop just after leaving it, because the plan removes it
+  const attackEdges: AttackPacketEdgeType[] = useMemo(() => {
+    const replay = scenario.attackReplay;
+    if (!attackPhase || !replay) return [];
+    const nodeIds = new Set(scenario.topologyNodes.map((n) => n.id));
+    const nodeMap = new Map(scenario.topologyNodes.map((n) => [n.id, n]));
+    const boundary = scenario.topologyNodes.find((n) => n.isBoundaryNode);
+    const seen = new Set<string>();
+    const out: AttackPacketEdgeType[] = [];
+    replay.paths.forEach((p) => {
+      const source = `n-${p.attacker}`;
+      const target = `n-${p.target}`;
+      const key = `${source}>${target}`;
+      if (seen.has(key) || !nodeIds.has(source) || !nodeIds.has(target)) return;
+      seen.add(key);
+      const blocked = attackPhase === "plan" && p.reachedPlantProposed === 0;
+      const viaBypass = p.via === "bypass device";
+      const end = blocked && !viaBypass && boundary ? boundary.id : target;
+      const down = (nodeMap.get(source)?.y ?? 0) < (nodeMap.get(end)?.y ?? 0);
+      out.push({
+        id: `attack-${out.length}`,
+        type: "attackPacket",
+        source,
+        target: end,
+        sourceHandle: down ? "bottom-source" : "top-source",
+        targetHandle: down ? "top-target" : "bottom-target",
+        data: { blocked, stopAt: blocked ? (viaBypass ? 0.18 : 0.97) : 1, delaySec: out.length * 0.35 },
+      });
+    });
+    return out;
+  }, [scenario.attackReplay, scenario.topologyNodes, attackPhase]);
+
   const selectedSpec = useMemo(
     () =>
       scenario.topologyNodes.find((n) => n.id === selectedNodeId) ??
@@ -567,8 +608,12 @@ export default function PurdueTopologyTab({
           <ReactFlow
             nodes={nodes}
             // Story maps rely on colour alone: per-connection labels pile up at the boundary
-            edges={embedded ? edges.map((e) => ({ ...e, label: undefined })) : edges}
+            edges={[
+              ...(embedded ? edges.map((e) => ({ ...e, label: undefined })) : edges),
+              ...attackEdges,
+            ]}
             nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
             onNodeClick={(_, node) => setSelectedNodeId(node.id)}
             fitView
             fitViewOptions={{ padding: 0.16 }}

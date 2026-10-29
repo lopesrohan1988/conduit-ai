@@ -348,23 +348,27 @@ class MetaModelGateway:
         max_tokens: int = 8192,
         timeout: float | None = None,
     ) -> dict[str, Any]:
-        """Route reasoning to Modal vLLM `meta-models/Muse-Glimmer-30B` (Apache 2.0 on-prem mode)."""
-        if not self.settings.glimmer_endpoint_configured:
+        """Run on Meta open weights: a self-hosted Muse Glimmer endpoint, else Muse Spark Open on Baseten.
+
+        This is the mode for plants that can't send their data to a cloud API: the same open
+        model can be served on the site's own hardware.
+        """
+        if self.settings.glimmer_endpoint_configured:
+            client, model, provider = self._glimmer_openai_client(), self.settings.muse_glimmer_model, "self_hosted_open_weights"
+        elif self.settings.baseten_api_configured:
+            client, model, provider = self._baseten_openai_client(), self.settings.baseten_model, "baseten_open_weights"
+        else:
             return {
                 "content": "",
-                "reasoning": (
-                    "Air-gapped open-weights fallback active: Muse-Glimmer-30B endpoint URL "
-                    "not spun up; using deterministic rule-verified synthesis."
-                ),
+                "reasoning": "No open-weights endpoint configured (Muse Glimmer URL or Baseten key).",
                 "model": self.settings.muse_glimmer_model,
-                "provider": "modal_vllm_air_gapped",
+                "provider": "none",
                 "source_mode": "offline_air_gapped_fallback",
             }
 
         try:
-            client = self._glimmer_openai_client()
             completion = await client.chat.completions.create(
-                model=self.settings.muse_glimmer_model,
+                model=model,
                 messages=messages,
                 temperature=temperature,
                 max_tokens=max_tokens,
@@ -377,17 +381,18 @@ class MetaModelGateway:
                 "content": cleaned_content,
                 "reasoning": getattr(msg, "reasoning_content", None) or inline_reasoning,
                 "model": completion.model,
-                "provider": "modal_vllm_air_gapped",
+                "provider": provider,
                 "source_mode": "live",
+                "finish_reason": completion.choices[0].finish_reason,
             }
         except Exception as exc:
             if not self.settings.demo_cache_fallback:
                 raise
             return {
                 "content": "",
-                "reasoning": f"Offline fallback engaged ({type(exc).__name__}).",
-                "model": self.settings.muse_glimmer_model,
-                "provider": "modal_vllm_air_gapped",
+                "reasoning": f"Open-weights call failed ({type(exc).__name__}).",
+                "model": model,
+                "provider": provider,
                 "source_mode": "offline_air_gapped_fallback",
             }
 
@@ -527,17 +532,30 @@ class MetaModelGateway:
         prompt: str,
         *,
         live: bool,
+        open_weights: bool = False,
     ) -> dict[str, Any]:
         """Ask Muse Spark to read each cropped region and return its JSON answer per box.
 
-        Recorded like `sam31_concepts`, keyed by image hash, prompt and box, so a run without
-        live access replays the model's earlier answers and never invents one.
+        With `open_weights`, the reads run on Muse Spark Open / Muse Glimmer instead of the
+        cloud API. Recorded like `sam31_concepts`, keyed by image hash, prompt, box and model
+        family, so a run without live access replays earlier answers and never invents one.
         """
         image_sha = hashlib.sha256(image_bytes).hexdigest()
         prompt_sha = hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:12]
+        suffix = "_open" if open_weights else ""
         cache_path = (
-            self.settings.resolved_data_dir / "cache" / "muse_spark_read" / f"{image_sha[:20]}_{prompt_sha}.json"
+            self.settings.resolved_data_dir
+            / "cache"
+            / "muse_spark_read"
+            / f"{image_sha[:20]}_{prompt_sha}{suffix}.json"
         )
+        configured = (
+            self.settings.glimmer_endpoint_configured or self.settings.baseten_api_configured
+            if open_weights
+            else self.settings.meta_api_configured
+        )
+        chat = self.chat_air_gapped_glimmer if open_weights else self.chat_muse_spark
+        model_name = self.settings.baseten_model if open_weights else self.settings.muse_spark_model
         cached: dict[str, Any] = (
             json.loads(cache_path.read_text(encoding="utf-8")) if cache_path.exists() else {}
         )
@@ -546,7 +564,7 @@ class MetaModelGateway:
 
         source_mode = "unavailable"
         missing = [b for b in boxes if key(b) not in recorded]
-        if live and self.settings.meta_api_configured and missing:
+        if live and configured and missing:
             with Image.open(io.BytesIO(image_bytes)) as img:
                 rgb = img.convert("RGB")
                 crops = {}
@@ -558,7 +576,7 @@ class MetaModelGateway:
 
             async def _one(k: str) -> tuple[str, dict[str, Any] | None]:
                 async with sem:
-                    res = await self.chat_muse_spark(
+                    res = await chat(
                         [
                             {
                                 "role": "user",
@@ -577,19 +595,19 @@ class MetaModelGateway:
             for k, got in await asyncio.gather(*(_one(k) for k in crops)):
                 if got is not None:
                     recorded[k] = got
-                    source_mode = "live_muse_spark"
+                    source_mode = "live_open_weights" if open_weights else "live_muse_spark"
             cache_path.parent.mkdir(parents=True, exist_ok=True)
             cache_path.write_text(
                 json.dumps(
-                    {"image_sha256": image_sha, "model": self.settings.muse_spark_model, "prompt_sha": prompt_sha, "reads": recorded},
+                    {"image_sha256": image_sha, "model": model_name, "prompt_sha": prompt_sha, "reads": recorded},
                     indent=1,
                 ),
                 encoding="utf-8",
             )
         reads = {key(b): recorded[key(b)] for b in boxes if key(b) in recorded}
         if reads and source_mode == "unavailable":
-            source_mode = "recorded_muse_spark"
-        return {"model": self.settings.muse_spark_model, "source_mode": source_mode, "reads": reads}
+            source_mode = "recorded_open_weights" if open_weights else "recorded_muse_spark"
+        return {"model": model_name, "source_mode": source_mode, "reads": reads}
 
     async def segment_sam31(
         self,
@@ -916,6 +934,13 @@ class MetaModelGateway:
                     if meta_ready
                     else _status_label(False)
                 ),
+            },
+            "open_weights_architect": {
+                "model_id": self.settings.muse_glimmer_model if glimmer_ready else self.settings.baseten_model,
+                "provider": "Self-hosted Muse Glimmer" if glimmer_ready else "Baseten (Muse Spark Open)",
+                "role": "Air-gapped mode: architect, drawing reads and rack-gap checks on Meta open weights",
+                "ready": glimmer_ready or baseten_ready,
+                "operational_status": "live_ready" if (glimmer_ready or baseten_ready) else _status_label(False),
             },
             "modal_glimmer_and_twin": {
                 "model_id": self.settings.muse_glimmer_model,

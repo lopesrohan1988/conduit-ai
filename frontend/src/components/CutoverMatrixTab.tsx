@@ -184,7 +184,7 @@ export default function CutoverMatrixTab({
           !twinIsMeasured
             ? "bg-slate-50 border-slate-200"
             : twinPassed
-              ? "bg-emerald-50/70 border-emerald-200"
+              ? "bg-slate-50 border-slate-200"
               : "bg-rose-50/70 border-rose-200"
         }`}
       >
@@ -196,19 +196,19 @@ export default function CutoverMatrixTab({
           />
           <span className="text-sm font-semibold text-slate-900">
             {!twinIsMeasured
-              ? "Reference result — replay the twin to measure it on this machine."
+              ? "Mechanism demo: run a real one-way kernel pipe with this plan's flows."
               : twinPassed
-                ? "Twin replay: legitimate telemetry delivered, every inbound exploit dropped."
-                : "Twin replay found a problem: see downtime and exploit results below."}
+                ? "Mechanism demo: plant data crossed the one-way pipe and inbound packets had no path back. It cannot fail by design; the attack replay above is the evidence."
+                : "Mechanism demo found a problem: see downtime and exploit results below."}
           </span>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-white text-emerald-700 border border-emerald-200">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-white text-slate-600 border border-slate-200">
             {activeTwin.operationalDowntimePct}% Downtime
           </span>
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-white text-emerald-700 border border-emerald-200">
-            {activeTwin.inboundExploitDropPct}% Attacks Dropped
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-white text-slate-600 border border-slate-200">
+            {activeTwin.inboundExploitDropPct}% inbound dropped (by design)
           </span>
           <button
             type="button"
@@ -232,12 +232,12 @@ export default function CutoverMatrixTab({
             {replayingTwin ? (
               <>
                 <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                <span>Testing Twin...</span>
+                <span>Running...</span>
               </>
             ) : (
               <>
                 <Play className="w-3.5 h-3.5 fill-current" />
-                <span>Test in Digital Twin</span>
+                <span>Run pipe demo</span>
               </>
             )}
           </button>

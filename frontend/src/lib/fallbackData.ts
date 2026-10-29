@@ -19,48 +19,50 @@ export function getScenarioById(scenarioId: string): ScenarioDataset {
 }
 
 export function getDefaultModelStack(mode: InferenceMode): ModelServiceHealth[] {
+  // Air-gapped mode moves every reasoning step to Meta open weights; SAM 3.1, Muse Image and
+  // Muse Voice have no open-weights endpoint here and stay on the cloud API.
   const isAirGapped = mode === "airgapped_glimmer";
   return [
     {
       id: "sam_3_1",
       label: "SAM 3.1",
-      sublabel: "Vision + 24fps Video",
-      provider: isAirGapped ? "Local GPU" : "api.meta.ai",
+      sublabel: "Cabinet + drawing boxes",
+      provider: "api.meta.ai",
       status: "standby",
     },
     {
       id: "muse_spark",
-      label: "Muse Spark",
-      sublabel: isAirGapped ? "Routed → Glimmer 30B" : "3-Way Orchestrator",
-      provider: isAirGapped ? "Air-Gapped" : "api.meta.ai",
+      label: isAirGapped ? "Muse Spark Open" : "Muse Spark",
+      sublabel: "Reads drawings, checks rack gaps",
+      provider: isAirGapped ? "Open weights" : "api.meta.ai",
       status: "standby",
     },
     {
       id: "muse_wonder",
-      label: isAirGapped ? "Muse Glimmer 30B" : "Muse Wonder",
-      sublabel: isAirGapped ? "Apache 2.0 On-Prem" : "Frontier Sizing & CLI",
-      provider: isAirGapped ? "Modal Enclave" : "api.meta.ai",
+      label: isAirGapped ? "Muse Spark Open" : "Muse Wonder",
+      sublabel: "Architect, verifier-checked",
+      provider: isAirGapped ? "Open weights" : "api.meta.ai",
       status: "standby",
     },
     {
       id: "muse_image",
       label: "Muse Image",
       sublabel: "Rack Elevation Card",
-      provider: isAirGapped ? "Cached SVG" : "api.meta.ai",
+      provider: "api.meta.ai",
       status: "standby",
     },
     {
       id: "muse_voice",
       label: "Muse Voice",
       sublabel: "/v1/asr Field Audio",
-      provider: isAirGapped ? "Local Whisper/ASR" : "api.meta.ai",
+      provider: "api.meta.ai",
       status: "standby",
     },
     {
       id: "baseten_1026",
       label: "Baseten 1026",
-      sublabel: "2M TPM CLI Parser",
-      provider: isAirGapped ? "Air-Gapped" : "muse-spark-open-1026",
+      sublabel: "Switch dump enrichment",
+      provider: "muse-spark-open-1026",
       status: "standby",
     },
     {
@@ -79,10 +81,10 @@ export function buildTimelineTemplate(
 ): AgentTimelineStep[] {
   const isAirGapped = mode === "airgapped_glimmer";
   const architectModel = isAirGapped
-    ? "Meta Muse Glimmer 30B (Apache 2.0 Air-Gapped)"
+    ? "Meta Muse Spark Open (open weights)"
     : "Meta Muse Wonder (Frontier Architect)";
   const supervisorModel = isAirGapped
-    ? "Muse Glimmer 30B Local Graph Router"
+    ? "Meta Muse Spark Open (open weights)"
     : "Meta Muse Spark Supervisor";
 
   return [
@@ -112,7 +114,7 @@ export function buildTimelineTemplate(
       id: "step-cli",
       stepNumber: 3,
       agentName: "Switch CLI & MAC OUI Asset Agent",
-      modelTag: isAirGapped ? "Muse-Glimmer-30B" : "Baseten muse-spark-open-1026",
+      modelTag: "Baseten muse-spark-open-1026",
       status: "idle",
       headline: `Parsed ARP/MAC tables + ${scenario.telemetry.firewallRowCount.toLocaleString()} ${scenario.telemetry.firewallVendor} rows`,
       detail: `Reconciled ${scenario.telemetry.totalDiscoveredAssets} live L2/L3 endpoints (${scenario.telemetry.documentedAssets} documented, ${scenario.telemetry.shadowAssetCount} undocumented Shadow OT).`,

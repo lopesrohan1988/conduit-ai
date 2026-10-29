@@ -80,6 +80,7 @@ async def inspect_network_diagram(
     *,
     gateway: MetaModelGateway,
     use_live_llm: bool = False,
+    open_weights: bool = False,
 ) -> tuple[DiagramSegmentationResult, str, dict[str, Any] | None]:
     """SAM 3.1 finds the boxes drawn on the customer's diagram; Muse Spark reads each one.
 
@@ -97,7 +98,9 @@ async def inspect_network_diagram(
     for b in sam["boxes"].get(DIAGRAM_BOX_PROMPT, []):
         if all(iou(Box(*b), Box(*k)) < 0.8 for k in boxes):
             boxes.append(b)
-    read = await gateway.muse_spark_read_regions(image_bytes, boxes, DIAGRAM_READ_PROMPT, live=use_live_llm)
+    read = await gateway.muse_spark_read_regions(
+        image_bytes, boxes, DIAGRAM_READ_PROMPT, live=use_live_llm, open_weights=open_weights
+    )
 
     regions: list[dict[str, Any]] = []
     for b in boxes:
@@ -358,6 +361,7 @@ async def inspect_cabinet_photos(
     *,
     gateway: MetaModelGateway,
     use_live_llm: bool = False,
+    open_weights: bool = False,
     free_ports_hint: int = 6,
 ) -> tuple[list[CabinetVisionInspection], str]:
     """Measure rack / DIN-rail free space and rogue modems in each photo with SAM 3.1.
@@ -382,7 +386,11 @@ async def inspect_cabinet_photos(
         rack = _measure_rack_from(concepts)
         gaps = [[b.x1, b.y1, b.x2, b.y2] for b, _ in (rack.empty_slots if rack else [])]
         gap_reads = (
-            (await gateway.muse_spark_read_regions(path.read_bytes(), gaps, RACK_GAP_PROMPT, live=use_live_llm))["reads"]
+            (
+                await gateway.muse_spark_read_regions(
+                    path.read_bytes(), gaps, RACK_GAP_PROMPT, live=use_live_llm, open_weights=open_weights
+                )
+            )["reads"]
             if gaps
             else {}
         )

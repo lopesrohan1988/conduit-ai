@@ -37,18 +37,20 @@ Power grids, water utilities and factories are still bridged from their Operatio
 
 Every number below is computed by [`backend/scripts/run_eval_benchmark.py`](backend/scripts/run_eval_benchmark.py). The script runs the real pipeline on each scenario's raw files and only then scores the plan against [`benchmark_ground_truth.json`](data/evals/benchmark_ground_truth.json). The pipeline never reads ground truth. Full output: [**`docs/BENCHMARK_SCORECARD.md`**](docs/BENCHMARK_SCORECARD.md).
 
-| Metric (2 plants, 13 labelled flows) | Rule engine only | **Muse Wonder + verifier** |
-| :--- | :--- | :--- |
-| Hardware BoM exact (archetypes + quantity) | 1/2 | **2/2** |
-| Flow Green/Amber/Red tier correct | 13/13 | 13/13 |
-| Critical violations severed at L1 | 4/4 | 4/4 |
-| Unsafe passes (must-block flow graded GREEN) | 0 | 0 |
-| Shadow / rogue assets found | 4/4 | 4/4 |
+| Metric (2 plants, 13 labelled flows) | Rule engine only | **Muse Wonder + verifier** (cloud) | **Muse Spark Open + verifier** (open weights) |
+| :--- | :--- | :--- | :--- |
+| Hardware BoM exact (archetypes + quantity) | 1/2 | **2/2** | **2/2** |
+| Flow Green/Amber/Red tier correct | 13/13 | 13/13 | 13/13 |
+| Critical violations severed at L1 | 4/4 | 4/4 | 4/4 |
+| Unsafe passes (must-block flow graded GREEN) | 0 | 0 | 0 |
+| Shadow / rogue assets found | 4/4 | 4/4 | 4/4 |
+| Architect time per plant | ~2 s | ~22 s | ~38 s |
 
-*The live column is one run; Muse Wonder's output varies a little between runs, so re-run `--live` to reproduce.*
+*The model columns are one run each; model output varies a little between runs, so re-run `--live --open-weights` to reproduce.*
 
 - **Where the model adds value:** the water plant mixes PLC polling with camera streams. The rule engine picks one video diode; Muse Wonder picks a field diode for the PLCs plus a video diode for the cameras, which matches the answer key. The verifier, which also checks every rule-engine plan, flags the rule engine's kit: the video diode can't proxy the PLCs' Modbus TCP.
-- **The verifier catches the model.** At the substation, Muse Wonder's first kit couldn't proxy IEC-104, the substation's main telemetry protocol. The verifier rejected it and the model fixed the kit on attempt 2. The Compatibility tab shows each attempt and its violations.
+- **Open weights are enough.** Meta's open-weights **Muse Spark Open** (`muse-spark-open-1026`, served by Baseten) designs the same kits as Muse Wonder and passes the same verifier. That matters for this domain: a utility that won't send plant traffic to a cloud API can run the architect on its own hardware. The UI's **Air-Gapped** switch runs the architect, the drawing reads and the rack-gap checks on Muse Spark Open; SAM 3.1 has no open-weights endpoint here and stays on the cloud API.
+- **The verifier catches the model.** In an earlier run, Muse Wonder's first substation kit couldn't proxy IEC-104, the substation's main telemetry protocol; the verifier rejected it and the model fixed the kit on attempt 2. In the run in the scorecard, every first proposal passed. The Compatibility tab shows each attempt and its violations.
 - **With only 13 labelled flows, these scores are a demo sanity check, not a statistical claim.**
 
 > Both plants are synthetic (see *What is synthetic* below) and were written alongside the parsers. Treat perception scores (assets, shadows, peak Mbps) as regression tests, not generalisation evidence. The parsers are also run against **15 real public ICS captures** (CISA and UIUC ITI, BSD-3-Clause / CC-BY-4.0): 12 yield Layer-7 decodes.
@@ -68,8 +70,7 @@ Every number below is computed by [`backend/scripts/run_eval_benchmark.py`](back
 | SAM 3.1 video tracking | ✅ Live, weak on the sample videos | 8 frames are sampled with PyAV, SAM runs on each and detections are linked into tracks. The two bundled walkthroughs are synthetic renders SAM barely recognises (detections in 2/8 and 5/8 frames), so they add little; real phone footage is needed |
 | Network drawing vs. reality | ✅ Live (`sam-3.1` + `muse-spark-1.3`) | SAM finds every box on the customer's drawing and Muse Spark reads its name and IPs. The drawing is then compared with the hosts seen on the network: drawn devices never seen, and hosts on the network missing from the drawing (the water plant's cellular modem is one) |
 | Muse Image rack card | ✅ Live endpoint | `POST /api/v1/visuals/rack-card` |
-| Baseten `muse-spark-open-1026` | ⏸ Not configured | Switch parsing is deterministic; enrichment falls back to Muse Spark |
-| Air-gapped Muse Glimmer mode | ⏸ Not configured | Requires a Glimmer endpoint; the UI marks it as simulated otherwise |
+| Air-gapped mode: Muse Spark Open on Baseten | ✅ Live (`muse-spark-open-1026`) | Architect, drawing reads, rack-gap checks and the reconcile summary run on open weights; a self-hosted Muse Glimmer endpoint is used instead if `MUSE_GLIMMER_ENDPOINT_URL` is set |
 | Socket "digital twin" | ⚠️ Mechanism demo | Real `os.pipe()` one-way relay, but it cannot fail by construction, so it is not counted as evidence of plan correctness |
 
 The workbench shows this too. Model pills say *sim* when an integration has no credentials. Every screen is labelled as either reference data or a live pipeline result. The architect panel shows the actual proposal / verdict trace.
@@ -148,7 +149,7 @@ flowchart LR
 - **`Muse Spark` (`muse-spark-1.3`): reads what SAM finds.** It reads the name and IPs in each box SAM segments on the customer's network drawing, and confirms whether each rack gap is really empty. It is also the fallback for switch-dump enrichment.
 - **`Muse Voice Transcribe`:** live transcription of uploaded or browser-recorded field notes into structured observations.
 - **`Muse Image`:** rack / DIN-rail placement card generation.
-- **Air-gapped mode (`Muse Glimmer`) and Baseten** are wired in the model router but need their own endpoints / keys to run.
+- **`Muse Spark Open` (`muse-spark-open-1026`, open weights via Baseten): the air-gapped architect.** Same prompt, same verifier, same evidence as Muse Wonder; it also reads drawings and checks rack gaps in air-gapped mode. Point `MUSE_GLIMMER_ENDPOINT_URL` at a self-hosted Muse Glimmer server to keep everything on site.
 
 ---
 
@@ -195,7 +196,7 @@ Open **http://localhost:3000**. Pick one of the two demo plants and press **Run 
 ```bash
 cd backend
 uv run python scripts/run_eval_benchmark.py          # rule engine, no API calls
-uv run python scripts/run_eval_benchmark.py --live   # + Muse Wonder / verifier
+uv run python scripts/run_eval_benchmark.py --live --open-weights   # + Muse Wonder and Muse Spark Open
 uv run python scripts/check_real_photos.py           # SAM on real Commons photos
 uv run pytest -q
 ```
