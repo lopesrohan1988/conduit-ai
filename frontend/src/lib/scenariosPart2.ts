@@ -36,7 +36,7 @@ export const SCENARIOS_PART_2: ScenarioDataset[] = [
     samDiagramZones: [
       { id: "z4-it", label: "Municipal Water Authority IT & EPA Compliance (VLAN 60)", purdueLevel: "L4", vlan: "VLAN 60", x: 6, y: 6, w: 88, h: 20, confidence: 0.94 },
       { id: "z4-fw", label: "2019 Blueprint FortiGate Perimeter", purdueLevel: "L3.5", vlan: "Boundary", x: 34, y: 31, w: 32, h: 12, confidence: 0.92 },
-      { id: "z4-swat", label: "AquaPure P1–P6 & NaOCl Chemical Dosing Skids (VLAN 25)", purdueLevel: "L1/L2", vlan: "VLAN 25", x: 6, y: 49, w: 88, h: 43, confidence: 0.96 },
+      { id: "z4-aqua", label: "AquaPure P1–P6 & NaOCl Chemical Dosing Skids (VLAN 25)", purdueLevel: "L1/L2", vlan: "VLAN 25", x: 6, y: 49, w: 88, h: 43, confidence: 0.96 },
     ],
     samCabinetDetections: [
       {
@@ -155,7 +155,7 @@ export const SCENARIOS_PART_2: ScenarioDataset[] = [
       { id: "s4-siem", hostname: "MUNI-SOC-SYSLOG", ip: "10.60.2.100", vendor: "Municipal SOC", role: "SIS Alarm Collector", purdueLevel: "L4", vlan: "VLAN 60", x: 640, y: 25 },
       { id: "s4-rogue5g", hostname: "ROGUE-5G-MODEM", ip: "192.168.25.254", vendor: "Moxa OnCell 5G-NR", role: "Public Carrier Air-Gap Bypass!", purdueLevel: "BYPASS", vlan: "Gi1/24 VLAN 25", isRogueBypass: true, anomalyBadge: "STEALTH 5G BYPASS", x: 835, y: 195 },
       { id: "s4-fw", hostname: "FG-80F-WATER-PERIM", ip: "192.168.25.1", vendor: "Fortinet FortiGate", role: "Perimeter Firewall (Bypassed!)", purdueLevel: "L3.5", vlan: "VLAN 25/60", isBoundaryNode: true, x: 380, y: 195 },
-      { id: "s4-hist", hostname: "SWAT-COMP-BATCH", ip: "192.168.25.65", vendor: "Rockwell FactoryTalk", role: "65 Mbps EPA Batch Push", purdueLevel: "L3", vlan: "VLAN 25", x: 70, y: 380 },
+      { id: "s4-hist", hostname: "AQUA-COMP-BATCH", ip: "192.168.25.65", vendor: "Rockwell FactoryTalk", role: "65 Mbps EPA Batch Push", purdueLevel: "L3", vlan: "VLAN 25", x: 70, y: 380 },
       { id: "s4-hmi", hostname: "CHEM-DOSING-HMI", ip: "192.168.25.30", vendor: "PanelView / VNC", role: "Oldsmar-Pattern VNC Target", purdueLevel: "L2", vlan: "VLAN 25", x: 480, y: 380 },
       { id: "s4-plc", hostname: "NAOCL-DOSING-PLC21", ip: "192.168.25.21", vendor: "ControlLogix L73", role: "Chlorine Dosing Actuator", purdueLevel: "L1", vlan: "VLAN 25", x: 300, y: 520 },
       { id: "s4-shadow", hostname: "UV-SKID-PLC99 (.28)", ip: "192.168.25.28", vendor: "CompactLogix 5370", role: "Post-2019 Shadow UV Skid", purdueLevel: "L1", vlan: "VLAN 25", isShadowAsset: true, anomalyBadge: "MISSING ON BLUEPRINT", x: 690, y: 520 },
@@ -262,7 +262,7 @@ export const SCENARIOS_PART_2: ScenarioDataset[] = [
       },
     ],
     digitalTwin: {
-      sandboxId: "modal-sbx-swat5g-4e91",
+      sandboxId: "modal-sbx-aqua5g-4e91",
       kernelMechanism: "Rogue Gi1/24 Port Shutdown + Dual DIN-Rail os.pipe() [ARCH_A + ARCH_B] Unidirectional Barrier",
       pcapPacketsReplayed: 30000,
       legitimatePayloadsDelivered: 29991,

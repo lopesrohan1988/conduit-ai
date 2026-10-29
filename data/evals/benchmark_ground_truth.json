@@ -293,7 +293,7 @@
           "conduit_id": "C-WTR-01",
           "name": "AquaPure Process & Chemical Dosing (VLAN 25) to Municipal Water Authority IT / EPA (VLAN 60)",
           "source_zones": [
-            "SWaT_Process_VLAN25",
+            "AquaPure_Process_VLAN25",
             "Chemical_Dosing_Skid (VLAN 25)"
           ],
           "target_zones": [
@@ -312,7 +312,7 @@
             "Untrusted_Public_5G_Carrier_WAN"
           ],
           "target_zones": [
-            "SWaT_Process_VLAN25",
+            "AquaPure_Process_VLAN25",
             "Chemical_Dosing_Skid (VLAN 25)"
           ],
           "requires_8021q_vlan_trunk": false,
