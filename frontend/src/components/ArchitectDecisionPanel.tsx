@@ -81,7 +81,7 @@ export default function ArchitectDecisionPanel({ scenario }: ArchitectDecisionPa
           )}
           <span className="text-sm font-semibold text-slate-900">
             {trace.accepted
-              ? `${trace.model} proposed this plan · verifier accepted on attempt ${trace.attempts.length}`
+              ? `${trace.model} proposed this plan${trace.finalSourceMode === "recorded_verified" ? " (recorded output, replayed)" : ""} · verifier accepted on attempt ${trace.attempts.length}`
               : `Verifier rejected all ${trace.attempts.length} ${trace.model} proposals · deterministic rule engine used`}
           </span>
         </div>

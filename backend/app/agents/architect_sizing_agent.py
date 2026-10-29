@@ -451,6 +451,7 @@ async def run_architect_sizing_agent(
             voice_transcript=voice_transcript,
             gateway=gateway,
             inference_mode=inference_mode,
+            recording_dir=gateway.settings.resolved_data_dir / "cache" / "architect",
         )
         planner_trace = trace.to_dict()
 
@@ -465,7 +466,7 @@ async def run_architect_sizing_agent(
     )
 
     default_model = (
-        gateway.settings.muse_glimmer_model
+        gateway.settings.open_weights_model
         if inference_mode == "air_gapped_open_weights"
         else gateway.settings.muse_wonder_model
     )

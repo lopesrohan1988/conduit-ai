@@ -161,6 +161,11 @@ class Settings(BaseSettings):
         return is_secret_configured(self.meta_model_api_key)
 
     @property
+    def open_weights_model(self) -> str:
+        """The open-weights model air-gapped mode uses: a self-hosted Glimmer, else Muse Spark Open."""
+        return self.muse_glimmer_model if self.glimmer_endpoint_configured else self.baseten_model
+
+    @property
     def baseten_api_configured(self) -> bool:
         return is_secret_configured(self.baseten_api_key)
 

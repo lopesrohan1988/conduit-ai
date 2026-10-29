@@ -10,9 +10,11 @@ it only encodes general engineering invariants.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from app.agents.switch_config_agent import SwitchAuditResult
@@ -553,6 +555,13 @@ def decision_from_plan(plan: ConduitArchitecturePlan, telemetry_audit: Telemetry
     )
 
 
+def _save_recording(path: Path | None, responses: list[dict[str, Any]]) -> None:
+    if path is None or not responses:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"responses": responses}, indent=1), encoding="utf-8")
+
+
 def telemetry_audit_vlans(telemetry_audit: TelemetryAuditResult) -> list[int]:
     vlans: set[int] = set()
     for c in telemetry_audit.conduits:
@@ -576,8 +585,14 @@ async def propose_and_verify_architecture(
     gateway: MetaModelGateway,
     inference_mode: InferenceMode,
     max_attempts: int = MAX_ATTEMPTS,
+    recording_dir: Path | None = None,
 ) -> tuple[ArchitectureDecision | None, PlannerTrace]:
-    """Ask the frontier model for a design and iterate until the verifier accepts it."""
+    """Ask the frontier model for a design and iterate until the verifier accepts it.
+
+    With `recording_dir`, live responses are saved under a hash of the exact prompt and model
+    family. A run without API access replays them, and every replayed proposal still goes through
+    the verifier; attempts are marked `recorded`.
+    """
     catalog = load_hardware_catalog()
     evidence = build_evidence_pack(
         facility_name=facility_name,
@@ -588,13 +603,21 @@ async def propose_and_verify_architecture(
         voice_transcript=voice_transcript,
     )
     model_name = (
-        gateway.settings.muse_glimmer_model
+        gateway.settings.open_weights_model
         if inference_mode == "air_gapped_open_weights"
         else gateway.settings.muse_wonder_model
     )
     trace = PlannerTrace(model=model_name, inference_mode=inference_mode)
     messages: list[dict[str, Any]] = [{"role": "user", "content": _build_prompt(evidence, catalog)}]
     started = time.perf_counter()
+    recording_path = None
+    recorded: list[dict[str, Any]] = []
+    if recording_dir is not None:
+        key = hashlib.sha256(f"{inference_mode}\n{messages[0]['content']}".encode("utf-8")).hexdigest()
+        recording_path = recording_dir / f"{key[:20]}.json"
+        if recording_path.exists():
+            recorded = json.loads(recording_path.read_text(encoding="utf-8")).get("responses", [])
+    live_responses: list[dict[str, Any]] = []
 
     for attempt in range(1, max_attempts + 1):
         t0 = time.perf_counter()
@@ -606,6 +629,12 @@ async def propose_and_verify_architecture(
             timeout=PLANNER_TIMEOUT_SEC,
             reasoning_effort=gateway.settings.architect_reasoning_effort,
         )
+        if res.get("source_mode") == "live":
+            live_responses.append(
+                {k: res.get(k) for k in ("content", "reasoning", "model", "finish_reason")}
+            )
+        elif attempt <= len(recorded):
+            res = {**recorded[attempt - 1], "source_mode": "recorded"}
         latency_ms = round((time.perf_counter() - t0) * 1000.0, 1)
         record: dict[str, Any] = {
             "attempt": attempt,
@@ -614,7 +643,7 @@ async def propose_and_verify_architecture(
             "latency_ms": latency_ms,
             "reasoning_excerpt": (str(res.get("reasoning") or "")[:600] or None),
         }
-        if res.get("source_mode") != "live":
+        if res.get("source_mode") not in {"live", "recorded"}:
             record["violations"] = ["MODEL_UNAVAILABLE: no live response; using deterministic rule engine."]
             trace.attempts.append(record)
             break
@@ -648,8 +677,9 @@ async def propose_and_verify_architecture(
 
         if decision is not None and not violations:
             trace.accepted = True
-            trace.final_source_mode = "live_verified"
+            trace.final_source_mode = "recorded_verified" if res.get("source_mode") == "recorded" else "live_verified"
             trace.total_latency_ms = round((time.perf_counter() - started) * 1000.0, 1)
+            _save_recording(recording_path, live_responses)
             return decision, trace
 
         messages.append({"role": "assistant", "content": content or "{}"})
@@ -663,9 +693,10 @@ async def propose_and_verify_architecture(
             }
         )
 
+    _save_recording(recording_path, live_responses)
     trace.final_source_mode = (
         "deterministic_fallback_after_rejection"
-        if any(a.get("source_mode") == "live" for a in trace.attempts)
+        if any(a.get("source_mode") in {"live", "recorded"} for a in trace.attempts)
         else "deterministic_rule_engine"
     )
     trace.total_latency_ms = round((time.perf_counter() - started) * 1000.0, 1)

@@ -246,10 +246,14 @@ export default function WorkbenchHeader({
                         ? "bg-blue-500"
                         : m.status === "simulated"
                           ? "bg-amber-500"
-                          : "bg-slate-300";
+                          : m.status === "recorded"
+                            ? "bg-violet-500"
+                            : "bg-slate-300";
                   const statusNote =
                     m.status === "simulated"
                       ? "simulated (no credentials)"
+                      : m.status === "recorded"
+                        ? "no key on this server: replaying this model's recorded outputs"
                       : m.status === "standby"
                         ? "status unknown"
                         : m.status;
@@ -263,6 +267,9 @@ export default function WorkbenchHeader({
                       <span className="font-medium">{m.label}</span>
                       {m.status === "simulated" && (
                         <span className="text-[10px] text-amber-700">sim</span>
+                      )}
+                      {m.status === "recorded" && (
+                        <span className="text-[10px] text-violet-700">rec</span>
                       )}
                     </span>
                   );

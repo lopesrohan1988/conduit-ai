@@ -304,3 +304,27 @@ def test_rule_engine_plan_is_held_to_the_same_verifier() -> None:
     row.cutover_tier, row.cutover_action_type = "AMBER", "PULL_TO_PUSH_PROXY_REVERSAL"
     violations = verify_architecture_proposal(decision_from_plan(plan, tel), **kwargs)
     assert any("bypass" in v for v in violations), violations
+
+
+async def test_recorded_proposals_replay_through_the_verifier_without_a_key(tmp_path) -> None:
+    unsafe = _mutate(flows={"F-RDP": {"tier": "GREEN", "action": "DROP_IN_PROXY_MAPPING"}})
+    kwargs = dict(
+        facility_name="Test Plant",
+        switch_audit=SwitchAuditResult(),
+        telemetry_audit=TELEMETRY,
+        cabinet_inspections=[DIN_CABINET],
+        video_walkthrough=None,
+        voice_transcript=None,
+        inference_mode="cloud_meta_api",
+        recording_dir=tmp_path,
+    )
+    await propose_and_verify_architecture(gateway=_ScriptedGateway([_live(unsafe), _live(GOOD)]), **kwargs)  # type: ignore[arg-type]
+
+    offline = {"content": "", "source_mode": "demo_cache_fallback", "model": "muse-wonder-1.0"}
+    decision, trace = await propose_and_verify_architecture(
+        gateway=_ScriptedGateway([offline, offline]), **kwargs  # type: ignore[arg-type]
+    )
+    assert decision is not None and trace.final_source_mode == "recorded_verified"
+    # The recorded unsafe first draft is still rejected by the live verifier
+    assert [a["source_mode"] for a in trace.attempts] == ["recorded", "recorded"]
+    assert trace.attempts[0]["violations"] and not trace.attempts[1]["violations"]

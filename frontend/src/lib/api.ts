@@ -68,14 +68,19 @@ export async function fetchBackendModelHealth(
       // open-weights endpoint (Baseten Muse Spark Open or a self-hosted Glimmer) is configured
       const openWeightsReady = Boolean(data?.integrations?.open_weights_architect?.ready);
       const movesToOpenWeights = badge.id === "muse_wonder" || badge.id === "muse_spark";
+      const replayed = remoteStatus === "demo_fallback_ready";
       const status: ModelServiceHealth["status"] =
         mode === "airgapped_glimmer" && movesToOpenWeights
           ? openWeightsReady
             ? "airgapped"
-            : "simulated"
+            : replayed
+              ? "recorded"
+              : "simulated"
           : isLive
             ? "online"
-            : "simulated";
+            : replayed
+              ? "recorded"
+              : "simulated";
       return {
         ...badge,
         status,

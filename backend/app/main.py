@@ -346,11 +346,9 @@ async def stream_scenario_assessment(
     effective_live_llm = (
         live_llm
         if live_llm is not None
-        else (
-            step_delay_ms > 0
-            and settings.meta_api_configured
-            and effective_mode == "cloud_meta_api"
-        )
+        # Interactive runs always try the models; without a key each call replays its recorded
+        # output (or reports it unavailable), so a keyless public demo still shows model results
+        else step_delay_ms > 0
     )
 
     initial_state = build_scenario_initial_state(
@@ -467,7 +465,7 @@ async def stream_scenario_assessment(
         voice_final = accumulated_state["voice_transcript"]
         architect_model = scratch.get("architect_meta", {}).get(
             "architect_model",
-            settings.muse_glimmer_model
+            settings.open_weights_model
             if effective_mode == "air_gapped_open_weights"
             else settings.muse_wonder_model,
         )

@@ -1,0 +1,11 @@
+{
+ "image_sha256": "d90fed7bf5d00b4a51581d1753b5b1cf9cb154142f9aecd8d267555a0f429752",
+ "model": "meta-models/muse-spark-open-1026",
+ "prompt_sha": "a352b677c0a3",
+ "reads": {
+  "158,374,1090,510": {
+   "empty": true,
+   "seen": "open empty rack gap with no mounted device or blanking plate, dark void with cables visible behind"
+  }
+ }
+}

@@ -1,0 +1,134 @@
+{
+ "image_sha256": "36b529b8ed22e8e71aee590e75bfe0a54732e7a3ed6ec6e2a97c5988628905b5",
+ "model": "meta-models/muse-spark-open-1026",
+ "prompt_sha": "87b1cf26d786",
+ "reads": {
+  "1211,126,1542,235": {
+   "name": "NERC CIP SIEM SOC",
+   "hostname": "NERC-SIEM-COL01",
+   "ips": [
+    "10.100.5.100"
+   ],
+   "kind": "device"
+  },
+  "66,628,338,661": {
+   "name": "220kV DOUBLE BUS/BAR A/B (60.00 Hz)",
+   "hostname": null,
+   "ips": [],
+   "kind": "other"
+  },
+  "359,796,633,913": {
+   "name": "220kV Bus Diff IED",
+   "hostname": "SEL487E-BUS01",
+   "ips": [
+    "10.220.10.22"
+   ],
+   "kind": "device"
+  },
+  "1272,795,1547,912": {
+   "name": "250MVA Xfmr DGA",
+   "hostname": "SITRAM-DGA-TX81",
+   "ips": [
+    "10.220.10.35"
+   ],
+   "kind": "device"
+  },
+  "1272,461,1548,570": {
+   "name": "SICAM PAS HMI",
+   "hostname": "SICAM-PAS-HMI01",
+   "ips": [
+    "10.220.10.15"
+   ],
+   "kind": "device"
+  },
+  "450,317,1150,411": {
+   "name": "Palo Alto PA-850 ESP Electronic Access Point (PA850-SUB220-ESP01)",
+   "hostname": "PA850-SUB220-ESP01",
+   "ips": [
+    "10.100.5.1",
+    "10.220.10.254"
+   ],
+   "kind": "firewall"
+  },
+  "664,796,937,913": {
+   "name": "SEL-3555 RTAC",
+   "hostname": "SEL3555-RTAC01",
+   "ips": [
+    "10.220.10.23"
+   ],
+   "kind": "device"
+  },
+  "54,796,327,913": {
+   "name": "Bay 1 Feeder IED",
+   "hostname": "SEL451-FDR1",
+   "ips": [
+    "10.220.10.21"
+   ],
+   "kind": "device"
+  },
+  "361,461,633,571": {
+   "name": "ABB RTA560 Standby",
+   "hostname": "SUB220-RTU560-02",
+   "ips": [
+    "10.220.10.11"
+   ],
+   "kind": "device"
+  },
+  "60,127,390,235": {
+   "name": "Regional EMS Master",
+   "hostname": "RCC-EMS-MASTER01",
+   "ips": [
+    "10.100.5.20"
+   ],
+   "kind": "device"
+  },
+  "836,126,1166,235": {
+   "name": "Fleet DGA Analytics",
+   "hostname": "ASSET-DGA-POLL01",
+   "ips": [
+    "10.100.5.30"
+   ],
+   "kind": "device"
+  },
+  "968,462,1241,571": {
+   "name": "Hirschmann RSP25",
+   "hostname": "RSP25-220kV-SW02",
+   "ips": [
+    "10.220.10.2"
+   ],
+   "kind": "device"
+  },
+  "54,461,327,571": {
+   "name": "ABB RTA560 Primary",
+   "hostname": "SUB220-RTU560-01",
+   "ips": [
+    "10.220.10.10"
+   ],
+   "kind": "device"
+  },
+  "434,127,765,235": {
+   "name": "SCADA DNP3 Master",
+   "hostname": "RCC-SOE-DNP3-81",
+   "ips": [
+    "10.100.5.21"
+   ],
+   "kind": "device"
+  },
+  "663,462,937,571": {
+   "name": "Hirschmann MACH1040",
+   "hostname": "MACH1048-220kV-Sw01",
+   "ips": [
+    "10.220.10.1"
+   ],
+   "kind": "device"
+  },
+  "967,796,1241,912": {
+   "name": "Line Distance IED",
+   "hostname": "MULTILIN-D60-L3",
+   "ips": [
+    "10.220.10.41"
+   ],
+   "kind": "device"
+  }
+ }
+}

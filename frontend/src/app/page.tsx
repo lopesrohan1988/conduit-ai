@@ -494,7 +494,7 @@ export default function ConduitWorkbenchPage() {
               : "Computed live by the pipeline"}
             {" · architect: "}
             {selectedScenario.architectTrace?.accepted
-              ? `${selectedScenario.architectTrace.model} proposed, verifier accepted (attempt ${selectedScenario.architectTrace.attempts.length})`
+              ? `${selectedScenario.architectTrace.model} proposed${selectedScenario.architectTrace.finalSourceMode === "recorded_verified" ? " (recorded output)" : ""}, verifier accepted (attempt ${selectedScenario.architectTrace.attempts.length})`
               : selectedScenario.architectTrace?.fallbackViolations?.length
                 ? `deterministic rule engine, verifier found ${selectedScenario.architectTrace.fallbackViolations.length} issue(s)`
                 : "deterministic rule engine, verifier passed"}

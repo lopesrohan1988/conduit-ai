@@ -1,0 +1,168 @@
+{
+ "image_sha256": "64a9637411bb5b6d6e3580041fcc301c99d1ae29e8c1c64ba81f07f4481bb8cf",
+ "model": "meta-models/muse-spark-open-1026",
+ "prompt_sha": "87b1cf26d786",
+ "reads": {
+  "1208,134,1533,230": {
+   "name": "CITY-SOC-04",
+   "hostname": "CITY-SOC-SIEM01",
+   "ips": [
+    "10.60.2.100"
+   ],
+   "kind": "device"
+  },
+  "827,134,1170,230": {
+   "name": "LIMS-LAB-03",
+   "hostname": "CITY-LIMS-LAB01",
+   "ips": [
+    "10.60.1.30"
+   ],
+   "kind": "device"
+  },
+  "948,672,1236,772": {
+   "name": "DOSING-CL2",
+   "hostname": "PLC-NAOCL-CHLORINE01",
+   "ips": [
+    "192.168.25.21",
+    "192.168.25.22",
+    "192.168.25.23",
+    "192.168.25.24"
+   ],
+   "kind": "device"
+  },
+  "356,672,632,772": {
+   "name": "P3/P4-PLC",
+   "hostname": "PLC-ULTRAFILT-P3",
+   "ips": [
+    "192.168.25.13",
+    "192.168.25.14"
+   ],
+   "kind": "device"
+  },
+  "1256,672,1541,772": {
+   "name": "SIS-SCRUB",
+   "hostname": "PROSAFE-CL2-SCRUBBER",
+   "ips": [
+    "192.168.25.55"
+   ],
+   "kind": "device"
+  },
+  "1030,880,1554,971": {
+   "name": "MUNICIPAL WATER AUTHORITY - ENG ARCHIVE",
+   "hostname": null,
+   "ips": [],
+   "kind": "other"
+  },
+  "439,803,600,832": {
+   "name": "ULTRAFILLAR",
+   "hostname": null,
+   "ips": [],
+   "kind": "other"
+  },
+  "1029,803,1190,833": {
+   "name": "NaOCl CHLORINATION",
+   "hostname": null,
+   "ips": [],
+   "kind": "zone"
+  },
+  "59,672,336,772": {
+   "name": "P1/P2-PLC",
+   "hostname": "PLC-RAW-INTAKE-P1",
+   "ips": [
+    "192.168.25.11",
+    "192.168.25.12"
+   ],
+   "kind": "device"
+  },
+  "67,134,409,230": {
+   "name": "IT-HIST-01",
+   "hostname": "CITY-PI-HIST01",
+   "ips": [
+    "10.60.1.10"
+   ],
+   "kind": "device"
+  },
+  "67,450,410,547": {
+   "name": "HMI-CHEM-01",
+   "hostname": "AQUAPURE-CHEM-HMI01",
+   "ips": [
+    "192.168.25.30"
+   ],
+   "kind": "device"
+  },
+  "1207,449,1533,548": {
+   "name": "GW-EPA-01",
+   "hostname": "UNO-EPA-REPA-GW",
+   "ips": [
+    "192.168.25.65"
+   ],
+   "kind": "device"
+  },
+  "1330,803,1491,833": {
+   "name": "CITY CLEARWELL",
+   "hostname": null,
+   "ips": [],
+   "kind": "zone"
+  },
+  "448,134,790,230": {
+   "name": "EPA-DB-02",
+   "hostname": "CITY-EPA-PORTAL01",
+   "ips": [
+    "10.60.1.20"
+   ],
+   "kind": "device"
+  },
+  "447,450,791,548": {
+   "name": "SW-CORE-01",
+   "hostname": "Stratix5700-AQUA-CORE1",
+   "ips": [
+    "192.168.25.2"
+   ],
+   "kind": "device"
+  },
+  "739,803,901,833": {
+   "name": "REVERSE OSMOSIS",
+   "hostname": null,
+   "ips": [],
+   "kind": "zone"
+  },
+  "651,672,928,772": {
+   "name": "P5/P6-PLC",
+   "hostname": "PLC-REV-OSMOSIS-P5",
+   "ips": [
+    "192.168.25.15",
+    "192.168.25.16"
+   ],
+   "kind": "device"
+  },
+  "451,277,1149,380": {
+   "name": "PERIMETER FIREWALL: FG100F-WATER-PERIM (FortiGate 100F)",
+   "hostname": "FG100F-WATER-PERIM",
+   "ips": [
+    "10.60.0.1",
+    "192.168.25.1"
+   ],
+   "kind": "firewall"
+  },
+  "130,803,291,833": {
+   "name": "RAW INTAKE",
+   "hostname": null,
+   "ips": [],
+   "kind": "zone"
+  },
+  "827,450,1170,547": {
+   "name": "HIST-BUF-01",
+   "hostname": "AQUA-LOCAL-HIST01",
+   "ips": [
+    "192.168.25.40"
+   ],
+   "kind": "device"
+  },
+  "215,881,630,990": {
+   "name": "AS-BUILT ARCHIVE COPY - NOV 2019 UNVERIFIED AGINST 2025 VENDOR MODEMS",
+   "hostname": null,
+   "ips": [],
+   "kind": "other"
+  }
+ }
+}
