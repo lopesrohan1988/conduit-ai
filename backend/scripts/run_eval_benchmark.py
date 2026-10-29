@@ -85,6 +85,11 @@ def _summary_rows(scores: dict[str, list[dict[str, Any]]], variants: list[str]) 
     def agg(v: str, key: str) -> int:
         return sum(int(s[key]) for s in scores[v])
 
+    def scored(v: str, key: str) -> str:
+        # Fields an answer key leaves out (None) are not scored for that plant
+        vals = [s[key] for s in scores[v] if s[key] is not None]
+        return f"{sum(map(int, vals))}/{len(vals)}"
+
     def row(label: str, fn) -> str:
         return f"| {label} | " + " | ".join(fn(v) for v in variants) + " |"
 
@@ -104,18 +109,18 @@ def _summary_rows(scores: dict[str, list[dict[str, Any]]], variants: list[str]) 
             "Shadow / rogue asset precision",
             lambda v: f"{agg(v, 'shadow_true_positive')}/{agg(v, 'shadow_detected')} ({pct(agg(v, 'shadow_true_positive'), agg(v, 'shadow_detected'))})",
         ),
-        row("Peak Mbps within 0.5%", lambda v: f"{agg(v, 'peak_ok')}/{n} scenarios"),
+        row("Peak Mbps within 0.5%", lambda v: f"{scored(v, 'peak_ok')} scenarios"),
         row(
             "Hardware BoM exact (archetypes + qty; accepted alternatives allowed)",
-            lambda v: f"**{agg(v, 'bom_exact')}/{n}**",
+            lambda v: f"**{scored(v, 'bom_exact')}**",
         ),
-        row("Archetype set matches primary design", lambda v: f"{agg(v, 'archetypes_match')}/{n}"),
+        row("Archetype set matches primary design", lambda v: scored(v, "archetypes_match")),
         row(
             "Ground-truth flows detected",
             lambda v: f"{agg(v, 'flows_detected')}/{agg(v, 'flows_total')} ({pct(agg(v, 'flows_detected'), agg(v, 'flows_total'))})",
         ),
         row(
-            "Flow Green/Amber/Red tier correct",
+            "Flow tier correct (labelled-normal flows: kept working)",
             lambda v: f"**{agg(v, 'flows_tier_correct')}/{agg(v, 'flows_total')} ({pct(agg(v, 'flows_tier_correct'), agg(v, 'flows_total'))})**",
         ),
         row(
@@ -237,8 +242,8 @@ def run_benchmark(live: bool, open_weights: bool = False) -> str:
             lines.append(
                 f"| `{e['scenario_id']}` | `{v}` | {s['assets_detected']}/{s['assets_expected']} | "
                 f"{s['shadow_true_positive']}/{s['shadow_expected']} | "
-                f"{s['peak_detected_mbps']:.1f} / {s['peak_expected_mbps']:.1f} | `{bom}` | "
-                f"{'✅' if s['bom_exact'] else '❌'} | {s['flows_tier_correct']}/{s['flows_total']} | "
+                f"{s['peak_detected_mbps']:.1f} / {'—' if s['peak_expected_mbps'] is None else format(s['peak_expected_mbps'], '.1f')} | `{bom}` | "
+                f"{'—' if s['bom_exact'] is None else ('✅' if s['bom_exact'] else '❌')} | {s['flows_tier_correct']}/{s['flows_total']} | "
                 f"{s['critical_severed']}/{s['critical_total']} | {s['unsafe_passes']} | {s['runtime_ms']} |"
             )
 
@@ -253,6 +258,8 @@ def run_benchmark(live: bool, open_weights: bool = False) -> str:
                 why = (
                     "not detected in telemetry"
                     if not f["detected"]
+                    else "labelled normal by the dataset, but the plan cuts it"
+                    if f["expected_tier"] == "KEEP"
                     else f"graded {'/'.join(f['observed_tiers'])}, expected {f['expected_tier']}"
                     + (" (critical not severed)" if f["critical"] and not f["critical_severed"] else "")
                 )

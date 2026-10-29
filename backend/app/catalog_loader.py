@@ -154,24 +154,19 @@ def _count_flow_tiers(flows: list[dict[str, Any]]) -> dict[str, int]:
 def _build_scenario_media_urls(
     scenario_id: str, files_dict: dict[str, Any]
 ) -> dict[str, Any]:
-    site_photos = [
-        _to_static_data_url(photo_rel)
-        for photo_rel in files_dict.get("site_photos", [])
-    ]
-    video_filename = _SCENARIO_VIDEO_MAP.get(
-        scenario_id, "rack_1u_slot_walkthrough.mp4"
-    )
+    def url(key: str) -> str | None:
+        return _to_static_data_url(files_dict[key]) if files_dict.get(key) else None
+
+    video_filename = _SCENARIO_VIDEO_MAP.get(scenario_id)
     return {
-        "topology_diagram_url": _to_static_data_url(files_dict["topology_diagram"]),
-        "site_photo_urls": site_photos,
-        "walkthrough_video_url": f"/static/data/videos/{video_filename}",
+        "topology_diagram_url": url("topology_diagram"),
+        "site_photo_urls": [_to_static_data_url(rel) for rel in files_dict.get("site_photos", [])],
+        "walkthrough_video_url": f"/static/data/videos/{video_filename}" if video_filename else None,
         "walkthrough_video_filename": video_filename,
-        "pcap_url": _to_static_data_url(files_dict["pcap"]),
-        "firewall_csv_url": _to_static_data_url(files_dict["firewall_csv"]),
-        "switch_dump_url": _to_static_data_url(files_dict["switch_dump"]),
-        "asset_inventory_csv_url": _to_static_data_url(
-            files_dict["asset_inventory_csv"]
-        ),
+        "pcap_url": url("pcap"),
+        "firewall_csv_url": url("firewall_csv"),
+        "switch_dump_url": url("switch_dump"),
+        "asset_inventory_csv_url": url("asset_inventory_csv"),
     }
 
 
@@ -187,7 +182,7 @@ def list_scenarios() -> list[dict[str, Any]]:
         media_urls = _build_scenario_media_urls(scenario_id, files_dict)
         conduits = sc.get("conduits", [])
         primary_conduit = conduits[0] if conduits else {}
-        expected_bom = sc.get("expected_hardware_bom", {})
+        expected_bom = sc.get("expected_hardware_bom") or {}
         primary_recs = expected_bom.get("primary_recommendation", [])
 
         matched_pcaps = [
@@ -237,6 +232,8 @@ def get_scenario_preview(scenario_id: str) -> dict[str, Any] | None:
 
     file_checks: dict[str, bool] = {}
     for key, val in files_dict.items():
+        if not val:
+            continue
         if isinstance(val, list):
             file_checks[key] = all((data_dir / item).exists() for item in val)
         else:

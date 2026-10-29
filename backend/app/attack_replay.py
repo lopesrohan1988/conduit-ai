@@ -22,7 +22,12 @@ from typing import Any
 from scapy.utils import RawPcapReader
 
 from app.agents.switch_config_agent import SwitchAuditResult, is_enterprise_it_ip
-from app.agents.telemetry_duckdb_agent import TelemetryAuditResult, _inspect_l7_payload, zone_map_from_assets
+from app.agents.telemetry_duckdb_agent import (
+    TelemetryAuditResult,
+    _inspect_l7_payload,
+    zone_map_from_assets,
+    zone_of,
+)
 from app.config import get_settings
 from app.state import ConduitArchitecturePlan
 
@@ -98,8 +103,8 @@ def replay_attacks(
     }
 
     def is_ot(ip: str) -> bool:
-        z = zones.get(ip.rsplit(".", 1)[0])
-        return z == "OT" if z else not is_enterprise_it_ip(ip, None)
+        z = zone_of(ip, zones)
+        return z != "IT" if z else not is_enterprise_it_ip(ip, None)
 
     paths: list[dict[str, Any]] = []
     for row in plan.protocol_cutover_matrix:

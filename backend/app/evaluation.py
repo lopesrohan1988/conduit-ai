@@ -56,22 +56,26 @@ def score_scenario(
     det_shadow_ips = {ip for a in switch_audit.shadow_anomalies for ip in a.ip_addresses}
     shadow_tp = len(gt_shadow_ips & det_shadow_ips)
 
-    # 2. Bandwidth
-    exp_peak = float(sc_gt["telemetry_metrics"]["peak_bandwidth_mbps"])
+    # 2. Bandwidth (None when the answer key has no reference value, e.g. a public dataset)
+    raw_peak = sc_gt["telemetry_metrics"].get("peak_bandwidth_mbps")
+    exp_peak = float(raw_peak) if raw_peak is not None else None
     det_peak = float(telemetry_audit.peak_bandwidth_mbps)
 
     # 3. Hardware BoM — primary or any accepted alternative, archetypes AND quantities
-    bom_gt = sc_gt["expected_hardware_bom"]
-    acceptable = [
-        _bom_signature([(i["archetype_id"], int(i["quantity"])) for i in bom_gt["primary_recommendation"]])
-    ] + [
-        _bom_signature([(i["archetype_id"], int(i["quantity"])) for i in alt["items"]])
-        for alt in bom_gt.get("accepted_alternative_boms", [])
-    ]
+    bom_gt = sc_gt.get("expected_hardware_bom")
     det_bom = _bom_signature([(b.item_code, b.quantity) for b in plan.bill_of_materials])
-    bom_exact = det_bom in acceptable
-    primary_archs = sorted({a for a, _ in acceptable[0]})
-    archetypes_match = sorted({a for a, _ in det_bom}) == primary_archs or bom_exact
+    if bom_gt:
+        acceptable = [
+            _bom_signature([(i["archetype_id"], int(i["quantity"])) for i in bom_gt["primary_recommendation"]])
+        ] + [
+            _bom_signature([(i["archetype_id"], int(i["quantity"])) for i in alt["items"]])
+            for alt in bom_gt.get("accepted_alternative_boms", [])
+        ]
+        bom_exact: bool | None = det_bom in acceptable
+        primary_archs = sorted({a for a, _ in acceptable[0]})
+        archetypes_match: bool | None = sorted({a for a, _ in det_bom}) == primary_archs or bom_exact
+    else:
+        acceptable, bom_exact, archetypes_match = [None], None, None
 
     # 4. Flow classification — each GT flow is matched to plan rows on port + endpoint IPs
     rows = plan.protocol_cutover_matrix
@@ -84,10 +88,20 @@ def score_scenario(
             for r in rows
             if r.port == port and (r.observed_dst_ip in endpoints or r.observed_src_ip in endpoints)
         ]
-        exp_tier = GT_TIER.get(str(gf["classification"]).upper(), "RED")
-        is_critical = str(gf["classification"]).upper() == "CRITICAL_VIOLATION"
-        tier_ok = any(r.cutover_tier == exp_tier for r in candidates)
+        classification = str(gf["classification"]).upper()
+        is_critical = classification == "CRITICAL_VIOLATION"
         severed = any(r.cutover_action_type == "SEVER_CRITICAL_VIOLATION_AT_L1" for r in candidates)
+        if classification == "KEEP":
+            # Legitimate operation (e.g. labelled NORMAL in a public dataset): it must keep
+            # working, whatever route the plan gives it. Only rows from this flow's own source
+            # count, so cutting an attacker that targets the same devices is not held against it.
+            own = [r for r in candidates if r.observed_src_ip in expand_gt_ips(gf.get("src_ip", ""))]
+            exp_tier = "KEEP"
+            severed = any(r.cutover_action_type == "SEVER_CRITICAL_VIOLATION_AT_L1" for r in own)
+            tier_ok = bool(own) and not severed
+        else:
+            exp_tier = GT_TIER.get(classification, "RED")
+            tier_ok = any(r.cutover_tier == exp_tier for r in candidates)
         # Unsafe = a flow that must be blocked/remediated was only ever passed as GREEN
         unsafe = exp_tier == "RED" and bool(candidates) and all(r.cutover_tier == "GREEN" for r in candidates)
         flow_results.append(
@@ -114,7 +128,7 @@ def score_scenario(
         "shadow_true_positive": shadow_tp,
         "peak_expected_mbps": exp_peak,
         "peak_detected_mbps": det_peak,
-        "peak_ok": abs(det_peak - exp_peak) <= max(0.2, exp_peak * 0.005),
+        "peak_ok": None if exp_peak is None else abs(det_peak - exp_peak) <= max(0.2, exp_peak * 0.005),
         "bom_detected": det_bom,
         "bom_expected": acceptable[0],
         "bom_exact": bom_exact,

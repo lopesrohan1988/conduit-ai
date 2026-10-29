@@ -224,7 +224,7 @@ class VoiceFieldNoteTranscript(BaseModel):
     scenario_id: str | None = None
     audio_filename: str
     model_used: str = "muse-voice-transcribe-1.0"
-    source_mode: Literal["live_meta_asr", "demo_fallback_transcript"] = (
+    source_mode: Literal["live_meta_asr", "demo_fallback_transcript", "not_supplied"] = (
         "demo_fallback_transcript"
     )
     duration_sec: float = 14.5

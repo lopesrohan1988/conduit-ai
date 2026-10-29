@@ -94,8 +94,9 @@ function AttackFilm({ scenario }: { scenario: ScenarioDataset }) {
         attackPhase={phase}
       />
       <div className="text-xs text-slate-500">
-        Each red dot is a real control command from a public industrial capture, sent from a hacked office
-        computer down a path this plant uses today. {today ? "Today they reach the equipment." : "With the plan they stop at the diode; the backdoor modem is removed."}
+        Each red dot is a real control command from a public industrial capture, sent down a path this
+        plant&apos;s own traffic uses today, from a hacked office computer or an unknown device on the
+        plant network. {today ? "Today they reach the equipment." : "With the plan they stop at the diode, and the unknown devices are removed."}
       </div>
     </div>
   );
@@ -153,8 +154,9 @@ export default function StoryView({ scenario, step, isAssessing, onRun }: StoryV
             )}
             {summary.bypassPathsToday > 0 && (
               <Point tone="bad">
-                {plural(summary.bypassPathsToday, "hidden backdoor")} skips the firewall completely
-                {summary.rogueModemInPhoto ? ": a cellular modem that Meta SAM 3.1 spotted in the cabinet photo." : "."}
+                {plural(summary.bypassPathsToday, "unknown device")} can send commands straight to plant
+                equipment without passing the firewall
+                {summary.rogueModemInPhoto ? ", including a cellular modem that Meta SAM 3.1 spotted in the cabinet photo." : "."}
               </Point>
             )}
             {unlisted > 0 && (
@@ -166,8 +168,8 @@ export default function StoryView({ scenario, step, isAssessing, onRun }: StoryV
           <Explainer>
             <strong>IT</strong> is the office network: email, laptops, business servers.{" "}
             <strong>OT</strong> is the plant network that runs physical equipment such as breakers,
-            pumps and chemical dosing. Today a firewall sits between them, but it lets connections
-            go <em>both ways</em>, so a hacker who gets into the office can reach the plant.
+            pumps and chemical dosing. Today a firewall sits between them at best, and it lets
+            connections go <em>both ways</em>, so a hacker who gets into the office can reach the plant.
           </Explainer>
         </div>
         <div className="space-y-1.5">
@@ -202,7 +204,11 @@ export default function StoryView({ scenario, step, isAssessing, onRun }: StoryV
               copy out.
             </Point>
             {summary.bypassPathsToday > 0 && (
-              <Point tone="bad">The cellular modem must be physically removed: no diode can protect a backdoor.</Point>
+              <Point tone="bad">
+                {summary.rogueModemInPhoto
+                  ? "The cellular modem must be physically removed: no diode can protect a backdoor."
+                  : "The unknown devices must be found and taken off the plant network: no diode protects against a device that is already inside."}
+              </Point>
             )}
             {(rackU > 0 || dinMm > 0) && (
               <Point>
@@ -248,7 +254,10 @@ export default function StoryView({ scenario, step, isAssessing, onRun }: StoryV
         <ul className="space-y-2">
           <Point>
             The attack packets are real: control commands recorded from real industrial equipment in
-            public datasets. This demo plant itself is synthetic.
+            public datasets.{" "}
+            {scenario.dataOrigin === "public_dataset"
+              ? "This plant's traffic is real too: a public university testbed (UOWM, CC-BY-4.0), scored against its authors' own attack labels."
+              : "This demo plant itself is synthetic."}
           </Point>
           <Point>
             The test can fail. If the plan left a backdoor open, its commands would show up above as

@@ -3,16 +3,21 @@
 Parses Cisco IOS / Allen-Bradley Stratix, Hirschmann HiOS, ArubaOS-CX, and Moxa
 Turbo Ring `show arp` / `show mac address-table` dumps, enriches MACs with
 `oui_vendors.json`, reconciles against `asset_inventory.csv`, and flags
-undocumented Shadow OT endpoints, dual-homed servers, and rogue 5G modems.
+undocumented Shadow OT endpoints, dual-homed servers, and cellular routers (from the name a
+device announces over LLDP). With no switch dump, hosts are discovered from the packet capture.
 """
 
 from __future__ import annotations
 
 import csv
+import ipaddress
 import re
+import struct
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+from scapy.utils import RawPcapReader
 
 from app.catalog_loader import lookup_oui_vendor
 from app.clients.meta_models import MetaModelGateway, extract_json_object
@@ -23,6 +28,12 @@ _MAC_COLON_RE = re.compile(r"\b(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}\b")
 _MAC_CISCO_RE = re.compile(r"\b[0-9A-Fa-f]{4}\.[0-9A-Fa-f]{4}\.[0-9A-Fa-f]{4}\b")
 _VLAN_TOKEN_RE = re.compile(r"\bvlan[\s_-]*(\d{1,4})\b", re.IGNORECASE)
 _PAREN_HOST_RE = re.compile(r"\(([A-Za-z0-9._-]+)\)")
+_LLDP_RE = re.compile(r"SysName:\s*(?P<name>[^|]+?)\s*\|.*?\bIP:\s*(?P<ip>(?:\d{1,3}\.){3}\d{1,3})", re.IGNORECASE)
+# Cellular router product lines, matched against the name a device announces over LLDP
+_CELLULAR_PRODUCT_RE = re.compile(
+    r"oncell|airlink|cradlepoint|teltonika|\brut\d|inhand|ewon|digi[\s-]?(?:ix|wr|transport)|(?<![a-z])(?:lte|4g|5g)(?![a-z])",
+    re.IGNORECASE,
+)
 
 # Corporate / IT / DMZ / WAN VLANs that normally hold enterprise consumers rather than OT inventory
 _ENTERPRISE_IT_VLANS = {50, 60, 70, 80, 90, 100}
@@ -60,8 +71,9 @@ def _infer_purdue_level(
         return "L3"
     if any(tok in h_lower for tok in ("hmi", "pvplus", "tp1500", "scada", "sw0", "core", "ring", "xc208", "ie4000", "mach1040", "aruba")):
         return "L2"
-    if vendor_meta and vendor_meta.get("default_purdue_level") in {"L0", "L1", "L2", "L3", "L3.5", "L4"}:
-        return vendor_meta["default_purdue_level"]
+    level = (vendor_meta or {}).get("typical_purdue_level")
+    if level in {"L0", "L1", "L2", "L3", "L3.5", "L4"}:
+        return level
     return "L1"
 
 
@@ -203,7 +215,31 @@ def parse_switch_cli_dump(
         }
         mac_to_ips.setdefault(norm_mac, []).append(ip_addr)
 
-    # Reconcile every discovered ARP endpoint against documented `asset_inventory.csv`
+    lldp_names = {m.group("ip"): m.group("name").strip() for m in _LLDP_RE.finditer(raw_text)}
+    _reconcile_endpoints(
+        result,
+        arp_entries,
+        mac_to_ips,
+        documented_by_ip,
+        evidence_name=path.name,
+        inventory_path=asset_inventory_csv_path,
+        lldp_names=lldp_names,
+    )
+    result.vlans_observed = sorted(vlans_set)
+    return result
+
+
+def _reconcile_endpoints(
+    result: SwitchAuditResult,
+    arp_entries: dict[str, dict[str, Any]],
+    mac_to_ips: dict[str, list[str]],
+    documented_by_ip: dict[str, dict[str, Any]],
+    *,
+    evidence_name: str,
+    inventory_path: str | Path | None,
+    lldp_names: dict[str, str],
+) -> None:
+    """Reconcile every discovered endpoint against the documented `asset_inventory.csv`."""
     assets: list[AssetNode] = []
     shadow_anomalies: list[ShadowAssetAnomaly] = []
     documented_seen = 0
@@ -214,17 +250,17 @@ def parse_switch_cli_dump(
         vlan_val = entry["vlan"]
         oui_info = lookup_oui_vendor(norm_mac)
         doc_row = documented_by_ip.get(ip_addr)
-        is_it_host = is_enterprise_it_ip(ip_addr, vlan_val)
+        is_it_host = is_enterprise_it_ip(ip_addr, vlan_val) or bool(doc_row and doc_row.get("purdue_level") == "L4")
 
         vendor = (
             (doc_row.get("vendor") if doc_row else None)
             or (oui_info.get("vendor") if oui_info else None)
-            or "Enterprise / Virtual NIC"
+            or "Unknown vendor"
         )
-        hostname = (doc_row.get("hostname") if doc_row else None) or entry["hostname"]
+        hostname = (doc_row.get("hostname") if doc_row else None) or entry["hostname"] or lldp_names.get(ip_addr)
         device_cat = (
             (doc_row.get("role") if doc_row else None)
-            or (oui_info.get("device_category") if oui_info else None)
+            or (oui_info.get("default_device_category") if oui_info else None)
             or ("IT_SERVER" if is_it_host else "OT_ENDPOINT")
         )
         purdue = (
@@ -237,20 +273,17 @@ def parse_switch_cli_dump(
         sibling_ips = [other for other in mac_to_ips.get(norm_mac, []) if other != ip_addr]
         is_dual_homed = len(sibling_ips) > 0
 
-        raw_lower = entry["raw_comment"].lower()
-        is_rogue_modem = any(
-            kw in raw_lower
-            for kw in ("5g", "cellular", "oncell", "rogue", "modem", "bypass")
-        ) or (ip_addr.endswith(".254") and "moxa" in vendor.lower() and doc_row is None)
+        # An undocumented device announcing itself as a cellular router is a path around the firewall
+        is_rogue_modem = doc_row is None and bool(_CELLULAR_PRODUCT_RE.search(lldp_names.get(ip_addr, "")))
 
         # Shadow OT Asset = in an OT VLAN (not Enterprise IT consumer) AND absent from asset_inventory.csv
         is_shadow = (doc_row is None) and (not is_it_host or is_rogue_modem)
         if not is_shadow:
             documented_seen += 1
 
-        sources = [path.name]
-        if doc_row is not None and asset_inventory_csv_path:
-            sources.append(Path(asset_inventory_csv_path).name)
+        sources = [evidence_name]
+        if doc_row is not None and inventory_path:
+            sources.append(Path(inventory_path).name)
 
         assets.append(
             AssetNode(
@@ -273,13 +306,14 @@ def parse_switch_cli_dump(
         )
 
         if is_shadow or is_dual_homed or is_rogue_modem:
+            port = entry["switch_port"]
             if is_rogue_modem:
                 anom_type = "ROGUE_IT_BRIDGE"
                 severity = "CRITICAL"
                 action_text = (
-                    f"CRITICAL AIR-GAP BYPASS: Physically disconnect switch port "
-                    f"{entry['switch_port'] or 'Gi1/24'} ({hostname or ip_addr}) immediately "
-                    f"and lock port with 802.1X / MAC sticky shutdown."
+                    f"CRITICAL AIR-GAP BYPASS: {lldp_names.get(ip_addr)} announces itself as a cellular router. "
+                    f"Physically disconnect switch port {port or 'unknown'} ({ip_addr}) "
+                    f"and lock the port with 802.1X / MAC sticky shutdown."
                 )
             elif is_dual_homed:
                 anom_type = "DUAL_HOMED_BYPASS_ASSET"
@@ -292,9 +326,10 @@ def parse_switch_cli_dump(
                 anom_type = "UNDOCUMENTED_SHADOW_ASSET"
                 severity = "HIGH"
                 action_text = (
-                    f"Audit undocumented {vendor} node ({hostname or ip_addr}) on VLAN "
-                    f"{vlan_val or 10} port {entry['switch_port'] or 'dynamic'}; register in CMDB "
-                    f"and migrate inbound polling to Diode TX local proxy."
+                    f"Audit undocumented {vendor} node ({hostname or ip_addr})"
+                    + (f" on VLAN {vlan_val}" if vlan_val else "")
+                    + (f" port {port}" if port else "")
+                    + "; register it in the CMDB or remove it from the plant network."
                 )
 
             shadow_anomalies.append(
@@ -305,7 +340,7 @@ def parse_switch_cli_dump(
                     ip_addresses=[ip_addr, *sibling_ips],
                     mac_address=norm_mac,
                     vendor=vendor,
-                    evidence_source=f"{path.name} (ARP/MAC port {entry['switch_port'] or 'learned'})",
+                    evidence_source=f"{evidence_name} ({'ARP/MAC port ' + port if port else 'seen in traffic'})",
                     remediation_action=action_text,
                 )
             )
@@ -319,9 +354,51 @@ def parse_switch_cli_dump(
     result.documented_assets_count = documented_seen
     result.assets = assets
     result.shadow_anomalies = shadow_anomalies
-    result.vlans_observed = sorted(vlans_set)
     result.occupied_rj45_ports = occupied_ports
     result.free_rj45_ports_estimate = free_ports
+
+
+def discover_assets_from_pcap(
+    pcap_path: str | Path | None,
+    asset_inventory_csv_path: str | Path | None = None,
+) -> SwitchAuditResult:
+    """Without a switch dump, list the hosts seen in the capture (source IP + MAC) and reconcile them.
+
+    Only private (RFC 1918) addresses are kept: those are the site's own hosts.
+    """
+    result = SwitchAuditResult(switch_hostname="no switch dump (hosts seen in the capture)")
+    if not pcap_path or not Path(pcap_path).exists():
+        return result
+    entries: dict[str, dict[str, Any]] = {}
+    mac_to_ips: dict[str, list[str]] = {}
+    vlans: set[int] = set()
+    for data, _ in RawPcapReader(str(pcap_path)):
+        if len(data) < 34:
+            continue
+        eth_type, off, vlan = struct.unpack("!H", data[12:14])[0], 14, None
+        if eth_type == 0x8100:
+            vlan = struct.unpack("!H", data[14:16])[0] & 0x0FFF
+            eth_type, off = struct.unpack("!H", data[16:18])[0], 18
+        if eth_type != 0x0800:
+            continue
+        src = ".".join(str(b) for b in data[off + 12 : off + 16])
+        if src in entries or not ipaddress.ip_address(src).is_private:
+            continue
+        mac = normalize_mac(data[6:12].hex(":"))
+        entries[src] = {"ip_address": src, "mac_address": mac, "vlan": vlan, "switch_port": None, "hostname": None}
+        mac_to_ips.setdefault(mac, []).append(src)
+        if vlan is not None:
+            vlans.add(vlan)
+    _reconcile_endpoints(
+        result,
+        dict(sorted(entries.items(), key=lambda kv: ipaddress.ip_address(kv[0]))),
+        mac_to_ips,
+        parse_asset_inventory_csv(asset_inventory_csv_path),
+        evidence_name=Path(pcap_path).name,
+        inventory_path=asset_inventory_csv_path,
+        lldp_names={},
+    )
+    result.vlans_observed = sorted(vlans)
     return result
 
 
@@ -329,11 +406,18 @@ async def run_switch_config_agent(
     switch_dump_path: str | Path | None,
     asset_inventory_csv_path: str | Path | None = None,
     *,
+    pcap_path: str | Path | None = None,
     gateway: MetaModelGateway | None = None,
     use_live_llm: bool = False,
 ) -> SwitchAuditResult:
-    """Execute deterministic CLI + OUI reconciliation, optionally enriched via Baseten/Meta Spark."""
-    audit = parse_switch_cli_dump(switch_dump_path, asset_inventory_csv_path)
+    """Execute deterministic CLI + OUI reconciliation, optionally enriched via Baseten/Meta Spark.
+
+    With no switch dump, hosts are discovered from the packet capture instead.
+    """
+    if switch_dump_path and Path(switch_dump_path).exists():
+        audit = parse_switch_cli_dump(switch_dump_path, asset_inventory_csv_path)
+    else:
+        audit = discover_assets_from_pcap(pcap_path, asset_inventory_csv_path)
     if not use_live_llm or gateway is None or not audit.shadow_anomalies:
         return audit
 

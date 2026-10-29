@@ -1,0 +1,7 @@
+asset_id,hostname,ip_address,mac_address,vendor,model,purdue_level,role
+UOWM-RTU-01,iecserver1,192.168.1.21,08:00:27:e8:42:e6,Windows 7 VM,IEC TestServer (IEC-104 outstation),L1,RTU
+UOWM-RTU-02,iecserver2,192.168.1.24,08:00:27:15:b0:19,Windows 7 VM,IEC TestServer (IEC-104 outstation),L1,RTU
+UOWM-RTU-03,iecserver3,192.168.1.25,08:00:27:92:85:5e,Windows 7 VM,IEC TestServer (IEC-104 outstation),L1,RTU
+UOWM-RTU-04,iecserver4,192.168.1.26,08:00:27:84:21:ff,Windows 7 VM,IEC TestServer (IEC-104 outstation),L1,RTU
+UOWM-RTU-05,iecserver5,192.168.1.13,08:00:27:b2:64:4c,Windows 7 VM,IEC TestServer (IEC-104 outstation),L1,RTU
+UOWM-MTU-01,qtester,192.168.1.20,08:00:27:27:bf:c4,Windows 7 VM,QTester104 v2.1 (IEC-104 master / HMI),L4,CONTROL_CENTRE_MASTER

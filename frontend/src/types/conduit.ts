@@ -20,7 +20,8 @@ export interface ModelServiceHealth {
   label: string;
   sublabel: string;
   provider: string;
-  status: "online" | "airgapped" | "standby" | "simulated";
+  /** `recorded`: no key on this server, so the model's recorded outputs are replayed */
+  status: "online" | "airgapped" | "standby" | "simulated" | "recorded";
   latencyMs?: number;
 }
 
@@ -326,6 +327,8 @@ export interface TopologySummary {
 
 export interface ScenarioDataset {
   id: string;
+  /** Where the plant's own files come from; synthetic unless stated */
+  dataOrigin?: "synthetic" | "public_dataset";
   topologySummary?: TopologySummary | null;
   attackReplay?: AttackReplay | null;
   provenance?: DataProvenance;
@@ -359,7 +362,8 @@ export interface ScenarioDataset {
     topologyDiagramRel: string;
     cabinetPhotoRel: string;
     secondaryPhotoRel?: string;
-    walkthroughVideoRel: "videos/rack_1u_slot_walkthrough.mp4" | "videos/cabinet_rogue_modem_pan.mp4";
+    /** Empty when the site supplied no walkthrough video */
+    walkthroughVideoRel: string;
     walkthroughVideoTitle: string;
     walkthroughModeLabel: string;
     enclosureType: "19INCH_SERVER_RACK" | "DIN_RAIL_CABINET";

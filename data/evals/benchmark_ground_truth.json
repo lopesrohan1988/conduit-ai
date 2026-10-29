@@ -3,14 +3,14 @@
     "benchmark_id": "CONDUITAI_ENTERPRISE_OT_6VERTICAL_V1",
     "schema_version": "1.0.0",
     "generated_date": "2026-10-25",
-    "description": "Ground-truth evaluation for ConduitAI on two synthetic OT plants: a 220 kV power substation and a municipal water-treatment plant (60,000 pcap packets, 40,000 firewall rows, 74 endpoints, 4 undocumented / bypass assets).",
+    "description": "Ground-truth evaluation for ConduitAI: two synthetic OT plants (a 220 kV substation and a water-treatment plant, answer key written by the author) and one public IEC-104 testbed with real traffic (answer key from the dataset's own labels and topology).",
     "aggregate_totals": {
-      "scenario_count": 2,
-      "total_pcap_packets": 60000,
+      "scenario_count": 3,
+      "total_pcap_packets": 86197,
       "total_firewall_csv_rows": 40000,
-      "total_discovered_assets": 74,
-      "total_undocumented_shadow_assets": 4,
-      "total_documented_assets": 70
+      "total_discovered_assets": 85,
+      "total_undocumented_shadow_assets": 9,
+      "total_documented_assets": 76
     },
     "evaluation_dimensions": [
       "asset_reconciliation_recall_and_precision",
@@ -454,6 +454,129 @@
           "NCIIPC CII Guidelines & IT Act Sec 70A/70B"
         ]
       }
+    },
+    "scenario_5_uowm_iec104": {
+      "scenario_id": "scenario_5_uowm_iec104",
+      "vertical": "Energy / Electric Grid (public testbed, real traffic)",
+      "facility_name": "UOWM IEC-104 Testbed (real traffic)",
+      "diagram_visual_style": "none supplied",
+      "answer_key_source": "Labels and topology from the UOWM IEC 60870-5-104 Intrusion Detection Dataset (Zenodo 7108614, CC-BY-4.0), attack C_SC_NA_1, 2020-04-28",
+      "files": {
+        "pcap": "scenarios/scenario_5_uowm_iec104/rtu_span_capture.pcap",
+        "firewall_csv": null,
+        "switch_dump": null,
+        "asset_inventory_csv": "scenarios/scenario_5_uowm_iec104/asset_inventory.csv",
+        "topology_diagram": null,
+        "site_photos": []
+      },
+      "telemetry_metrics": {
+        "pcap_packet_count": 26197,
+        "firewall_vendor": "none supplied",
+        "firewall_row_count": 0,
+        "peak_bandwidth_mbps": null,
+        "sized_bandwidth_with_1_25x_headroom_mbps": null
+      },
+      "total_discovered_assets": 11,
+      "documented_assets": 6,
+      "undocumented_shadow_assets": [
+        {
+          "ip_address": "192.168.1.19",
+          "anomaly_type": "UNDOCUMENTED_SHADOW_ASSET",
+          "description": "RTU (iecserver6): the dataset's Figure 1 draws two 'real RTU devices' without addresses",
+          "discovery_sources": [
+            "rtu_span_capture.pcap"
+          ]
+        },
+        {
+          "ip_address": "192.168.1.22",
+          "anomaly_type": "UNDOCUMENTED_SHADOW_ASSET",
+          "description": "RTU (iecserver7): the dataset's Figure 1 draws two 'real RTU devices' without addresses",
+          "discovery_sources": [
+            "rtu_span_capture.pcap"
+          ]
+        },
+        {
+          "ip_address": "192.168.1.27",
+          "anomaly_type": "UNDOCUMENTED_SHADOW_ASSET",
+          "description": "attacker2 (Kali Linux, Metasploit IEC-104 module)",
+          "discovery_sources": [
+            "rtu_span_capture.pcap"
+          ]
+        },
+        {
+          "ip_address": "192.168.1.28",
+          "anomaly_type": "UNDOCUMENTED_SHADOW_ASSET",
+          "description": "attacker1 (Kali Linux, Metasploit IEC-104 module)",
+          "discovery_sources": [
+            "rtu_span_capture.pcap"
+          ]
+        },
+        {
+          "ip_address": "192.168.1.29",
+          "anomaly_type": "UNDOCUMENTED_SHADOW_ASSET",
+          "description": "attacker3 (Kali Linux, Metasploit IEC-104 module)",
+          "discovery_sources": [
+            "rtu_span_capture.pcap"
+          ]
+        }
+      ],
+      "conduits": [],
+      "flow_classifications": [
+        {
+          "flow_id": "S5-F01",
+          "src_ip": "192.168.1.20",
+          "dst_ip": "192.168.1.13,192.168.1.19,192.168.1.21,192.168.1.22,192.168.1.24,192.168.1.25,192.168.1.26",
+          "dst_port": 2404,
+          "transport": "TCP",
+          "protocol": "IEC_104",
+          "function_detail": "QTester104 master/HMI interrogations and commands to all seven RTUs (dataset label: NORMAL)",
+          "direction": "IT_TO_OT",
+          "classification": "KEEP",
+          "catalog_protocol_id": "IEC_104",
+          "prescribed_cutover_action": "Legitimate control traffic: the plan must keep it working."
+        },
+        {
+          "flow_id": "S5-F02",
+          "src_ip": "192.168.1.27",
+          "dst_ip": "192.168.1.25,192.168.1.26",
+          "dst_port": 2404,
+          "transport": "TCP",
+          "protocol": "IEC_104",
+          "function_detail": "Unauthorised C_SC_NA_1 single commands from 192.168.1.27 (dataset label: c_sc_na_1)",
+          "direction": "BYPASS_TO_OT",
+          "classification": "CRITICAL_VIOLATION",
+          "catalog_protocol_id": "IEC_104",
+          "prescribed_cutover_action": "Attack traffic: the plan must cut it."
+        },
+        {
+          "flow_id": "S5-F03",
+          "src_ip": "192.168.1.28",
+          "dst_ip": "192.168.1.21,192.168.1.24",
+          "dst_port": 2404,
+          "transport": "TCP",
+          "protocol": "IEC_104",
+          "function_detail": "Unauthorised C_SC_NA_1 single commands from 192.168.1.28 (dataset label: c_sc_na_1)",
+          "direction": "BYPASS_TO_OT",
+          "classification": "CRITICAL_VIOLATION",
+          "catalog_protocol_id": "IEC_104",
+          "prescribed_cutover_action": "Attack traffic: the plan must cut it."
+        },
+        {
+          "flow_id": "S5-F04",
+          "src_ip": "192.168.1.29",
+          "dst_ip": "192.168.1.13,192.168.1.19,192.168.1.22",
+          "dst_port": 2404,
+          "transport": "TCP",
+          "protocol": "IEC_104",
+          "function_detail": "Unauthorised C_SC_NA_1 single commands from 192.168.1.29 (dataset label: c_sc_na_1)",
+          "direction": "BYPASS_TO_OT",
+          "classification": "CRITICAL_VIOLATION",
+          "catalog_protocol_id": "IEC_104",
+          "prescribed_cutover_action": "Attack traffic: the plan must cut it."
+        }
+      ],
+      "expected_hardware_bom": null,
+      "expected_compliance_citations": {}
     }
   }
 }

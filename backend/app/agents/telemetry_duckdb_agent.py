@@ -84,7 +84,7 @@ class TelemetryAuditResult:
 
     pcap_packet_count: int = 0
     pcap_total_bytes: int = 0
-    firewall_vendor: str = "None (PCAP Only)"
+    firewall_vendor: str = "No firewall log"
     firewall_row_count: int = 0
     p95_bandwidth_mbps: float = 0.0
     peak_bandwidth_mbps: float = 0.0
@@ -168,11 +168,14 @@ def _subnet24(ip: str) -> str:
 def zone_map_from_assets(assets: list[AssetNode]) -> dict[str, str]:
     """Map each /24 seen by the switch audit to `IT` (every host Purdue L4) or `OT` (any L0-L3).
 
-    DMZ-only subnets (L3.5) are left out so they fall back to the static heuristic.
+    Host-level entries (full IPs) refine it: bypass devices are `BYPASS`, undocumented hosts on a
+    plant subnet are `UNDOCUMENTED`, and in a flat subnet that holds both documented office (L4)
+    and plant hosts each documented host gets its own `IT` / `OT` zone. DMZ-only subnets (L3.5)
+    are left out so they fall back to the static heuristic.
     """
     levels: dict[str, set[str]] = defaultdict(set)
     for a in assets:
-        if a.ip_address:
+        if a.ip_address and not a.is_shadow_asset:
             levels[_subnet24(str(a.ip_address))].add(a.purdue_level)
     zones: dict[str, str] = {}
     for prefix, lv in levels.items():
@@ -180,20 +183,42 @@ def zone_map_from_assets(assets: list[AssetNode]) -> dict[str, str]:
             zones[prefix] = "OT"
         elif lv == {"L4"}:
             zones[prefix] = "IT"
+    for a in assets:
+        ip = str(a.ip_address or "")
+        if not ip:
+            continue
+        subnet = levels.get(_subnet24(ip), set())
+        if a.is_dual_homed_bypass:
+            zones[ip] = "BYPASS"
+        elif a.is_shadow_asset and zones.get(_subnet24(ip)) == "OT":
+            zones[ip] = "UNDOCUMENTED"
+        elif "L4" in subnet and subnet & {"L0", "L1", "L2", "L3"}:
+            zones[ip] = "IT" if a.purdue_level == "L4" else "OT"
     return zones
 
 
+def zone_of(ip: str, zones: dict[str, str] | None) -> str | None:
+    """Host-level zone if one is recorded, else the zone of the host's /24."""
+    zones = zones or {}
+    return zones.get(ip) or zones.get(_subnet24(ip))
+
+
 def _is_it_ip(ip: str, zones: dict[str, str] | None) -> bool:
-    zone = (zones or {}).get(_subnet24(ip))
+    zone = zone_of(ip, zones)
     if zone:
         return zone == "IT"
     return is_enterprise_it_ip(ip, None)
 
 
-def _determine_flow_direction(src_ip: str, dst_ip: str, zones: dict[str, str] | None = None) -> str:
+def _determine_flow_direction(
+    src_ip: str, dst_ip: str, zones: dict[str, str] | None = None, has_write: bool = False
+) -> str:
     src_is_it = _is_it_ip(src_ip, zones)
     dst_is_it = _is_it_ip(dst_ip, zones)
-    if src_ip.endswith(".254") and not src_is_it and not dst_is_it:
+    # A path into the plant that skips the boundary: a known bypass device, or an undocumented
+    # host already inside the plant network that sends control commands
+    src_zone = zone_of(src_ip, zones)
+    if not dst_is_it and (src_zone == "BYPASS" or (src_zone == "UNDOCUMENTED" and has_write)):
         return "BYPASS_TO_OT"
     if not src_is_it and dst_is_it:
         return "OT_TO_IT"
@@ -238,6 +263,20 @@ def _classify_flow_tier(
 
     # Inbound IT -> OT read polling (Historian / SCADA / SQL / Recipe) -> AMBER
     return "AMBER"
+
+
+def pcap_peak_mbps(pcap_path: str | Path) -> float:
+    """Busiest one-second window in the capture, in Mbps (used when there is no firewall log)."""
+    path = Path(pcap_path)
+    if not path.exists():
+        return 0.0
+    per_second: dict[int, int] = defaultdict(int)
+    for pkt_data, meta in RawPcapReader(str(path)):
+        sec = getattr(meta, "sec", None)
+        if sec is None:
+            sec = ((meta.tshigh << 32) | meta.tslow) // (meta.tsresol or 1_000_000)
+        per_second[int(sec)] += len(pkt_data)
+    return round(max(per_second.values(), default=0) * 8.0 / 1e6, 3)
 
 
 def dissect_pcap_file(pcap_path: str | Path) -> tuple[int, int, dict[tuple[str, str, int, str], dict[str, Any]]]:
@@ -342,7 +381,7 @@ def query_firewall_csv_duckdb(csv_path: str | Path | None) -> dict[str, Any]:
     """Run DuckDB SQL analytics over FortiGate or Palo Alto 24-hour firewall traffic CSVs."""
     if not csv_path:
         return {
-            "vendor": "None (PCAP Only)",
+            "vendor": "No firewall log",
             "row_count": 0,
             "p95_mbps": 0.0,
             "peak_mbps": 0.0,
@@ -351,7 +390,7 @@ def query_firewall_csv_duckdb(csv_path: str | Path | None) -> dict[str, Any]:
     path = Path(csv_path)
     if not path.exists():
         return {
-            "vendor": "None (PCAP Only)",
+            "vendor": "No firewall log",
             "row_count": 0,
             "p95_mbps": 0.0,
             "peak_mbps": 0.0,
@@ -597,7 +636,7 @@ def run_telemetry_duckdb_agent(
     }
 
     for item in merged_keys.values():
-        item["direction"] = _determine_flow_direction(item["src_ip"], item["dst_ip"], zone_map)
+        item["direction"] = _determine_flow_direction(item["src_ip"], item["dst_ip"], zone_map, item["has_write"])
         item["lateral"] = item["src_ip"] in scanners
     collapsed = _collapse_fan_out(list(merged_keys.values()))
     for item in collapsed:
@@ -662,8 +701,8 @@ def run_telemetry_duckdb_agent(
         )
 
     peak_mbps = fw_stats["peak_mbps"]
-    if peak_mbps <= 0.0 and pcap_bytes > 0:
-        peak_mbps = round(max(1.0, (pcap_bytes * 8.0) / 1e6), 2)
+    if peak_mbps <= 0.0 and pcap_path:
+        peak_mbps = pcap_peak_mbps(pcap_path)
     sized_headroom = round(peak_mbps * 1.25, 2)
     p95_mbps = fw_stats["p95_mbps"] or round(peak_mbps * 0.82, 2)
 

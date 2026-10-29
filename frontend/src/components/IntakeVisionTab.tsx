@@ -96,9 +96,7 @@ export default function IntakeVisionTab({
   const [cabinetLoadFailed, setCabinetLoadFailed] = useState(false);
   const [videoLoadFailed, setVideoLoadFailed] = useState(false);
   const [useSecondaryPhoto, setUseSecondaryPhoto] = useState(false);
-  const [videoOverride, setVideoOverride] = useState<
-    "videos/rack_1u_slot_walkthrough.mp4" | "videos/cabinet_rogue_modem_pan.mp4"
-  >(scenario.mediaPaths.walkthroughVideoRel);
+  const [videoOverride, setVideoOverride] = useState<string>(scenario.mediaPaths.walkthroughVideoRel);
 
   const [simPlaying, setSimPlaying] = useState(true);
   const [simFrame, setSimFrame] = useState(42);
@@ -178,9 +176,18 @@ export default function IntakeVisionTab({
 
   const isRoguePanVideo = videoOverride.includes("cabinet_rogue_modem_pan");
 
-  const showCabinetPanel = subTab === "cabinet_photo" || subTab === "all_grid";
-  const showDiagramPanel = subTab === "diagram_check" || subTab === "all_grid";
-  const showVideoPanel = subTab === "rack_video" || subTab === "all_grid";
+  // A site may not hand over photos, a drawing or a video; those panels then say so
+  const notSupplied = [
+    !scenario.mediaPaths.cabinetPhotoRel && "cabinet photos",
+    !scenario.mediaPaths.topologyDiagramRel && "a network drawing",
+    !scenario.mediaPaths.walkthroughVideoRel && "a walkthrough video",
+  ].filter(Boolean) as string[];
+  const showCabinetPanel =
+    Boolean(scenario.mediaPaths.cabinetPhotoRel) && (subTab === "cabinet_photo" || subTab === "all_grid");
+  const showDiagramPanel =
+    Boolean(scenario.mediaPaths.topologyDiagramRel) && (subTab === "diagram_check" || subTab === "all_grid");
+  const showVideoPanel =
+    Boolean(scenario.mediaPaths.walkthroughVideoRel) && (subTab === "rack_video" || subTab === "all_grid");
   const showVoiceAndShadow =
     subTab === "voice_and_shadow" || subTab === "all_grid";
 
@@ -353,6 +360,13 @@ export default function IntakeVisionTab({
           <span>{subTab === "all_grid" ? "Single Panel" : "All 4 Panels"}</span>
         </button>
       </div>
+
+      {notSupplied.length > 0 && (
+        <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 text-xs sm:text-sm text-slate-600">
+          This site did not supply {notSupplied.join(", ")}, so nothing is measured from them. Physical
+          space has to be confirmed on site.
+        </div>
+      )}
 
       {/* Cabinet Photo & Diagram Panels */}
       {(showDiagramPanel || showCabinetPanel) && (

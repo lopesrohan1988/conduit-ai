@@ -843,10 +843,19 @@ class MetaModelGateway:
                     raise
 
         effective_scenario = scenario_id or "scenario_2_substation"
-        demo_entry = _SCENARIO_DEMO_TRANSCRIPTS.get(
-            effective_scenario,
-            _SCENARIO_DEMO_TRANSCRIPTS["scenario_2_substation"],
-        )
+        demo_entry = _SCENARIO_DEMO_TRANSCRIPTS.get(effective_scenario)
+        if demo_entry is None:
+            # No audio and no sample note for this site: never borrow another plant's observations
+            return VoiceFieldNoteTranscript(
+                scenario_id=effective_scenario,
+                audio_filename=filename,
+                model_used=self.settings.muse_voice_transcribe_model,
+                source_mode="not_supplied",
+                duration_sec=0.0,
+                language="en",
+                raw_transcript="",
+                structured_observations=[],
+            )
         return VoiceFieldNoteTranscript(
             scenario_id=effective_scenario,
             audio_filename=filename,

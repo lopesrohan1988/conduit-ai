@@ -10,7 +10,7 @@ from collections import defaultdict
 from typing import Any
 
 from app.agents.switch_config_agent import SwitchAuditResult, is_enterprise_it_ip
-from app.agents.telemetry_duckdb_agent import TelemetryAuditResult, zone_map_from_assets
+from app.agents.telemetry_duckdb_agent import TelemetryAuditResult, zone_map_from_assets, zone_of
 from app.state import CabinetVisionInspection, ConduitArchitecturePlan
 
 SEVER = "SEVER_CRITICAL_VIOLATION_AT_L1"
@@ -71,9 +71,11 @@ def build_topology_view(
     def zone(ip: str) -> str:
         if ip in rogue_ips:
             return "BYPASS"
-        z = zones.get(ip.rsplit(".", 1)[0])
-        if z:
+        z = zone_of(ip, zones)
+        if z in {"IT", "OT", "BYPASS"}:
             return z
+        if z == "UNDOCUMENTED":
+            return "OT"
         return "IT" if is_enterprise_it_ip(ip, None) else "OT"
 
     # One edge per (IT-or-bypass host, OT host) pair; flows inside OT keep their own pair

@@ -44,6 +44,20 @@ const SCENARIO_NARRATIVES: Record<string, GuidedScenarioNarrative> = {
     salesTalkingPoint:
       "Your firewall looked clean because a rogue 5G modem was plugged directly into the chlorine cabinet—we give IT the exact port (Gi1/24) to shut down.",
   },
+  scenario_5_uowm_iec104: {
+    selectLabel: "3. IEC-104 Grid Testbed (real traffic)",
+    industryBadge: "Real public data",
+    businessGoal:
+      "Real IEC-104 traffic from a university grid testbed, including a recorded attack: does ConduitAI find it and design the right fix?",
+    cabinetFitHeadline: "No cabinet photos in this dataset",
+    cabinetFitPlainText:
+      "The public dataset has traffic only, so physical space is not measured; an engineer would confirm it on site.",
+    hiddenRiskHeadline: "Recorded attack: unauthorised breaker commands",
+    hiddenRiskPlainText:
+      "The dataset's authors ran Metasploit's IEC-104 module from three machines on the plant network; ConduitAI has to find them from the traffic alone.",
+    salesTalkingPoint:
+      "Run on someone else's real traffic, with an answer key written by the dataset's authors, not by us.",
+  },
 };
 
 export function getGuidedNarrative(

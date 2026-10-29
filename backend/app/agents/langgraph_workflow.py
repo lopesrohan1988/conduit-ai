@@ -113,6 +113,8 @@ def build_conduit_langgraph(
                         f"Muse Voice Transcribe extracted {len(transcript.structured_observations)} "
                         f"field engineering observation(s)."
                         if transcript.source_mode.startswith("live")
+                        else "No field voice note supplied for this site."
+                        if transcript.source_mode == "not_supplied"
                         else f"Sample field-note transcript loaded ({len(transcript.structured_observations)} "
                         f"observation(s)); upload or record audio to transcribe live."
                     ),
@@ -125,6 +127,7 @@ def build_conduit_langgraph(
         sw_audit = await run_switch_config_agent(
             state.get("switch_dump_path"),
             state.get("asset_inventory_csv_path"),
+            pcap_path=state.get("pcap_path"),
             gateway=gw,
             use_live_llm=(use_live_llm and cfg.baseten_api_configured),
         )
@@ -165,8 +168,12 @@ def build_conduit_langgraph(
                     "source_mode": "live_packet_sql",
                     "headline": (
                         f"Dissected {tel_audit.pcap_packet_count:,} binary PCAP packets & "
-                        f"{tel_audit.firewall_row_count:,} {tel_audit.firewall_vendor} rows — "
-                        f"Peak {tel_audit.peak_bandwidth_mbps} Mbps "
+                        + (
+                            f"{tel_audit.firewall_row_count:,} {tel_audit.firewall_vendor} rows — "
+                            if tel_audit.firewall_row_count
+                            else "no firewall log (peak from the capture) — "
+                        )
+                        + f"Peak {tel_audit.peak_bandwidth_mbps} Mbps "
                         f"({tel_audit.sized_bandwidth_with_1_25x_headroom_mbps} Mbps w/ 1.25x headroom)."
                     ),
                 }
@@ -300,9 +307,9 @@ def build_conduit_langgraph(
                     "model": "modal-layer1-socket-twin",
                     "source_mode": twin.execution_backend,
                     "headline": (
-                        f"Digital Twin ({twin.execution_backend}) verified {twin.telemetry_continuity_pct:.0f}% "
-                        f"legitimate telemetry continuity & {twin.inbound_exploit_block_rate_pct:.0f}% "
-                        f"physical exploit block rate ({twin.overall_verdict})."
+                        f"Socket twin mechanism demo ({twin.execution_backend}): the one-way pipe carried "
+                        f"{twin.telemetry_continuity_pct:.0f}% of replayed plant data and inbound packets had no "
+                        f"return path. It cannot fail by design; the attack replay is the evidence."
                     ),
                 }
             ],
@@ -336,7 +343,7 @@ def build_scenario_initial_state(
     inference_mode: InferenceMode = "cloud_meta_api",
     settings: Settings | None = None,
 ) -> ConduitGraphState:
-    """Resolve on-disk artifact paths for any of the 6 benchmark scenarios into `ConduitGraphState`."""
+    """Resolve a benchmark scenario's on-disk artifact paths into `ConduitGraphState`."""
     cfg = settings or get_settings()
     preview = get_scenario_preview(scenario_id)
     if preview is None:
@@ -347,23 +354,25 @@ def build_scenario_initial_state(
     sc = load_benchmark_ground_truth()["scenarios"][scenario_id]
     files = sc["files"]
     data_dir = cfg.resolved_data_dir
-    vid_file = _SCENARIO_VIDEO_MAP.get(scenario_id, "rack_1u_slot_walkthrough.mp4")
+    vid_file = _SCENARIO_VIDEO_MAP.get(scenario_id)
+
+    def resolved(key: str) -> str | None:
+        # A site may not hand over every file (e.g. no firewall log or switch dump)
+        return str((data_dir / files[key]).resolve()) if files.get(key) else None
 
     return {
         "scenario_id": scenario_id,
         "facility_name": sc["facility_name"],
         "inference_mode": inference_mode,
-        "diagram_image_path": str((data_dir / files["topology_diagram"]).resolve()),
+        "diagram_image_path": resolved("topology_diagram"),
         "cabinet_image_paths": [
             str((data_dir / rel).resolve()) for rel in files.get("site_photos", [])
         ],
-        "video_walkthrough_path": str((cfg.videos_dir / vid_file).resolve()),
-        "pcap_path": str((data_dir / files["pcap"]).resolve()),
-        "firewall_csv_path": str((data_dir / files["firewall_csv"]).resolve()),
-        "switch_dump_path": str((data_dir / files["switch_dump"]).resolve()),
-        "asset_inventory_csv_path": str(
-            (data_dir / files["asset_inventory_csv"]).resolve()
-        ),
+        "video_walkthrough_path": str((cfg.videos_dir / vid_file).resolve()) if vid_file else None,
+        "pcap_path": resolved("pcap"),
+        "firewall_csv_path": resolved("firewall_csv"),
+        "switch_dump_path": resolved("switch_dump"),
+        "asset_inventory_csv_path": resolved("asset_inventory_csv"),
         "agent_events": [],
         "errors": [],
     }

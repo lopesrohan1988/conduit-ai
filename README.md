@@ -28,7 +28,7 @@ Power grids, water utilities and factories are still bridged from their Operatio
 2. **Shadow-asset discovery.** Switch ARP/MAC tables are reconciled against the documented inventory, with OUI enrichment.
 3. **An architecture designed by Meta Muse Wonder and checked by a deterministic verifier.** Muse Wonder proposes a Green / Amber / Red tier and an action for every flow, plus the diode bill of materials and mounting. The verifier rejects any unsafe or infeasible proposal and sends the violations back for revision. Unsafe means an inbound session graded GREEN, or remote admin or lateral movement left connected. Infeasible means a protocol the chosen diode can't proxy, under-capacity, too many VLANs, or no physical space.
 4. **A today-vs-proposed map**, built from each run: every connection the office network can open into the plant today, and what remains after the diodes go in.
-5. **Proof against a hacked IT network.** Real control commands taken from public ICS captures (IEC-104 breaker commands, DNP3 operate, Modbus writes) are replayed down the exact paths the plant's traffic uses. Substation: **39 of 39** reach plant equipment today, **0 of 39** with the plan. Water plant: **11 of 11** today, **0 of 11** with the plan. The check can fail: a plan that leaves the water plant's cellular modem in place lets its commands through.
+5. **Proof against a hacked IT network.** Real control commands taken from public ICS captures (IEC-104 breaker commands, DNP3 operate, Modbus writes) are replayed down the exact paths the plant's traffic uses. Substation: **39 of 39** reach plant equipment today, **0 of 39** with the plan. Water plant: **11 of 11** today, **0 of 11** with the plan. Real IEC-104 testbed: **56 of 56** today, **0 of 56** with the plan. The check can fail: a plan that leaves the water plant's cellular modem in place lets its commands through.
 6. **Deliverables:** TX/RX proxy translation table, switch cutover CLI, `.drawio` topology, PDF report and IEC 62443 / NIST 800-82 / NERC CIP mapping.
 
 ---
@@ -37,23 +37,26 @@ Power grids, water utilities and factories are still bridged from their Operatio
 
 Every number below is computed by [`backend/scripts/run_eval_benchmark.py`](backend/scripts/run_eval_benchmark.py). The script runs the real pipeline on each scenario's raw files and only then scores the plan against [`benchmark_ground_truth.json`](data/evals/benchmark_ground_truth.json). The pipeline never reads ground truth. Full output: [**`docs/BENCHMARK_SCORECARD.md`**](docs/BENCHMARK_SCORECARD.md).
 
-| Metric (2 plants, 13 labelled flows) | Rule engine only | **Muse Wonder + verifier** (cloud) | **Muse Spark Open + verifier** (open weights) |
+| Metric | Rule engine only | **Muse Wonder + verifier** (cloud) | **Muse Spark Open + verifier** (open weights) |
 | :--- | :--- | :--- | :--- |
-| Hardware BoM exact (archetypes + quantity) | 1/2 | **2/2** | **2/2** |
-| Flow Green/Amber/Red tier correct | 13/13 | 13/13 | 13/13 |
-| Critical violations severed at L1 | 4/4 | 4/4 | 4/4 |
+| Hardware BoM exact (2 synthetic plants) | 1/2 | **2/2** | **2/2** |
+| Flow tier correct (13 synthetic flows) | 13/13 | 13/13 | 13/13 |
+| Attack traffic cut (7 critical flows, all 3 plants) | 7/7 | 7/7 | 7/7 |
+| Real plant: normal control-centre session kept working | 0/1 | 0/1 | 0/1 |
 | Unsafe passes (must-block flow graded GREEN) | 0 | 0 | 0 |
-| Shadow / rogue assets found | 4/4 | 4/4 | 4/4 |
-| Architect time per plant | ~2 s | ~22 s | ~38 s |
+| Undocumented / rogue devices found (all 3 plants) | 9/9 | 9/9 | 9/9 |
+| Architect time per plant | ~2 s | ~18–30 s | ~20–100 s |
 
-*The model columns are one run each; model output varies a little between runs, so re-run `--live --open-weights` to reproduce.*
+*The model columns are one run each; model output varies between runs (in an earlier run Muse Spark Open sized 2 substation diodes where 1 suffices), so re-run `--live --open-weights` to reproduce.*
 
-- **Where the model adds value:** the water plant mixes PLC polling with camera streams. The rule engine picks one video diode; Muse Wonder picks a field diode for the PLCs plus a video diode for the cameras, which matches the answer key. The verifier, which also checks every rule-engine plan, flags the rule engine's kit: the video diode can't proxy the PLCs' Modbus TCP.
+- **Real traffic, external answer key.** Plant 3 is a public IEC-104 testbed capture with a recorded attack, scored against the dataset authors' own labels. From the capture and an asset list alone, ConduitAI finds all 5 hosts missing from the documentation, including the 3 attack machines, and every plan cuts all of their command traffic.
+- **What it gets wrong on real traffic.** Every architect also cuts the control centre's own session, which the authors label normal. That session mixes monitoring with breaker commands, and the verifier only lets a session that carries commands be cut or routed through an OT-locked gateway; the models chose to cut it. A design that keeps the monitoring through the diode and drops only the commands is the obvious next step.
+- **Where the model adds value:** the water plant mixes PLC polling with camera streams. The rule engine picks one video diode; both models pick a field diode for the PLCs plus a video diode for the cameras, which matches the answer key. The verifier, which also checks every rule-engine plan, flags the rule engine's kit: the video diode can't proxy the PLCs' Modbus TCP.
 - **Open weights are enough.** Meta's open-weights **Muse Spark Open** (`muse-spark-open-1026`, served by Baseten) designs the same kits as Muse Wonder and passes the same verifier. That matters for this domain: a utility that won't send plant traffic to a cloud API can run the architect on its own hardware. The UI's **Air-Gapped** switch runs the architect, the drawing reads and the rack-gap checks on Muse Spark Open; SAM 3.1 has no open-weights endpoint here and stays on the cloud API.
-- **The verifier catches the model.** In an earlier run, Muse Wonder's first substation kit couldn't proxy IEC-104, the substation's main telemetry protocol; the verifier rejected it and the model fixed the kit on attempt 2. In the run in the scorecard, every first proposal passed. The Compatibility tab shows each attempt and its violations.
-- **With only 13 labelled flows, these scores are a demo sanity check, not a statistical claim.**
+- **The verifier catches the model.** In the scorecard run, Muse Spark Open's first substation kit couldn't proxy IEC-104, the substation's main telemetry protocol; the verifier rejected it and the model fixed the kit on attempt 2. The Compatibility tab shows each attempt and its violations.
+- **With 17 labelled flows, these scores are a demo sanity check, not a statistical claim.**
 
-> Both plants are synthetic (see *What is synthetic* below) and were written alongside the parsers. Treat perception scores (assets, shadows, peak Mbps) as regression tests, not generalisation evidence. The parsers are also run against **15 real public ICS captures** (CISA and UIUC ITI, BSD-3-Clause / CC-BY-4.0): 12 yield Layer-7 decodes.
+> Plants 1 and 2 are synthetic (see *What is synthetic* below) and were written alongside the parsers. Treat perception scores (assets, shadows, peak Mbps) as regression tests, not generalisation evidence. The parsers are also run against **15 real public ICS captures** (CISA and UIUC ITI, BSD-3-Clause / CC-BY-4.0): 12 yield Layer-7 decodes.
 
 ---
 
@@ -153,12 +156,13 @@ flowchart LR
 
 ---
 
-## 🏭 Two Demo Plants
+## 🏭 Three Demo Plants
 
 | Plant | Profile | Key protocols, peak | What the client sees |
 | :--- | :--- | :--- | :--- |
 | **1. GridCore 220 kV Substation** | SEL / ABB / GE IEDs in a control-room rack | IEC-104, DNP3, Modbus, Syslog, 42 Mbps | Today an IT host can send an IEC-104 breaker-trip command and open SSH sessions into the substation. A field diode in the measured free rack space cuts both, while telemetry keeps flowing out |
 | **2. AquaPure Water Treatment** | Chlorine dosing, ControlLogix, DIN-rail cabinets | EtherNet/IP CIP, Modbus, VNC, 65 Mbps | A cellular modem in the cabinet bypasses the firewall entirely. A diode alone isn't enough: the modem must be removed, and the PLC and camera traffic need two diodes |
+| **3. UOWM IEC-104 testbed (real traffic)** | Public university grid testbed: 7 RTUs, an HMI and 3 attack machines ([details](data/scenarios/scenario_5_uowm_iec104/README.md)) | IEC-104, 26,197 real packets over 4.2 h | Real traffic with a recorded attack. ConduitAI has to find the attackers from the capture and an asset list alone, and is scored against the dataset authors' own labels |
 
 ---
 
@@ -189,7 +193,9 @@ uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8008
 cd frontend && npm install && npm run dev
 ```
 
-Open **http://localhost:3000**. Pick one of the two demo plants and press **Run Analysis**. The default **Simple story** view walks through three plain-language steps (*What we found → Our fix → Proof*); **Engineer detail** shows every flow, rule, measurement and file. Alternatively, use **Upload** on each row of the Site Files checklist (traffic logs accept several files at once), then **Analyze Uploaded Files**.
+Open **http://localhost:3000**. Pick one of the three demo plants and press **Run Analysis**. The default **Simple story** view walks through three plain-language steps (*What we found → Our fix → Proof*); **Engineer detail** shows every flow, rule, measurement and file. Alternatively, use **Upload** on each row of the Site Files checklist (traffic logs accept several files at once), then **Analyze Uploaded Files**.
+
+**Host it without API keys:** the root `Dockerfile` runs the backend with recorded model output (SAM 3.1, Muse Spark, and the Muse Wonder / Muse Spark Open architect proposals, which the live verifier still checks). See [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
 **Reproduce the benchmark:**
 
@@ -210,7 +216,7 @@ uv run pytest -q
 
 ### What is synthetic
 
-No real customer site was used. Everything in the two demo plants is generated:
+No real customer site was used. Plants 1 and 2 are generated; plant 3 is real public traffic (see below):
 
 | Artifact | How it was made |
 | :--- | :--- |
@@ -219,7 +225,9 @@ No real customer site was used. Everything in the two demo plants is generated:
 | Network drawings (`*_diagram.png`) | Generated images |
 | Walkthrough videos (`data/videos/*.mp4`) | Rendered by [`generate_rack_videos.py`](data/scripts/generate_rack_videos.py) |
 | Field voice notes | Sample transcripts. Live transcription runs on audio you upload or record |
-| Answer key (`benchmark_ground_truth.json`) | Written by the author alongside the scenarios |
+| Answer key (`benchmark_ground_truth.json`) | Plants 1 and 2: written by the author alongside the scenarios. Plant 3: taken from the public dataset's own attack labels and published topology |
+
+**Plant 3 is real data:** IEC-104 traffic from the UOWM *IEC 60870-5-104 Intrusion Detection Dataset* (Zenodo 7108614, CC-BY-4.0, Radoglou-Grammatikis et al.), used without modification apart from merging the seven RTU-side captures. Attribution and modelling choices are in [its README](data/scenarios/scenario_5_uowm_iec104/README.md).
 
 ## 📄 License
 

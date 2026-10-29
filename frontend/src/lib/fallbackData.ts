@@ -6,10 +6,12 @@ import {
 } from "@/types/conduit";
 import { SCENARIOS_PART_1 } from "./scenariosPart1";
 import { SCENARIOS_PART_2 } from "./scenariosPart2";
+import { SCENARIO_REAL_IEC104 } from "./scenarioReal";
 
 export const FALLBACK_SCENARIOS: ScenarioDataset[] = [
   ...SCENARIOS_PART_1,
   ...SCENARIOS_PART_2,
+  SCENARIO_REAL_IEC104,
 ];
 
 export function getScenarioById(scenarioId: string): ScenarioDataset {

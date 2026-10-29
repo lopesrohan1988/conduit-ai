@@ -230,7 +230,7 @@ export default function SiteIntakeStep({
       title: "Network Diagram",
       filename:
         customAttachedNames.diagram ??
-        selectedScenario.mediaPaths.topologyDiagramRel.split("/").pop(),
+        (selectedScenario.mediaPaths.topologyDiagramRel.split("/").pop() || "not supplied"),
       engineTag: "SAM 3.1",
       icon: <FileText className="w-4 h-4 text-slate-600" />,
     },
@@ -239,7 +239,7 @@ export default function SiteIntakeStep({
       title: "Rack / Cabinet Photo",
       filename:
         customAttachedNames.cabinet ??
-        selectedScenario.mediaPaths.cabinetPhotoRel.split("/").pop(),
+        (selectedScenario.mediaPaths.cabinetPhotoRel.split("/").pop() || "not supplied"),
       engineTag: "SAM 3.1",
       icon: <Camera className="w-4 h-4 text-slate-600" />,
     },
@@ -248,7 +248,7 @@ export default function SiteIntakeStep({
       title: "Rack Walkthrough Video",
       filename:
         customAttachedNames.video ??
-        selectedScenario.mediaPaths.walkthroughVideoRel.split("/").pop(),
+        (selectedScenario.mediaPaths.walkthroughVideoRel.split("/").pop() || "not supplied"),
       engineTag: "SAM 3.1 24fps",
       icon: <Video className="w-4 h-4 text-slate-600" />,
     },

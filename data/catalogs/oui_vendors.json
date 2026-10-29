@@ -20,7 +20,12 @@
       "typical_purdue_level": "L1",
       "default_device_category": "PLC",
       "typical_product_family": "SIMATIC S7-1500 / S7-300 / ET 200SP",
-      "common_protocols": ["MODBUS_TCP", "S7COMM", "OPC_UA", "PROFINET"],
+      "common_protocols": [
+        "MODBUS_TCP",
+        "S7COMM",
+        "OPC_UA",
+        "PROFINET"
+      ],
       "criticality": "CRITICAL_OT_CONTROL"
     },
     "28:63:36": {
@@ -28,7 +33,11 @@
       "typical_purdue_level": "L2",
       "default_device_category": "HMI_OPERATOR_PANEL",
       "typical_product_family": "SIMATIC HMI Comfort Panel / SCALANCE Switch",
-      "common_protocols": ["S7COMM", "OPC_UA", "HTTPS_PUSH"],
+      "common_protocols": [
+        "S7COMM",
+        "OPC_UA",
+        "HTTPS_PUSH"
+      ],
       "criticality": "HIGH_OT_SUPERVISORY"
     },
     "00:00:BC": {
@@ -36,7 +45,11 @@
       "typical_purdue_level": "L1",
       "default_device_category": "PLC",
       "typical_product_family": "ControlLogix / CompactLogix EtherNet/IP Module",
-      "common_protocols": ["MODBUS_TCP", "ETHERNET_IP", "CIP"],
+      "common_protocols": [
+        "MODBUS_TCP",
+        "ETHERNET_IP",
+        "CIP"
+      ],
       "criticality": "CRITICAL_OT_CONTROL"
     },
     "F4:54:33": {
@@ -44,7 +57,11 @@
       "typical_purdue_level": "L2",
       "default_device_category": "HMI_OR_MANAGED_OT_SWITCH",
       "typical_product_family": "PanelView Plus HMI / Stratix Industrial Switch",
-      "common_protocols": ["ETHERNET_IP", "MODBUS_TCP", "SYSLOG_UDP"],
+      "common_protocols": [
+        "ETHERNET_IP",
+        "MODBUS_TCP",
+        "SYSLOG_UDP"
+      ],
       "criticality": "HIGH_OT_SUPERVISORY"
     },
     "00:80:F4": {
@@ -52,7 +69,11 @@
       "typical_purdue_level": "L1",
       "default_device_category": "PLC",
       "typical_product_family": "Modicon M580 / M340 PAC",
-      "common_protocols": ["MODBUS_TCP", "OPC_UA", "SYSLOG_UDP"],
+      "common_protocols": [
+        "MODBUS_TCP",
+        "OPC_UA",
+        "SYSLOG_UDP"
+      ],
       "criticality": "CRITICAL_OT_CONTROL"
     },
     "00:00:54": {
@@ -60,7 +81,11 @@
       "typical_purdue_level": "L1",
       "default_device_category": "POWER_METER_OR_RTU",
       "typical_product_family": "PowerLogic ION / Saitel DP RTU",
-      "common_protocols": ["MODBUS_TCP", "IEC_104", "DNP3"],
+      "common_protocols": [
+        "MODBUS_TCP",
+        "IEC_104",
+        "DNP3"
+      ],
       "criticality": "HIGH_OT_TELEMETRY"
     },
     "00:0E:8C": {
@@ -68,7 +93,12 @@
       "typical_purdue_level": "L1",
       "default_device_category": "RTU_OR_DCS_CONTROLLER",
       "typical_product_family": "ABB AC 800M Controller / RTU560",
-      "common_protocols": ["IEC_104", "MODBUS_TCP", "OPC_UA", "DNP3"],
+      "common_protocols": [
+        "IEC_104",
+        "MODBUS_TCP",
+        "OPC_UA",
+        "DNP3"
+      ],
       "criticality": "CRITICAL_OT_CONTROL"
     },
     "00:21:C1": {
@@ -76,7 +106,12 @@
       "typical_purdue_level": "L1",
       "default_device_category": "SUBSTATION_PROTECTION_IED",
       "typical_product_family": "Relion 670/650 Series Protection Relay",
-      "common_protocols": ["IEC_104", "IEC_61850_MMS", "DNP3", "SYSLOG_UDP"],
+      "common_protocols": [
+        "IEC_104",
+        "IEC_61850_MMS",
+        "DNP3",
+        "SYSLOG_UDP"
+      ],
       "criticality": "CRITICAL_GRID_PROTECTION"
     },
     "00:1D:9C": {
@@ -84,7 +119,11 @@
       "typical_purdue_level": "L1",
       "default_device_category": "DCS_CONTROLLER",
       "typical_product_family": "Experion PKS C300 Process Controller",
-      "common_protocols": ["MODBUS_TCP", "OPC_UA", "OPC_DA_DCOM"],
+      "common_protocols": [
+        "MODBUS_TCP",
+        "OPC_UA",
+        "OPC_DA_DCOM"
+      ],
       "criticality": "CRITICAL_OT_CONTROL"
     },
     "00:30:A7": {
@@ -92,7 +131,12 @@
       "typical_purdue_level": "L1",
       "default_device_category": "SUBSTATION_IED_OR_RTAC",
       "typical_product_family": "SEL-3530 RTAC / SEL-451 Bay Protection Relay",
-      "common_protocols": ["IEC_104", "DNP3", "MODBUS_TCP", "SYSLOG_UDP"],
+      "common_protocols": [
+        "IEC_104",
+        "DNP3",
+        "MODBUS_TCP",
+        "SYSLOG_UDP"
+      ],
       "criticality": "CRITICAL_GRID_PROTECTION"
     },
     "00:09:91": {
@@ -100,7 +144,11 @@
       "typical_purdue_level": "L1",
       "default_device_category": "SUBSTATION_PROTECTION_IED",
       "typical_product_family": "Multilin UR Series Relay / Mark VIe Controller",
-      "common_protocols": ["DNP3", "MODBUS_TCP", "IEC_104"],
+      "common_protocols": [
+        "DNP3",
+        "MODBUS_TCP",
+        "IEC_104"
+      ],
       "criticality": "CRITICAL_GRID_PROTECTION"
     },
     "00:E0:C4": {
@@ -108,7 +156,11 @@
       "typical_purdue_level": "L1",
       "default_device_category": "DCS_OR_SIS_CONTROLLER",
       "typical_product_family": "CENTUM VP Field Control Station / ProSafe-RS SIS",
-      "common_protocols": ["MODBUS_TCP", "OPC_UA", "OPC_DA_DCOM"],
+      "common_protocols": [
+        "MODBUS_TCP",
+        "OPC_UA",
+        "OPC_DA_DCOM"
+      ],
       "criticality": "CRITICAL_SAFETY_SYSTEM"
     },
     "00:A0:45": {
@@ -116,7 +168,11 @@
       "typical_purdue_level": "L1",
       "default_device_category": "PLC_OR_FIELD_IO",
       "typical_product_family": "PLCnext Control / Axioline I/O",
-      "common_protocols": ["MODBUS_TCP", "OPC_UA", "MQTT"],
+      "common_protocols": [
+        "MODBUS_TCP",
+        "OPC_UA",
+        "MQTT"
+      ],
       "criticality": "HIGH_OT_CONTROL"
     },
     "00:01:05": {
@@ -124,7 +180,11 @@
       "typical_purdue_level": "L1",
       "default_device_category": "INDUSTRIAL_PC_PLC",
       "typical_product_family": "TwinCAT Embedded PC CX Series",
-      "common_protocols": ["OPC_UA", "MODBUS_TCP", "MQTT"],
+      "common_protocols": [
+        "OPC_UA",
+        "MODBUS_TCP",
+        "MQTT"
+      ],
       "criticality": "HIGH_OT_CONTROL"
     },
     "00:30:DE": {
@@ -132,7 +192,11 @@
       "typical_purdue_level": "L1",
       "default_device_category": "REMOTE_IO_CONTROLLER",
       "typical_product_family": "WAGO PFC200 Fieldbus Controller",
-      "common_protocols": ["MODBUS_TCP", "MQTT", "OPC_UA"],
+      "common_protocols": [
+        "MODBUS_TCP",
+        "MQTT",
+        "OPC_UA"
+      ],
       "criticality": "HIGH_OT_CONTROL"
     },
     "00:03:7A": {
@@ -140,7 +204,10 @@
       "typical_purdue_level": "L1",
       "default_device_category": "PLC",
       "typical_product_family": "MELSEC iQ-R / Q-Series PLC",
-      "common_protocols": ["MODBUS_TCP", "SLMP_MC_PROTOCOL"],
+      "common_protocols": [
+        "MODBUS_TCP",
+        "SLMP_MC_PROTOCOL"
+      ],
       "criticality": "CRITICAL_OT_CONTROL"
     },
     "00:00:0A": {
@@ -148,7 +215,11 @@
       "typical_purdue_level": "L1",
       "default_device_category": "PLC_MOTION_CONTROLLER",
       "typical_product_family": "Sysmac NJ/NX Machine Automation Controller",
-      "common_protocols": ["OPC_UA", "ETHERNET_IP", "MODBUS_TCP"],
+      "common_protocols": [
+        "OPC_UA",
+        "ETHERNET_IP",
+        "MODBUS_TCP"
+      ],
       "criticality": "CRITICAL_OT_CONTROL"
     },
     "00:60:78": {
@@ -156,7 +227,11 @@
       "typical_purdue_level": "L2",
       "default_device_category": "INDUSTRIAL_MANAGED_SWITCH",
       "typical_product_family": "Hirschmann BOBCAT / RSP / OCTOPUS HiOS Switch",
-      "common_protocols": ["SYSLOG_UDP", "SNMP_TRAP", "SSH_INBOUND"],
+      "common_protocols": [
+        "SYSLOG_UDP",
+        "SNMP_TRAP",
+        "SSH_INBOUND"
+      ],
       "criticality": "HIGH_OT_INFRASTRUCTURE"
     },
     "00:90:E8": {
@@ -164,7 +239,12 @@
       "typical_purdue_level": "L2",
       "default_device_category": "SERIAL_GATEWAY_OR_OT_SWITCH",
       "typical_product_family": "MGate Modbus/IEC-104 Gateway / EDS Managed Switch",
-      "common_protocols": ["MODBUS_TCP", "IEC_104", "DNP3", "SYSLOG_UDP"],
+      "common_protocols": [
+        "MODBUS_TCP",
+        "IEC_104",
+        "DNP3",
+        "SYSLOG_UDP"
+      ],
       "criticality": "HIGH_OT_INFRASTRUCTURE"
     },
     "00:D0:C9": {
@@ -172,7 +252,12 @@
       "typical_purdue_level": "L2",
       "default_device_category": "INDUSTRIAL_EDGE_IPC",
       "typical_product_family": "UNO Industrial Edge Gateway / ADAM Remote I/O",
-      "common_protocols": ["MODBUS_TCP", "MQTT", "OPC_UA", "HTTPS_PUSH"],
+      "common_protocols": [
+        "MODBUS_TCP",
+        "MQTT",
+        "OPC_UA",
+        "HTTPS_PUSH"
+      ],
       "criticality": "MEDIUM_OT_EDGE"
     },
     "00:06:71": {
@@ -180,7 +265,11 @@
       "typical_purdue_level": "L2",
       "default_device_category": "OPC_PROTOCOL_GATEWAY",
       "typical_product_family": "dataFEED OPC Suite / UA Gate",
-      "common_protocols": ["OPC_UA", "OPC_DA_DCOM", "MQTT"],
+      "common_protocols": [
+        "OPC_UA",
+        "OPC_DA_DCOM",
+        "MQTT"
+      ],
       "criticality": "HIGH_OT_SUPERVISORY"
     },
     "00:02:A2": {
@@ -188,7 +277,11 @@
       "typical_purdue_level": "L2",
       "default_device_category": "FIELDBUS_PROTOCOL_CONVERTER",
       "typical_product_family": "netTAP / netIOT Edge Gateway",
-      "common_protocols": ["MODBUS_TCP", "PROFINET", "MQTT"],
+      "common_protocols": [
+        "MODBUS_TCP",
+        "PROFINET",
+        "MQTT"
+      ],
       "criticality": "MEDIUM_OT_EDGE"
     },
     "00:80:A3": {
@@ -196,7 +289,10 @@
       "typical_purdue_level": "L1",
       "default_device_category": "LEGACY_SERIAL_DEVICE_SERVER",
       "typical_product_family": "XPort / UDS RS-232/485 Serial Tunnel",
-      "common_protocols": ["MODBUS_TCP", "TELNET"],
+      "common_protocols": [
+        "MODBUS_TCP",
+        "TELNET"
+      ],
       "criticality": "HIGH_LEGACY_EXPOSURE"
     },
     "BC:AD:28": {
@@ -204,7 +300,11 @@
       "typical_purdue_level": "L1",
       "default_device_category": "IP_CCTV_CAMERA",
       "typical_product_family": "DeepinView / Pro Series IP Bullet & Dome Camera",
-      "common_protocols": ["RTSP", "ONVIF_STREAM", "HTTPS_PUSH"],
+      "common_protocols": [
+        "RTSP",
+        "ONVIF_STREAM",
+        "HTTPS_PUSH"
+      ],
       "criticality": "HIGH_FIRMWARE_EXPOSURE_IOT"
     },
     "44:19:B6": {
@@ -212,7 +312,11 @@
       "typical_purdue_level": "L2",
       "default_device_category": "NETWORK_VIDEO_RECORDER",
       "typical_product_family": "Embedded NVR / Edge Video Storage",
-      "common_protocols": ["RTSP", "ONVIF_STREAM", "SMBV1"],
+      "common_protocols": [
+        "RTSP",
+        "ONVIF_STREAM",
+        "SMBV1"
+      ],
       "criticality": "MEDIUM_SURVEILLANCE_STORAGE"
     },
     "00:40:8C": {
@@ -220,7 +324,12 @@
       "typical_purdue_level": "L1",
       "default_device_category": "IP_CCTV_CAMERA",
       "typical_product_family": "AXIS Q-Series / P-Series Perimeter Network Camera",
-      "common_protocols": ["RTSP", "ONVIF_STREAM", "MQTT", "SYSLOG_UDP"],
+      "common_protocols": [
+        "RTSP",
+        "ONVIF_STREAM",
+        "MQTT",
+        "SYSLOG_UDP"
+      ],
       "criticality": "MEDIUM_PERIMETER_IOT"
     },
     "AC:CC:8E": {
@@ -228,7 +337,11 @@
       "typical_purdue_level": "L1",
       "default_device_category": "IP_ACCESS_CONTROL_OR_CAMERA",
       "typical_product_family": "AXIS Network Door Controller / Thermal Camera",
-      "common_protocols": ["RTSP", "ONVIF_STREAM", "HTTPS_PUSH"],
+      "common_protocols": [
+        "RTSP",
+        "ONVIF_STREAM",
+        "HTTPS_PUSH"
+      ],
       "criticality": "MEDIUM_PERIMETER_IOT"
     },
     "00:10:8C": {
@@ -236,7 +349,11 @@
       "typical_purdue_level": "L2",
       "default_device_category": "BMS_HVAC_CONTROLLER",
       "typical_product_family": "Metasys Network Automation Engine (NAE/SNE)",
-      "common_protocols": ["BACNET_TELEMETRY", "HTTPS_PUSH", "SYSLOG_UDP"],
+      "common_protocols": [
+        "BACNET_TELEMETRY",
+        "HTTPS_PUSH",
+        "SYSLOG_UDP"
+      ],
       "criticality": "HIGH_FACILITY_BMS"
     },
     "00:40:AE": {
@@ -244,7 +361,10 @@
       "typical_purdue_level": "L1",
       "default_device_category": "BACNET_HVAC_CONTROLLER",
       "typical_product_family": "enteliBUS / Red5 BACnet Room & Chiller Controller",
-      "common_protocols": ["BACNET_TELEMETRY", "MODBUS_TCP"],
+      "common_protocols": [
+        "BACNET_TELEMETRY",
+        "MODBUS_TCP"
+      ],
       "criticality": "MEDIUM_FACILITY_BMS"
     },
     "00:1E:BD": {
@@ -252,7 +372,11 @@
       "typical_purdue_level": "L3",
       "default_device_category": "CORE_OR_INDUSTRIAL_SWITCH",
       "typical_product_family": "Cisco Catalyst IE3400 / Catalyst 9300 Aggregation Switch",
-      "common_protocols": ["SYSLOG_UDP", "SSH_INBOUND", "SNMP_TRAP"],
+      "common_protocols": [
+        "SYSLOG_UDP",
+        "SSH_INBOUND",
+        "SNMP_TRAP"
+      ],
       "criticality": "CRITICAL_NETWORK_BACKBONE"
     },
     "00:1A:A1": {
@@ -260,7 +384,10 @@
       "typical_purdue_level": "L3.5",
       "default_device_category": "DMZ_ROUTER_OR_SWITCH",
       "typical_product_family": "Cisco ISR / Catalyst DMZ Distribution Switch",
-      "common_protocols": ["SYSLOG_UDP", "SSH_INBOUND"],
+      "common_protocols": [
+        "SYSLOG_UDP",
+        "SSH_INBOUND"
+      ],
       "criticality": "HIGH_BOUNDARY_INFRASTRUCTURE"
     },
     "00:09:0F": {
@@ -268,7 +395,11 @@
       "typical_purdue_level": "L3.5",
       "default_device_category": "PERIMETER_FIREWALL",
       "typical_product_family": "FortiGate Next-Generation IT/OT Boundary Firewall",
-      "common_protocols": ["SYSLOG_UDP", "HTTPS_PUSH", "SSH_INBOUND"],
+      "common_protocols": [
+        "SYSLOG_UDP",
+        "HTTPS_PUSH",
+        "SSH_INBOUND"
+      ],
       "criticality": "CRITICAL_BOUNDARY_ENFORCEMENT"
     },
     "00:1B:17": {
@@ -276,7 +407,10 @@
       "typical_purdue_level": "L3.5",
       "default_device_category": "PERIMETER_FIREWALL",
       "typical_product_family": "PA-Series Industrial Perimeter NGFW",
-      "common_protocols": ["SYSLOG_UDP", "HTTPS_PUSH"],
+      "common_protocols": [
+        "SYSLOG_UDP",
+        "HTTPS_PUSH"
+      ],
       "criticality": "CRITICAL_BOUNDARY_ENFORCEMENT"
     },
     "F8:B1:56": {
@@ -284,7 +418,13 @@
       "typical_purdue_level": "L3",
       "default_device_category": "OT_SCADA_OR_HISTORIAN_SERVER",
       "typical_product_family": "Dell PowerEdge SCADA / OPC-DA / Engineering Workstation",
-      "common_protocols": ["OPC_DA_DCOM", "OPC_UA", "SMBV1", "RDP", "SQL_REPLICATION_PUSH"],
+      "common_protocols": [
+        "OPC_DA_DCOM",
+        "OPC_UA",
+        "SMBV1",
+        "RDP",
+        "SQL_REPLICATION_PUSH"
+      ],
       "criticality": "HIGH_DUAL_HOMED_BYPASS_RISK"
     },
     "00:50:56": {
@@ -292,7 +432,13 @@
       "typical_purdue_level": "L4",
       "default_device_category": "IT_ENTERPRISE_HISTORIAN_VM",
       "typical_product_family": "VMware ESXi Enterprise PI Historian / SQL / VMS Host",
-      "common_protocols": ["MODBUS_TCP", "OPC_UA", "SQL_REPLICATION_PUSH", "SMBV1", "RTSP"],
+      "common_protocols": [
+        "MODBUS_TCP",
+        "OPC_UA",
+        "SQL_REPLICATION_PUSH",
+        "SMBV1",
+        "RTSP"
+      ],
       "criticality": "HIGH_ENTERPRISE_DATA_CONSUMER"
     },
     "3C:D9:2B": {
@@ -300,8 +446,21 @@
       "typical_purdue_level": "L4",
       "default_device_category": "ENTERPRISE_MES_ERP_SERVER",
       "typical_product_family": "HPE ProLiant MES / Manufacturing Execution Host",
-      "common_protocols": ["HTTPS_PUSH", "SQL_REPLICATION_PUSH", "SFTP", "SIGNED_RECIPE_DISPATCH"],
+      "common_protocols": [
+        "HTTPS_PUSH",
+        "SQL_REPLICATION_PUSH",
+        "SFTP",
+        "SIGNED_RECIPE_DISPATCH"
+      ],
       "criticality": "HIGH_ENTERPRISE_MES"
+    },
+    "08:00:27": {
+      "vendor": "PCS Systemtechnik GmbH (Oracle VirtualBox virtual NIC)",
+      "typical_purdue_level": "L3",
+      "default_device_category": "VIRTUAL_MACHINE",
+      "typical_product_family": "VirtualBox guest network adapter",
+      "common_protocols": [],
+      "criticality": "UNKNOWN"
     }
   }
 }

@@ -8,7 +8,7 @@ import zipfile
 import httpx
 import pytest
 
-from app.agents.switch_config_agent import parse_switch_cli_dump
+from app.agents.switch_config_agent import discover_assets_from_pcap, parse_switch_cli_dump
 from app.agents.telemetry_duckdb_agent import (
     dissect_pcap_file,
     run_telemetry_duckdb_agent,
@@ -29,27 +29,30 @@ def test_benchmark_telemetry_and_shadow_accuracy() -> None:
     total_assets = 0
     total_shadows = 0
 
+    def path(rel: str | None):
+        return cfg.resolved_data_dir / rel if rel else None
+
     for sc_id, sc in gt_scenarios.items():
         files = sc["files"]
-        sw = parse_switch_cli_dump(
-            cfg.resolved_data_dir / files["switch_dump"],
-            cfg.resolved_data_dir / files["asset_inventory_csv"],
+        # A plant without a switch dump (the public IEC-104 testbed) is discovered from its capture
+        sw = (
+            parse_switch_cli_dump(path(files["switch_dump"]), path(files["asset_inventory_csv"]))
+            if files.get("switch_dump")
+            else discover_assets_from_pcap(path(files["pcap"]), path(files["asset_inventory_csv"]))
         )
-        tel = run_telemetry_duckdb_agent(
-            cfg.resolved_data_dir / files["pcap"],
-            cfg.resolved_data_dir / files["firewall_csv"],
-        )
+        tel = run_telemetry_duckdb_agent(path(files["pcap"]), path(files.get("firewall_csv")))
 
         assert sw.total_discovered_assets == sc["total_discovered_assets"], sc_id
         assert len(sw.shadow_anomalies) == len(sc["undocumented_shadow_assets"]), sc_id
         assert tel.pcap_packet_count == sc["telemetry_metrics"]["pcap_packet_count"], sc_id
         assert tel.firewall_row_count == sc["telemetry_metrics"]["firewall_row_count"], sc_id
-        assert tel.peak_bandwidth_mbps == pytest.approx(
-            sc["telemetry_metrics"]["peak_bandwidth_mbps"], abs=0.2
-        ), sc_id
-        assert tel.sized_bandwidth_with_1_25x_headroom_mbps == pytest.approx(
-            sc["telemetry_metrics"]["sized_bandwidth_with_1_25x_headroom_mbps"], abs=0.25
-        ), sc_id
+        if sc["telemetry_metrics"]["peak_bandwidth_mbps"] is not None:
+            assert tel.peak_bandwidth_mbps == pytest.approx(
+                sc["telemetry_metrics"]["peak_bandwidth_mbps"], abs=0.2
+            ), sc_id
+            assert tel.sized_bandwidth_with_1_25x_headroom_mbps == pytest.approx(
+                sc["telemetry_metrics"]["sized_bandwidth_with_1_25x_headroom_mbps"], abs=0.25
+            ), sc_id
 
         total_pkts += tel.pcap_packet_count
         total_fw_rows += tel.firewall_row_count

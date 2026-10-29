@@ -122,8 +122,10 @@ def test_parse_muse_spark_prompt_fewshot_and_sam31_schemas() -> None:
         cab_model = CabinetVisionInspection.model_validate(cab_ex["expected_output"])
         assert len(cab_model.detections) >= 1
 
-    # Validate synthesized architecture plans across all 6 scenarios
+    # Reference plans exist only for plants whose answer key names a hardware kit
     for card in list_scenarios():
+        if not card["primary_recommended_archetype_ids"]:
+            continue
         synth_plan = build_scenario_architecture_plan(card["scenario_id"])
         assert isinstance(synth_plan, ConduitArchitecturePlan)
         assert len(synth_plan.conduit_sizing_recommendations) >= 1
@@ -139,7 +141,7 @@ def test_catalog_and_oui_helpers() -> None:
     assert moxa is not None
     assert "Moxa" in moxa["vendor"]
 
-    assert len(list_scenarios()) == 2
+    assert len(list_scenarios()) == 3
     assert len(list_real_ics_captures()) == 15
     assert len(list_walkthrough_videos()) == 2
 
@@ -191,7 +193,7 @@ async def test_fastapi_rest_endpoints_and_static_files() -> None:
         h_data = r_health.json()
         assert h_data["status"] == "ok"
         assert h_data["catalog_counts"]["archetypes"] == 4
-        assert h_data["catalog_counts"]["scenarios"] == 2
+        assert h_data["catalog_counts"]["scenarios"] == 3
         assert h_data["catalog_counts"]["real_ics_captures"] == 15
 
         # 2. Model stack health (all 7 integrations)
@@ -227,7 +229,7 @@ async def test_fastapi_rest_endpoints_and_static_files() -> None:
         assert r_scen.status_code == 200
         s_data = r_scen.json()
         assert set(s_data.keys()) == {"scenarios", "real_ics_captures", "videos"}
-        assert len(s_data["scenarios"]) == 2
+        assert len(s_data["scenarios"]) == 3
         assert len(s_data["real_ics_captures"]) == 15
         assert len(s_data["videos"]) == 2
 
@@ -313,7 +315,7 @@ async def test_sse_assessment_stream_cloud_and_airgapped() -> None:
         assert twin.overall_verdict == "VERIFIED_ZERO_DOWNTIME_LOCKDOWN"
         assert twin.inbound_exploit_block_rate_pct == 100.0
 
-        # Air-Gapped Open-Weights (Muse Glimmer 30B) mode via frontend alias
+        # Air-gapped open-weights mode via the frontend's alias
         resp_airgap = await client.get(
             "/api/v1/assessments/scenario_4_water_treatment/stream",
             params={"inference_mode": "airgapped_glimmer", "step_delay_ms": 0},
@@ -322,11 +324,8 @@ async def test_sse_assessment_stream_cloud_and_airgapped() -> None:
         frames_airgap = _parse_sse_frames(resp_airgap.text)
         assert [f["event"] for f in frames_airgap] == expected_stages
         assert [f["data"]["step_index"] for f in frames_airgap[:-1]] == list(range(7))
-        assert (
-            frames_airgap[5]["data"]["model"] == "meta-models/Muse-Glimmer-30B"
-        )
-        assert (
-            frames_airgap[-1]["data"]["architect_model_used"]
-            == "meta-models/Muse-Glimmer-30B"
-        )
+        # Whichever open-weights endpoint is configured (self-hosted Glimmer, else Muse Spark Open)
+        open_model = get_settings().open_weights_model
+        assert frames_airgap[5]["data"]["model"] == open_model
+        assert frames_airgap[-1]["data"]["architect_model_used"] == open_model
         assert frames_airgap[-1]["data"]["done"] is True
