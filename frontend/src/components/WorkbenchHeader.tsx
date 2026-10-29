@@ -86,11 +86,24 @@ export default function WorkbenchHeader({
             onChange={(e) => onSelectScenario(e.target.value)}
             className="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors cursor-pointer"
           >
-            {scenarios.map((sc) => (
-              <option key={sc.id} value={sc.id}>
-                {getGuidedNarrative(sc).selectLabel}
-              </option>
-            ))}
+            {scenarios
+              .filter((sc) => !sc.captureSite)
+              .map((sc) => (
+                <option key={sc.id} value={sc.id}>
+                  {getGuidedNarrative(sc).selectLabel}
+                </option>
+              ))}
+            {scenarios.some((sc) => sc.captureSite) && (
+              <optgroup label="Public captures it has never seen">
+                {scenarios
+                  .filter((sc) => sc.captureSite)
+                  .map((sc) => (
+                    <option key={sc.id} value={sc.id}>
+                      {getGuidedNarrative(sc).selectLabel}
+                    </option>
+                  ))}
+              </optgroup>
+            )}
           </select>
 
           {/* Subtle API Status Pill */}

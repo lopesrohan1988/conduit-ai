@@ -19,6 +19,7 @@ from sse_starlette.sse import EventSourceResponse
 from starlette.datastructures import UploadFile as StarletteUploadFile
 
 from app import __version__
+from app.agents.architect_llm_planner import challenge_verifier
 from app.agents.architect_sizing_agent import generate_switch_cutover_cli
 from app.agents.langgraph_workflow import (
     build_conduit_langgraph,
@@ -26,6 +27,7 @@ from app.agents.langgraph_workflow import (
 )
 from app.catalog_loader import (
     get_scenario_preview,
+    list_capture_sites,
     list_real_ics_captures,
     list_scenarios,
     list_walkthrough_videos,
@@ -54,6 +56,8 @@ gateway = MetaModelGateway(settings=settings)
 
 # Most recent pipeline-computed plan per scenario, so exports match what the user just saw
 _LATEST_SCENARIO_PLANS: dict[str, ConduitArchitecturePlan] = {}
+# The evidence behind each of those plans, so the rule checker can be challenged on them
+_LATEST_SCENARIO_EVIDENCE: dict[str, dict[str, Any]] = {}
 
 
 async def _resolve_scenario_plan(scenario_id: str) -> ConduitArchitecturePlan:
@@ -180,6 +184,12 @@ async def get_scenarios() -> dict[str, Any]:
         "real_ics_captures": list_real_ics_captures(),
         "videos": list_walkthrough_videos(),
     }
+
+
+@app.get("/api/v1/capture-sites", tags=["Scenarios"])
+async def get_capture_sites() -> dict[str, Any]:
+    """Public ICS captures the pipeline can analyse as a never-seen site, from the packets alone."""
+    return {"capture_sites": list_capture_sites()}
 
 
 @app.get("/api/v1/scenarios/{scenario_id}/preview", tags=["Scenarios"])
@@ -461,6 +471,12 @@ async def stream_scenario_assessment(
 
         plan_final = accumulated_state["architecture_plan"]
         _LATEST_SCENARIO_PLANS[scenario_id] = plan_final
+        if scratch.get("telemetry_audit") is not None:
+            _LATEST_SCENARIO_EVIDENCE[scenario_id] = {
+                "telemetry_audit": scratch["telemetry_audit"],
+                "cabinet_inspections": accumulated_state.get("cabinet_inspections") or [],
+                "video_walkthrough": accumulated_state.get("video_walkthrough_result"),
+            }
         twin_final = accumulated_state["twin_verification"]
         voice_final = accumulated_state["voice_transcript"]
         architect_model = scratch.get("architect_meta", {}).get(
@@ -501,6 +517,16 @@ async def stream_scenario_assessment(
         }
 
     return EventSourceResponse(_event_generator())
+
+
+@app.post("/api/v1/assessments/{scenario_id}/challenge-verifier", tags=["Assessments"])
+async def challenge_scenario_verifier(scenario_id: str) -> dict[str, Any]:
+    """Reopen the most dangerous connection the latest plan cut and show the verifier's verdict."""
+    plan = _LATEST_SCENARIO_PLANS.get(scenario_id)
+    evidence = _LATEST_SCENARIO_EVIDENCE.get(scenario_id)
+    if plan is None or evidence is None:
+        raise HTTPException(status_code=409, detail="Run the analysis for this site first.")
+    return {"challenge": challenge_verifier(plan, **evidence)}
 
 
 @app.post("/api/v1/assessments/custom/analyze", tags=["Assessments"])

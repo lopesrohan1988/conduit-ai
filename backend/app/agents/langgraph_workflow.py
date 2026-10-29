@@ -357,6 +357,19 @@ def build_scenario_initial_state(
 
     from app.catalog_loader import _SCENARIO_VIDEO_MAP, load_benchmark_ground_truth
 
+    site = preview.get("capture_site")
+    if site:
+        # A public capture: the packets are the only evidence
+        return {
+            "scenario_id": scenario_id,
+            "facility_name": preview["facility_name"],
+            "inference_mode": inference_mode,
+            "cabinet_image_paths": [],
+            "pcap_path": str((cfg.resolved_data_dir / "real_ics_captures" / site["filename"]).resolve()),
+            "agent_events": [],
+            "errors": [],
+        }
+
     sc = load_benchmark_ground_truth()["scenarios"][scenario_id]
     files = sc["files"]
     data_dir = cfg.resolved_data_dir

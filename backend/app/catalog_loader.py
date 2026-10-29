@@ -37,6 +37,19 @@ _SCENARIO_VIDEO_MAP: dict[str, str] = {
 }
 
 
+# Public captures offered as sites the pipeline has never seen, each with one clear story.
+# Analysed from the capture alone: no asset list, diagram, photos or firewall log.
+CAPTURE_SITE_PREFIX = "capture__"
+_CAPTURE_SITES: dict[str, str] = {
+    "modbus_schneider_modicon_plc.pcap": "A workstation reads and writes a Schneider Modicon PLC over Modbus",
+    "iec104_rtu_breaker_commands_iti.pcap": "A control centre polls an IEC-104 RTU and sends it breaker commands",
+    "dnp3_master_operate_iti.pcap": "DNP3 masters poll outstations; one also operates them",
+    "ieee_c37_118_synchrophasor_pmu.pcap": "A grid synchrophasor (PMU) streams to a data concentrator",
+    "enip_cip_explicit_and_implicit_io_cisa.pcap": "EtherNet/IP tag polling and real-time I/O with controllers",
+    "iec61850_substation_mms_and_goose.pcap": "A digital substation: IEDs on GOOSE, one station reaching 11 hosts",
+}
+
+
 def _read_json(path: Path) -> dict[str, Any]:
     with path.open("r", encoding="utf-8") as handle:
         return json.load(handle)
@@ -103,6 +116,37 @@ def list_real_ics_captures() -> list[dict[str, Any]]:
         item["static_url"] = f"/static/data/real_ics_captures/{filename}"
         results.append(item)
     return results
+
+
+def list_capture_sites() -> list[dict[str, Any]]:
+    """The public captures offered as never-seen sites, with their source and licence."""
+    by_name = {c["filename"]: c for c in load_real_pcap_manifest().get("captures", [])}
+    sites: list[dict[str, Any]] = []
+    for filename, story in _CAPTURE_SITES.items():
+        cap = by_name.get(filename)
+        if cap is None:
+            continue
+        sites.append(
+            {
+                "scenario_id": CAPTURE_SITE_PREFIX + Path(filename).stem,
+                "filename": filename,
+                "story": story,
+                "protocol_family": cap.get("protocol_family", ""),
+                "hardware_context": cap.get("hardware_context", ""),
+                "packet_count": cap.get("packet_count", 0),
+                "license": cap.get("license", ""),
+                "source_repo": cap.get("source_repo", ""),
+                "source_url": cap.get("source_url", ""),
+                "static_url": f"/static/data/real_ics_captures/{filename}",
+            }
+        )
+    return sites
+
+
+def get_capture_site(scenario_id: str) -> dict[str, Any] | None:
+    if not scenario_id.startswith(CAPTURE_SITE_PREFIX):
+        return None
+    return next((s for s in list_capture_sites() if s["scenario_id"] == scenario_id), None)
 
 
 @lru_cache(maxsize=1)
@@ -221,6 +265,19 @@ def list_scenarios() -> list[dict[str, Any]]:
 
 def get_scenario_preview(scenario_id: str) -> dict[str, Any] | None:
     """Return full Day 1 scenario preview including ground-truth summary & media URLs."""
+    site = get_capture_site(scenario_id)
+    if site is not None:
+        return {
+            "scenario_id": scenario_id,
+            "facility_name": f"Public capture: {site['story']}",
+            "capture_site": site,
+            "media_urls": {
+                "topology_diagram_url": None,
+                "site_photo_urls": [],
+                "walkthrough_video_url": None,
+                "pcap_url": site["static_url"],
+            },
+        }
     gt = load_benchmark_ground_truth()
     sc = gt.get("scenarios", {}).get(scenario_id)
     if sc is None:

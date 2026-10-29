@@ -9,6 +9,7 @@ directionality, and Green / Amber / Red protocol cutover tiers.
 
 from __future__ import annotations
 
+import ipaddress
 import socket
 import struct
 from collections import defaultdict
@@ -71,6 +72,10 @@ _IEC104_TYPE_NAMES: dict[int, tuple[str, bool]] = {
     58: ("TypeID 58 Single Command w/ Time", True),
     100: ("TypeID 100 Interrogation Read", False),
 }
+
+
+# Industrial control services: the host answering on one of these ports is a plant device
+INDUSTRIAL_SERVICE_PORTS = {102, 502, 2222, 2404, 4712, 4840, 20000, 44818, 47808}
 
 
 # One source reaching this many hosts over this many distinct OT/IT services is scanning, not polling
@@ -377,6 +382,46 @@ def dissect_pcap_file(pcap_path: str | Path) -> tuple[int, int, dict[tuple[str, 
     return pkt_count, total_bytes, flow_stats
 
 
+def _is_unicast_host(ip: str) -> bool:
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    return not (addr.is_multicast or addr.is_unspecified or ip.endswith(".255"))
+
+
+def capture_roles(pcap_path: str | Path | None) -> dict[str, str]:
+    """Plant devices and the masters that poll them, read from a capture's industrial sessions.
+
+    Used when a site supplies no asset list. The capture is taken on the link to be protected:
+    a host answering on an industrial port is a plant `device`; a host that only opens sessions
+    to devices is a `master` on the far side. Sessions seen both ways with no TCP handshake to
+    tell who started them (peer protocols such as BACnet) make both ends devices.
+    """
+    if not pcap_path:
+        return {}
+    _, _, flows = dissect_pcap_file(pcap_path)
+    devices: set[str] = set()
+    clients: set[str] = set()
+    for (c_ip, s_ip, port, transport), st in flows.items():
+        if port not in INDUSTRIAL_SERVICE_PORTS or c_ip == s_ip:
+            continue
+        if not (_is_unicast_host(c_ip) and _is_unicast_host(s_ip)):
+            continue
+        if st["syn_client"] in (c_ip, s_ip):
+            client = st["syn_client"]
+            devices.add(s_ip if client == c_ip else c_ip)
+            clients.add(client)
+        elif (s_ip, c_ip, port, transport) in flows:
+            devices.update((c_ip, s_ip))
+        else:
+            devices.add(s_ip)
+            clients.add(c_ip)
+    roles = {ip: "master" for ip in clients - devices}
+    roles.update({ip: "device" for ip in devices})
+    return roles
+
+
 def query_firewall_csv_duckdb(csv_path: str | Path | None) -> dict[str, Any]:
     """Run DuckDB SQL analytics over FortiGate or Palo Alto 24-hour firewall traffic CSVs."""
     if not csv_path:
@@ -576,6 +621,8 @@ def run_telemetry_duckdb_agent(
 
     merged_keys: dict[tuple[str, str, int], dict[str, Any]] = {}
     for (src_ip, dst_ip, svc_port, transport), pst in pcap_flows.items():
+        if src_ip == dst_ip:
+            continue
         fw_match = fw_by_tuple.get((src_ip, dst_ip, svc_port))
         proto_name, _ = _WELL_KNOWN_OT_IT_PORTS.get(
             svc_port,

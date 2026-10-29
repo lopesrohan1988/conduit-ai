@@ -63,6 +63,22 @@ const SCENARIO_NARRATIVES: Record<string, GuidedScenarioNarrative> = {
 export function getGuidedNarrative(
   scenario: ScenarioDataset
 ): GuidedScenarioNarrative {
+  const site = scenario.captureSite;
+  if (site) {
+    return {
+      selectLabel: `Capture: ${site.protocolFamily}`,
+      industryBadge: "Public capture",
+      businessGoal: `A capture ConduitAI has never seen: ${site.story.charAt(0).toLowerCase()}${site.story.slice(1)}. No asset list, drawing or photos; the packets are the only evidence.`,
+      cabinetFitHeadline: "No cabinet photos with a capture",
+      cabinetFitPlainText:
+        "Only traffic is supplied, so physical space is not measured; an engineer would confirm it on site.",
+      hiddenRiskHeadline: "Who commands whom, read from the packets",
+      hiddenRiskPlainText:
+        "Hosts answering on industrial ports are treated as plant devices and the hosts polling them as the far side. With no asset list to vouch for a master, any session that sends commands is cut.",
+      salesTalkingPoint:
+        "Hand ConduitAI one capture from the link you want to protect and it drafts the diode plan from the packets alone.",
+    };
+  }
   return (
     SCENARIO_NARRATIVES[scenario.id] ??
     SCENARIO_NARRATIVES.scenario_2_substation

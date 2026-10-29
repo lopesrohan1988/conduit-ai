@@ -1,0 +1,10 @@
+{
+ "responses": [
+  {
+   "content": "{\"flow_decisions\": [{\"flow_id\": \"FLOW-01\", \"initiator\": \"IT_TO_OT\", \"tier\": \"AMBER\", \"action\": \"PULL_TO_PUSH_PROXY_REVERSAL\", \"rationale\": \"Data concentrator initiates C37.118 polling of PMU; diode TX polls locally, pushes stream one-way.\"}], \"bill_of_materials\": [{\"archetype_id\": \"ARCH_A_FIELD_DIODE\", \"quantity\": 1, \"mounting\": \"DIN_RAIL\", \"purpose\": \"FLOW-01 PMU-to-concentrator conduit: local C37.118 polling and one-way push\"}], \"target_sl\": \"SL-4\", \"design_rationale\": \"No verified closed-loop writes exist, so pure unidirectional hardware is preferred over ARCH_D. ARCH_A provides grid-protocol field-diode proxying with ample 1.25x headroom for 0.33 Mbps and DIN-rail mounting without requiring a 1U rack cabinet.\"}",
+   "reasoning": null,
+   "model": "muse-wonder-1.0",
+   "finish_reason": "stop"
+  }
+ ]
+}

@@ -208,7 +208,16 @@ export interface ComplianceClauseRow {
 /** Where the numbers on screen came from */
 export type DataProvenance = "reference" | "live_pipeline" | "custom_upload";
 
+/** One hard rule as the verifier applied it to this plant */
+export interface VerifierCheck {
+  rule: string;
+  scope: string;
+  applies: number;
+  violations: string[];
+}
+
 export interface ArchitectAttempt {
+  checks: VerifierCheck[];
   attempt: number;
   sourceMode: string;
   model: string;
@@ -227,6 +236,7 @@ export interface ArchitectTrace {
   attempts: ArchitectAttempt[];
   /** Verifier result for a rule-engine plan; null when a model proposal was accepted */
   fallbackViolations: string[] | null;
+  fallbackChecks: VerifierCheck[];
 }
 
 export interface MeasuredDetection {
@@ -328,10 +338,24 @@ export interface TopologySummary {
   connectionsCut: number;
 }
 
+/** A public ICS capture offered as a site the pipeline has never seen */
+export interface CaptureSiteInfo {
+  scenarioId: string;
+  filename: string;
+  story: string;
+  protocolFamily: string;
+  hardwareContext: string;
+  packetCount: number;
+  license: string;
+  sourceRepo: string;
+  sourceUrl: string;
+}
+
 export interface ScenarioDataset {
   id: string;
   /** Where the plant's own files come from; synthetic unless stated */
-  dataOrigin?: "synthetic" | "public_dataset";
+  dataOrigin?: "synthetic" | "public_dataset" | "public_capture";
+  captureSite?: CaptureSiteInfo;
   topologySummary?: TopologySummary | null;
   attackReplay?: AttackReplay | null;
   provenance?: DataProvenance;

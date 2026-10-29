@@ -1,6 +1,7 @@
 import {
   ArchetypeId,
   ArchitectTrace,
+  VerifierCheck,
   ComplianceClauseRow,
   ExploitReplayItem,
   FlowTier,
@@ -198,9 +199,10 @@ export function hydrateArchitectTrace(
   const attempts = Array.isArray(rawTrace.attempts)
     ? (rawTrace.attempts as Array<Record<string, unknown>>)
     : [];
-  const fallback = rawTrace.fallback_check as { violations?: unknown } | undefined;
+  const fallback = rawTrace.fallback_check as { violations?: unknown; checks?: unknown } | undefined;
   return {
     fallbackViolations: Array.isArray(fallback?.violations) ? fallback.violations.map(String) : null,
+    fallbackChecks: hydrateChecks(fallback?.checks),
     model: String(rawTrace.model ?? ""),
     accepted: Boolean(rawTrace.accepted),
     finalSourceMode: String(rawTrace.final_source_mode ?? "deterministic_rule_engine"),
@@ -213,8 +215,19 @@ export function hydrateArchitectTrace(
       violations: Array.isArray(a.violations) ? a.violations.map(String) : [],
       proposedBom: Array.isArray(a.proposed_bom) ? a.proposed_bom.map(String) : [],
       reasoningExcerpt: a.reasoning_excerpt ? String(a.reasoning_excerpt) : undefined,
+      checks: hydrateChecks(a.checks),
     })),
   };
+}
+
+function hydrateChecks(raw: unknown): VerifierCheck[] {
+  if (!Array.isArray(raw)) return [];
+  return (raw as Array<Record<string, unknown>>).map((c) => ({
+    rule: String(c.rule ?? ""),
+    scope: String(c.scope ?? ""),
+    applies: Number(c.applies ?? 0),
+    violations: Array.isArray(c.violations) ? c.violations.map(String) : [],
+  }));
 }
 
 function hydrateMeasuredCabinets(raw: Array<Record<string, unknown>>): MeasuredCabinet[] {

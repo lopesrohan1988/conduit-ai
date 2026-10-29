@@ -7,6 +7,7 @@ import {
 import { SCENARIOS_PART_1 } from "./scenariosPart1";
 import { SCENARIOS_PART_2 } from "./scenariosPart2";
 import { SCENARIO_REAL_IEC104 } from "./scenarioReal";
+import { getCaptureSiteScenario } from "./captureSites";
 
 export const FALLBACK_SCENARIOS: ScenarioDataset[] = [
   ...SCENARIOS_PART_1,
@@ -16,7 +17,9 @@ export const FALLBACK_SCENARIOS: ScenarioDataset[] = [
 
 export function getScenarioById(scenarioId: string): ScenarioDataset {
   return (
-    FALLBACK_SCENARIOS.find((s) => s.id === scenarioId) ?? FALLBACK_SCENARIOS[0]
+    FALLBACK_SCENARIOS.find((s) => s.id === scenarioId) ??
+    getCaptureSiteScenario(scenarioId) ??
+    FALLBACK_SCENARIOS[0]
   );
 }
 

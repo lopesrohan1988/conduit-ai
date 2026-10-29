@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { BrainCircuit, CheckCircle2, ChevronDown, ChevronUp, XCircle } from "lucide-react";
 import { ScenarioDataset } from "@/types/conduit";
+import AgentLoop from "@/components/AgentLoop";
 
 interface ArchitectDecisionPanelProps {
   scenario: ScenarioDataset;
@@ -104,55 +105,7 @@ export default function ArchitectDecisionPanel({ scenario }: ArchitectDecisionPa
 
       {expanded && (
         <div className="border-t border-slate-100 px-5 py-3 space-y-3">
-          <p className="text-xs text-slate-600">
-            The verifier checks every proposal against hard rules: no inbound session graded
-            GREEN, remote admin and lateral movement severed, each protocol supported by the chosen
-            diode, capacity ≥ 1.25× peak, VLAN limits, and physical fit in the photographed cabinet.
-            Violations go back to the model for revision.
-          </p>
-          <ol className="space-y-2">
-            {trace.attempts.map((a) => (
-              <li key={a.attempt} className="border border-slate-200 rounded-lg p-3 space-y-1.5">
-                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                  <span className="font-semibold text-slate-900">
-                    Attempt {a.attempt} · {a.model}
-                  </span>
-                  <span className="flex items-center gap-2">
-                    <span className="font-mono text-slate-500">{(a.latencyMs / 1000).toFixed(1)} s</span>
-                    {a.violations.length === 0 ? (
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        accepted
-                      </span>
-                    ) : (
-                      <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
-                        rejected ({a.violations.length})
-                      </span>
-                    )}
-                  </span>
-                </div>
-                {a.proposedBom.length > 0 && (
-                  <div className="text-xs text-slate-700">
-                    Proposed kit: <span className="font-mono">{a.proposedBom.join(" + ")}</span>
-                  </div>
-                )}
-                {a.violations.length > 0 && (
-                  <ul className="list-disc pl-5 text-xs text-rose-800 space-y-0.5">
-                    {a.violations.map((v, i) => (
-                      <li key={i}>{v}</li>
-                    ))}
-                  </ul>
-                )}
-                {a.reasoningExcerpt && (
-                  <details className="text-xs text-slate-600">
-                    <summary className="cursor-pointer select-none">Model reasoning excerpt</summary>
-                    <p className="mt-1 whitespace-pre-wrap font-mono text-[11px] leading-snug">
-                      {a.reasoningExcerpt}
-                    </p>
-                  </details>
-                )}
-              </li>
-            ))}
-          </ol>
+          <AgentLoop scenario={scenario} />
         </div>
       )}
     </div>

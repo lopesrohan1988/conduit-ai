@@ -1,0 +1,10 @@
+{
+ "responses": [
+  {
+   "content": "{\"flow_decisions\": [{\"flow_id\": \"FLOW-01\", \"initiator\": \"IT_TO_OT\", \"tier\": \"RED\", \"action\": \"SEVER_CRITICAL_VIOLATION_AT_L1\", \"rationale\": \"Unauthorized DNP3 Direct Operate from unlisted master; sever write path at L1.\"}, {\"flow_id\": \"FLOW-02\", \"initiator\": \"IT_TO_OT\", \"tier\": \"AMBER\", \"action\": \"PULL_TO_PUSH_PROXY_REVERSAL\", \"rationale\": \"Read-only DNP3 polling reversed to local poll and one-way push.\"}], \"bill_of_materials\": [{\"archetype_id\": \"ARCH_A_FIELD_DIODE\", \"quantity\": 1, \"mounting\": \"DIN_RAIL\", \"purpose\": \"Unidirectional DNP3 conduit carrying FLOW-02 pull-to-push proxy; FLOW-01 severed\"}], \"target_sl\": \"SL-4\", \"design_rationale\": \"Pure unidirectional ARCH_A supports DNP3 within its 80 Mbps ceiling, far above the 0.125 Mbps headroom-sized load, with no VLAN trunk requirement. FLOW-01 is severed as an unauthorized write, so no verified closed-loop justifies ARCH_D bidirectional hardware.\"}",
+   "reasoning": null,
+   "model": "muse-wonder-1.0",
+   "finish_reason": "stop"
+  }
+ ]
+}

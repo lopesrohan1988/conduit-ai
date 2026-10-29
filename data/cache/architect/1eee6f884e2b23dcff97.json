@@ -1,0 +1,16 @@
+{
+ "responses": [
+  {
+   "content": "{\"flow_decisions\": [{\"flow_id\": \"FLOW-01\", \"initiator\": \"IT_TO_OT\", \"tier\": \"RED\", \"action\": \"SEVER_CRITICAL_VIOLATION_AT_L1\", \"rationale\": \"Unauthorized non-asset workstation issuing Modbus FC05/FC16 writes to PLC; sever inbound.\"}], \"bill_of_materials\": [], \"target_sl\": \"SL-4\", \"design_rationale\": \"No legitimate OT-initiated or pull-to-push flows exist; the sole flow is an unauthorized inbound write, so it is severed at Layer 1 with no diode conduit. With no verified closed-loop requirement and no inspected cabinet mounting, no ARCH_D or rack appliance is deployed, preserving SL-4 air-gap isolation.\"}",
+   "reasoning": null,
+   "model": "muse-wonder-1.0",
+   "finish_reason": "stop"
+  },
+  {
+   "content": "{\"flow_decisions\": [{\"flow_id\": \"FLOW-01\", \"initiator\": \"IT_TO_OT\", \"tier\": \"RED\", \"action\": \"SEVER_CRITICAL_VIOLATION_AT_L1\", \"rationale\": \"Unauthorized non-asset workstation issuing Modbus FC05/FC16 writes to PLC; sever inbound.\"}], \"bill_of_materials\": [{\"archetype_id\": \"ARCH_A_FIELD_DIODE\", \"quantity\": 1, \"mounting\": \"DIN_RAIL\", \"purpose\": \"PLC conduit L1 isolation barrier; FLOW-01 severed, carries no inbound traffic, enables future OT-to-IT Modbus/syslog push only\"}], \"target_sl\": \"SL-4\", \"design_rationale\": \"The sole flow is an unauthorized inbound Modbus write from a non-asset workstation, so it is severed at Layer 1 and no closed-loop ARCH_D gateway is justified. A pure unidirectional ARCH_A field diode provides the hardware isolation barrier for the PLC conduit within its 80 Mbps ceiling for the 0.28 Mbps sized load, preserving SL-4 air-gap enforcement.\"}",
+   "reasoning": null,
+   "model": "muse-wonder-1.0",
+   "finish_reason": "stop"
+  }
+ ]
+}

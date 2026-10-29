@@ -1,0 +1,10 @@
+{
+ "responses": [
+  {
+   "content": "{\"flow_decisions\": [{\"flow_id\": \"FLOW-01\", \"initiator\": \"IT_TO_OT\", \"tier\": \"AMBER\", \"action\": \"PULL_TO_PUSH_PROXY_REVERSAL\", \"rationale\": \"IT CIP Class-3 read polling; diode TX polls locally, pushes one-way\"}, {\"flow_id\": \"FLOW-02\", \"initiator\": \"OT_TO_IT\", \"tier\": \"RED\", \"action\": \"SEVER_CRITICAL_VIOLATION_AT_L1\", \"rationale\": \"Bidirectional implicit I/O control exchange cannot traverse one-way diode\"}, {\"flow_id\": \"FLOW-03\", \"initiator\": \"IT_TO_OT\", \"tier\": \"RED\", \"action\": \"SEVER_CRITICAL_VIOLATION_AT_L1\", \"rationale\": \"Implicit I/O output writes; bidirectional control cannot traverse diode\"}, {\"flow_id\": \"FLOW-04\", \"initiator\": \"IT_TO_OT\", \"tier\": \"AMBER\", \"action\": \"PULL_TO_PUSH_PROXY_REVERSAL\", \"rationale\": \"IT CIP read polling; diode TX polls locally, pushes one-way\"}], \"bill_of_materials\": [{\"archetype_id\": \"ARCH_B_VIDEO_IOT_DIODE\", \"quantity\": 1, \"mounting\": \"DIN_RAIL\", \"purpose\": \"Carries FLOW-01 and FLOW-04 as locally polled MQTT/HTTPS one-way push; bandwidth well under ceiling\"}], \"target_sl\": \"SL-4\", \"design_rationale\": \"Pure unidirectional ARCH_B preserves SL-4 isolation without ARCH_D, since no verified closed-loop write requires return traffic. CIP polling is reversed to local OT polling with one-way push, while bidirectional implicit I/O control is severed.\"}",
+   "reasoning": null,
+   "model": "muse-wonder-1.0",
+   "finish_reason": "stop"
+  }
+ ]
+}

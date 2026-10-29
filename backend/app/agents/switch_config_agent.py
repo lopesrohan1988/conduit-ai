@@ -238,6 +238,7 @@ def _reconcile_endpoints(
     evidence_name: str,
     inventory_path: str | Path | None,
     lldp_names: dict[str, str],
+    roles: dict[str, str] | None = None,
 ) -> None:
     """Reconcile every discovered endpoint against the documented `asset_inventory.csv`."""
     assets: list[AssetNode] = []
@@ -250,7 +251,12 @@ def _reconcile_endpoints(
         vlan_val = entry["vlan"]
         oui_info = lookup_oui_vendor(norm_mac)
         doc_row = documented_by_ip.get(ip_addr)
-        is_it_host = is_enterprise_it_ip(ip_addr, vlan_val) or bool(doc_row and doc_row.get("purdue_level") == "L4")
+        role = (roles or {}).get(ip_addr)
+        is_it_host = (
+            role == "master"
+            or (role is None and is_enterprise_it_ip(ip_addr, vlan_val))
+            or bool(doc_row and doc_row.get("purdue_level") == "L4")
+        )
 
         vendor = (
             (doc_row.get("vendor") if doc_row else None)
@@ -260,14 +266,16 @@ def _reconcile_endpoints(
         hostname = (doc_row.get("hostname") if doc_row else None) or entry["hostname"] or lldp_names.get(ip_addr)
         device_cat = (
             (doc_row.get("role") if doc_row else None)
+            or {"master": "Master polling plant devices (from the capture)", "device": "Plant device (answers industrial requests)"}.get(role or "")
             or (oui_info.get("default_device_category") if oui_info else None)
             or ("IT_SERVER" if is_it_host else "OT_ENDPOINT")
         )
-        purdue = (
-            doc_row["purdue_level"]
-            if (doc_row and doc_row.get("purdue_level") in {"L0", "L1", "L2", "L3", "L3.5", "L4"})
-            else _infer_purdue_level(ip_addr, vlan_val, hostname, oui_info)
-        )
+        if doc_row and doc_row.get("purdue_level") in {"L0", "L1", "L2", "L3", "L3.5", "L4"}:
+            purdue = doc_row["purdue_level"]
+        elif role:
+            purdue = "L4" if role == "master" else "L1"
+        else:
+            purdue = _infer_purdue_level(ip_addr, vlan_val, hostname, oui_info)
 
         # Dual-homed detection: single MAC holding multiple IPs across subnets
         sibling_ips = [other for other in mac_to_ips.get(norm_mac, []) if other != ip_addr]
@@ -276,8 +284,11 @@ def _reconcile_endpoints(
         # An undocumented device announcing itself as a cellular router is a path around the firewall
         is_rogue_modem = doc_row is None and bool(_CELLULAR_PRODUCT_RE.search(lldp_names.get(ip_addr, "")))
 
-        # Shadow OT Asset = in an OT VLAN (not Enterprise IT consumer) AND absent from asset_inventory.csv
-        is_shadow = (doc_row is None) and (not is_it_host or is_rogue_modem)
+        # Shadow OT Asset = in an OT VLAN (not Enterprise IT consumer) AND absent from asset_inventory.csv.
+        # With no asset list at all nothing can be called undocumented, except a cellular bypass.
+        is_shadow = (doc_row is None) and (
+            is_rogue_modem or (bool(documented_by_ip) and not is_it_host)
+        )
         if not is_shadow:
             documented_seen += 1
 
@@ -389,14 +400,29 @@ def discover_assets_from_pcap(
         mac_to_ips.setdefault(mac, []).append(src)
         if vlan is not None:
             vlans.add(vlan)
+    # Routed traffic carries the router's MAC, so in a capture one MAC behind many IPs is a router.
+    # Only a MAC holding exactly two addresses on different subnets looks like a dual-homed host.
+    mac_to_ips = {
+        mac: ips
+        for mac, ips in mac_to_ips.items()
+        if len(ips) == 2 and ips[0].rsplit(".", 1)[0] != ips[1].rsplit(".", 1)[0]
+    }
+    documented = parse_asset_inventory_csv(asset_inventory_csv_path)
+    roles = None
+    if not documented:
+        # No asset list: tell plant devices from the masters polling them by the traffic itself
+        from app.agents.telemetry_duckdb_agent import capture_roles
+
+        roles = capture_roles(pcap_path)
     _reconcile_endpoints(
         result,
         dict(sorted(entries.items(), key=lambda kv: ipaddress.ip_address(kv[0]))),
         mac_to_ips,
-        parse_asset_inventory_csv(asset_inventory_csv_path),
+        documented,
         evidence_name=Path(pcap_path).name,
         inventory_path=asset_inventory_csv_path,
         lldp_names={},
+        roles=roles,
     )
     result.vlans_observed = sorted(vlans)
     return result

@@ -23,6 +23,7 @@ import {
   fetchScenarioPreview,
 } from "@/lib/api";
 import { hydrateScenarioFromBackendPayload } from "@/lib/hydrateScenario";
+import { fetchCaptureSites, registerCaptureSite } from "@/lib/captureSites";
 import { getGuidedNarrative } from "@/lib/guidedCopy";
 import WorkbenchHeader from "@/components/WorkbenchHeader";
 import SiteIntakeStep from "@/components/SiteIntakeStep";
@@ -63,6 +64,11 @@ export default function ConduitWorkbenchPage() {
   const [storyStep, setStoryStep] = useState<StoryStep>(1);
 
   const [backendConnected, setBackendConnected] = useState<boolean>(false);
+  // Public captures the backend offers as never-seen sites
+  const [captureScenarios, setCaptureScenarios] = useState<ScenarioDataset[]>([]);
+  useEffect(() => {
+    fetchCaptureSites().then((sites) => setCaptureScenarios(sites.map(registerCaptureSite)));
+  }, []);
   const [modelStack, setModelStack] = useState<ModelServiceHealth[]>(() =>
     getDefaultModelStack("cloud_frontier")
   );
@@ -74,6 +80,7 @@ export default function ConduitWorkbenchPage() {
   const selectedScenario: ScenarioDataset =
     liveOverrides[selectedScenarioId] ?? baseScenario;
   const narrative = getGuidedNarrative(selectedScenario);
+  const siteList: ScenarioDataset[] = [...FALLBACK_SCENARIOS, ...captureScenarios];
   const isGuided = userLens === "guided_collab";
 
   const handleLivePayloadHydrate = useCallback(
@@ -379,7 +386,7 @@ export default function ConduitWorkbenchPage() {
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900">
       {/* Single 60px Clean White Top Bar */}
       <WorkbenchHeader
-        scenarios={FALLBACK_SCENARIOS}
+        scenarios={siteList}
         selectedScenario={selectedScenario}
         onSelectScenario={setSelectedScenarioId}
         userLens={userLens}

@@ -1,0 +1,16 @@
+{
+ "responses": [
+  {
+   "content": "{\"flow_decisions\": [{\"flow_id\": \"FLOW-01\", \"initiator\": \"IT_TO_OT\", \"tier\": \"RED\", \"action\": \"SEVER_CRITICAL_VIOLATION_AT_L1\", \"rationale\": \"Unverified IT source sends IEC-104 breaker commands; not legitimate master, sever inbound writes.\"}], \"bill_of_materials\": [], \"target_sl\": \"SL-4\", \"design_rationale\": \"Unverified control-centre source issues breaker trip/close commands, so the flow is severed at L1 rather than proxied. No verified closed-loop signed setpoint justifies ARCH_D, and no legitimate OT-initiated push remains to carry, so no diode is deployed.\"}",
+   "reasoning": null,
+   "model": "muse-wonder-1.0",
+   "finish_reason": "stop"
+  },
+  {
+   "content": "{\"flow_decisions\": [{\"flow_id\": \"FLOW-01\", \"initiator\": \"IT_TO_OT\", \"tier\": \"RED\", \"action\": \"SEVER_CRITICAL_VIOLATION_AT_L1\", \"rationale\": \"Unverified IT source sends IEC-104 breaker commands; not legitimate master, sever inbound writes.\"}], \"bill_of_materials\": [{\"archetype_id\": \"ARCH_A_FIELD_DIODE\", \"quantity\": 1, \"mounting\": \"DIN_RAIL\", \"purpose\": \"Enforces L1 unidirectional isolation on FLOW-01 IEC-104 conduit, physically blocking all inbound IT-to-OT commands\"}], \"target_sl\": \"SL-4\", \"design_rationale\": \"The unverified control-centre source issues IEC-104 breaker trip/close commands, so the inbound flow is severed at L1 rather than proxied or reversed. No verified closed-loop signed setpoint justifies ARCH_D, so a pure unidirectional ARCH_A field diode enforces SL-4 forward-only isolation with ample bandwidth headroom for the 0.07 Mbps peak.\"}",
+   "reasoning": null,
+   "model": "muse-wonder-1.0",
+   "finish_reason": "stop"
+  }
+ ]
+}

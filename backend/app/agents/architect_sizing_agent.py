@@ -18,6 +18,7 @@ from app.agents.architect_llm_planner import (
     PlannerTrace,
     decision_from_plan,
     propose_and_verify_architecture,
+    verifier_checklist,
     verify_architecture_proposal,
 )
 from app.agents.switch_config_agent import SwitchAuditResult
@@ -492,13 +493,20 @@ async def run_architect_sizing_agent(
     if decision is None:
         # The rule-engine plan is held to the same hard rules as a model proposal
         planner_trace = planner_trace or PlannerTrace(model=default_model, inference_mode=inference_mode).to_dict()
+        fallback_violations = verify_architecture_proposal(
+            decision_from_plan(plan, telemetry_audit),
+            telemetry_audit=telemetry_audit,
+            cabinet_inspections=cabinet_inspections,
+            video_walkthrough=video_walkthrough,
+        )
         planner_trace["fallback_check"] = {
-            "violations": verify_architecture_proposal(
-                decision_from_plan(plan, telemetry_audit),
+            "violations": fallback_violations,
+            "checks": verifier_checklist(
                 telemetry_audit=telemetry_audit,
                 cabinet_inspections=cabinet_inspections,
                 video_walkthrough=video_walkthrough,
-            )
+                violations=fallback_violations,
+            ),
         }
     meta_info: dict[str, Any] = {
         "architect_model": (planner_trace or {}).get("model", default_model),

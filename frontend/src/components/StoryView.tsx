@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { Loader2, Play, ShieldAlert, ShieldCheck } from "lucide-react";
 import { ArchetypeId, ScenarioDataset } from "@/types/conduit";
 import PurdueTopologyTab from "@/components/PurdueTopologyTab";
+import AgentLoop from "@/components/AgentLoop";
 import AttackReplayPanel from "@/components/AttackReplayPanel";
 
 export type StoryStep = 1 | 2 | 3;
@@ -143,7 +144,8 @@ export default function StoryView({ scenario, step, isAssessing, onRun }: StoryV
       <div className="space-y-4">
         <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
           <h2 className="text-lg sm:text-xl font-semibold text-slate-900">
-            Today, the office network can reach the plant in {plural(summary.itToOtPathsToday, "way")}.
+            Today, {scenario.captureSite ? "the hosts polling the plant devices" : "the office network"} can reach the
+            plant in {plural(summary.itToOtPathsToday, "way")}.
           </h2>
           <ul className="space-y-2">
             {summary.commandPathsToday > 0 && (
@@ -197,12 +199,19 @@ export default function StoryView({ scenario, step, isAssessing, onRun }: StoryV
             in the office does.
           </Explainer>
           <ul className="space-y-2">
-            <Point tone="good">{plural(summary.connectionsCut, "dangerous connection")} {summary.connectionsCut === 1 ? "is" : "are"} cut.</Point>
-            <Point tone="good">
-              {plural(summary.feedsKept, "data feed")} to the office keep working. Where the office
-              used to ask the plant for data, the diode now reads it inside the plant and sends a
-              copy out.
-            </Point>
+            <Point tone="good">{plural(summary.connectionsCut, "connection")} {summary.connectionsCut === 1 ? "is" : "are"} cut.</Point>
+            {summary.feedsKept > 0 ? (
+              <Point tone="good">
+                {plural(summary.feedsKept, "data feed")} to the office keep working. Where the office
+                used to ask the plant for data, the diode now reads it inside the plant and sends a
+                copy out.
+              </Point>
+            ) : (
+              <Point>
+                No data feed crosses to the office in this plan: every connection between the two sides is cut. An
+                engineer would add back any feed the site still needs.
+              </Point>
+            )}
             {(summary.remoteCommandsDropped ?? 0) > 0 && (
               <Point>
                 The control centre keeps receiving its plant data, but its remote commands stop: a
@@ -248,6 +257,7 @@ export default function StoryView({ scenario, step, isAssessing, onRun }: StoryV
           </div>
           <PurdueTopologyTab scenario={scenario} fixedMode="after" embedded />
         </div>
+        <AgentLoop scenario={scenario} />
       </div>
     );
   }
@@ -262,9 +272,11 @@ export default function StoryView({ scenario, step, isAssessing, onRun }: StoryV
           <Point>
             The attack packets are real: control commands recorded from real industrial equipment in
             public datasets.{" "}
-            {scenario.dataOrigin === "public_dataset"
-              ? "This plant's traffic is real too: a public university testbed (UOWM, CC-BY-4.0), scored against its authors' own attack labels."
-              : "This demo plant itself is synthetic."}
+            {scenario.captureSite
+              ? `This site's traffic is real too: a public capture (${scenario.captureSite.sourceRepo}, ${scenario.captureSite.license}), analysed from the packets alone with no asset list.`
+              : scenario.dataOrigin === "public_dataset"
+                ? "This plant's traffic is real too: a public university testbed (UOWM, CC-BY-4.0), scored against its authors' own attack labels."
+                : "This demo plant itself is synthetic."}
           </Point>
           <Point>
             The test can fail. If the plan left a backdoor open, its commands would show up above as

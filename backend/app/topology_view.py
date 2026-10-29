@@ -63,10 +63,11 @@ def _after_action(direction: str, actions: list[str]) -> str:
     Every office<->plant connection that survives goes through the diode (or the OT-locked
     gateway); one that is cut stops there. Bypass paths never reach the boundary.
     """
-    if direction == "LOCAL":
-        return "local"
+    # A connection the plan cuts is cut wherever it runs, inside the plant included
     if all(a == SEVER for a in actions):
         return "cut"
+    if direction == "LOCAL":
+        return "local"
     if direction == "BYPASS_TO_OT":
         return "cut"
     if any(a == "ROUTE_VIA_ARCH_D_OT_LOCKED_GATEWAY" for a in actions):

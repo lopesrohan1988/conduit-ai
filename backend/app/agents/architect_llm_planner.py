@@ -544,6 +544,64 @@ def verify_architecture_proposal(
     return violations
 
 
+def verifier_checklist(
+    *,
+    telemetry_audit: TelemetryAuditResult,
+    cabinet_inspections: list[CabinetVisionInspection],
+    video_walkthrough: VideoWalkthroughResult | None,
+    violations: list[str],
+) -> list[dict[str, Any]]:
+    """The verifier's hard rules as a checklist: what each one covers in this plant, and what failed."""
+    flows = telemetry_audit.flows
+    inbound = [f for f in flows if f.direction in {"IT_TO_OT", "BYPASS_TO_OT"}]
+    risky = [
+        f
+        for f in flows
+        if f.dst_port in REMOTE_ADMIN_PORTS
+        or f.lateral_movement_suspected
+        or (f.dst_port == 22 and f.direction != "OT_TO_IT")
+    ]
+    protocols = {PORT_TO_CATALOG_PROTOCOL.get(f.dst_port) for f in flows} - {None}
+    sized = round((telemetry_audit.peak_bandwidth_mbps or 25.0) * 1.25, 2)
+    commands = sum(f.has_write_operations for f in inbound)
+    bypasses = sum(f.direction == "BYPASS_TO_OT" for f in flows)
+
+    def n(count: int, word: str) -> str:
+        return f"{count} {word}{'' if count == 1 else 's'}"
+
+    # (rule, scope, how many flows it applies to, violation markers); a missing kit is a kit problem
+    rules: list[tuple[str, str, int, tuple[str, ...]]] = [
+        ("Every connection seen has a decision", n(len(flows), "connection"), len(flows),
+         ("COVERAGE:", "SCHEMA:", "CONSISTENCY:")),
+        ("Commands into the plant are cut", f"{n(commands, 'session')} sending commands", commands, ("write operations",)),
+        ("Paths around the firewall are cut", n(bypasses, "bypass path"), bypasses, ("bypass path",)),
+        ("Remote admin and scanning are cut", n(len(risky), "session"), len(risky),
+         ("remote admin", "inbound SSH", "lateral movement")),
+        ("Nothing inbound is left working as-is", n(len(inbound), "inbound session"), len(inbound),
+         ("cannot be GREEN", "reclassifying")),
+        ("The diode can carry every kept protocol", n(len(protocols), "protocol"), len(protocols), ("PROTOCOL:",)),
+        ("A valid kit covers peak traffic x 1.25", f"{sized} Mbps needed", 1,
+         ("bill_of_materials", "CAPACITY:", "CATALOG:", "POSTURE:")),
+    ]
+    if cabinet_inspections or video_walkthrough:
+        rules.append(("The kit fits the measured cabinet", "SAM 3.1 measurements", 1, ("PHYSICAL:",)))
+    # Match the most specific markers first so a schema error about the kit lands on the kit rule
+    filed: dict[str, list[str]] = {rule: [] for rule, *_ in rules}
+    for v in violations:
+        for rule, _, _, needles in sorted(rules, key=lambda r: r[0] == rules[0][0]):
+            if any(m in v for m in needles):
+                filed[rule].append(v)
+                break
+    checks = [
+        {"rule": rule, "scope": scope, "applies": applies, "violations": filed[rule]}
+        for rule, scope, applies, _ in rules
+    ]
+    leftover = [v for v in violations if not any(v in hits for hits in filed.values())]
+    if leftover:
+        checks.append({"rule": "Other hard rules", "scope": "", "applies": 1, "violations": leftover})
+    return checks
+
+
 def decision_from_plan(plan: ConduitArchitecturePlan, telemetry_audit: TelemetryAuditResult) -> ArchitectureDecision:
     """Express a rule-engine plan as a decision so the same verifier can check it."""
     observed = {f.flow_id: f for f in telemetry_audit.flows}
@@ -571,8 +629,68 @@ def decision_from_plan(plan: ConduitArchitecturePlan, telemetry_audit: Telemetry
     )
 
 
+def challenge_verifier(
+    plan: ConduitArchitecturePlan,
+    *,
+    telemetry_audit: TelemetryAuditResult,
+    cabinet_inspections: list[CabinetVisionInspection],
+    video_walkthrough: VideoWalkthroughResult | None,
+) -> dict[str, Any] | None:
+    """Reopen the most dangerous connection a plan cut and ask the verifier to accept it.
+
+    The change is the kind of mistake a model could make: leaving a command or bypass path
+    working unchanged. Only violations the change adds are reported. None when nothing was cut.
+    """
+    observed = {f.flow_id: f for f in telemetry_audit.flows}
+    decision = decision_from_plan(plan, telemetry_audit)
+    cut = [fid for fid, d in decision.flow_decisions.items() if d.action == SEVER and fid in observed]
+    if not cut:
+        return None
+
+    def danger(fid: str) -> tuple[bool, ...]:
+        fl = observed[fid]
+        return (
+            fl.direction == "BYPASS_TO_OT",
+            fl.has_write_operations and fl.direction != "OT_TO_IT",
+            fl.lateral_movement_suspected,
+            fl.dst_port in REMOTE_ADMIN_PORTS,
+        )
+
+    def verify() -> list[str]:
+        return verify_architecture_proposal(
+            decision,
+            telemetry_audit=telemetry_audit,
+            cabinet_inspections=cabinet_inspections,
+            video_walkthrough=video_walkthrough,
+        )
+
+    baseline = set(verify())
+    fid = max(cut, key=danger)
+    fl = observed[fid]
+    original = decision.flow_decisions[fid]
+    decision.flow_decisions[fid] = FlowDecision(
+        flow_id=fid, initiator=original.initiator, tier="GREEN", action="DROP_IN_PROXY_MAPPING"
+    )
+    added = [v for v in verify() if v not in baseline]
+    return {
+        "flow_id": fid,
+        "connection": f"{fl.src_ip} -> {fl.dst_ip}:{fl.dst_port} ({fl.protocol})",
+        "detail": fl.function_detail,
+        "change": "Keep this connection working unchanged instead of cutting it",
+        "violations": added,
+        "checks": verifier_checklist(
+            telemetry_audit=telemetry_audit,
+            cabinet_inspections=cabinet_inspections,
+            video_walkthrough=video_walkthrough,
+            violations=added,
+        ),
+    }
+
+
 def _save_recording(path: Path | None, responses: list[dict[str, Any]]) -> None:
-    if path is None or not responses:
+    # Write-once: a later live run never replaces the recording a keyless replay depends on.
+    # Delete the file to record afresh.
+    if path is None or not responses or path.exists():
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps({"responses": responses}, indent=1), encoding="utf-8")
@@ -685,6 +803,12 @@ async def propose_and_verify_architecture(
                     catalog=catalog,
                 )
         record["violations"] = violations
+        record["checks"] = verifier_checklist(
+            telemetry_audit=telemetry_audit,
+            cabinet_inspections=cabinet_inspections,
+            video_walkthrough=video_walkthrough,
+            violations=violations,
+        )
         if decision is not None:
             record["proposed_bom"] = [
                 f"{b.quantity}x {b.archetype_id} ({b.mounting})" for b in decision.bill_of_materials

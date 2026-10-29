@@ -13,9 +13,10 @@ import {
   Upload,
   Video,
 } from "lucide-react";
-import { InferenceMode, ScenarioDataset, UserLensMode } from "@/types/conduit";
+import { CaptureSiteInfo, InferenceMode, ScenarioDataset, UserLensMode } from "@/types/conduit";
 import { API_BASE } from "@/lib/api";
 import { encodeAudioBlobToWav } from "@/lib/hydrateScenario";
+import { fetchCaptureSites, registerCaptureSite } from "@/lib/captureSites";
 import {
   buildNetworkEngineerRequestTemplate,
   getGuidedNarrative,
@@ -77,6 +78,11 @@ export default function SiteIntakeStep({
   const [stagedFiles, setStagedFiles] = useState<Record<string, File>>({});
   const [isAnalyzingCustom, setIsAnalyzingCustom] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const [captureSites, setCaptureSites] = useState<CaptureSiteInfo[]>([]);
+  useEffect(() => {
+    fetchCaptureSites().then(setCaptureSites);
+  }, []);
 
   useEffect(() => {
     setStagedFiles({});
@@ -265,7 +271,9 @@ export default function SiteIntakeStep({
       title: "Switch & Traffic Logs",
       filename:
         customAttachedNames.logs ??
-        `boundary_capture.pcap (${(selectedScenario.telemetry.pcapPacketCount / 1000).toFixed(0)}k pkts)`,
+        (selectedScenario.captureSite
+          ? `${selectedScenario.captureSite.filename} (${selectedScenario.captureSite.packetCount} pkts)`
+          : `boundary_capture.pcap (${(selectedScenario.telemetry.pcapPacketCount / 1000).toFixed(0)}k pkts)`),
       engineTag: "Baseten 1026 + DuckDB",
       icon: <FileSpreadsheet className="w-4 h-4 text-slate-600" />,
     },
@@ -340,6 +348,53 @@ export default function SiteIntakeStep({
             })}
           </div>
         </div>
+
+        {/* Public captures: sites the pipeline has never seen, analysed from the packets alone */}
+        {captureSites.length > 0 && (
+          <div className="border-t border-slate-100 pt-4 space-y-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h4 className="text-sm font-semibold text-slate-900">
+                Or try a capture it has never seen
+              </h4>
+              <span className="text-xs text-slate-500">
+                Real public ICS traffic · packets only, no asset list
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {captureSites.map((site) => {
+                const isSelected = site.scenarioId === selectedScenario.id;
+                return (
+                  <button
+                    key={site.scenarioId}
+                    type="button"
+                    onClick={() => {
+                      registerCaptureSite(site);
+                      onSelectScenario(site.scenarioId);
+                    }}
+                    className={`text-left px-3 py-2 rounded-lg border transition-all ${
+                      isSelected
+                        ? "bg-blue-50/60 border-blue-600 ring-1 ring-blue-600/20"
+                        : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/70"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-slate-900 truncate">
+                        {site.protocolFamily}
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-500 shrink-0">
+                        {site.packetCount} pkts
+                      </span>
+                    </div>
+                    <div className="text-xs text-slate-600 leading-snug mt-0.5">{site.story}</div>
+                    <div className="text-[10px] text-slate-400 mt-1 truncate">
+                      {site.sourceRepo} · {site.license}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* 5-Row Site Files Checklist */}
         <div className="border-t border-slate-100 pt-4 space-y-2.5">
