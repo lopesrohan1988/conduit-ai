@@ -28,7 +28,7 @@ Power grids, water utilities and factories are still bridged from their Operatio
 2. **Shadow-asset discovery.** Switch ARP/MAC tables are reconciled against the documented inventory, with OUI enrichment.
 3. **An architecture designed by Meta Muse Wonder and checked by a deterministic verifier.** Muse Wonder proposes a Green / Amber / Red tier and an action for every flow, plus the diode bill of materials and mounting. The verifier rejects any unsafe or infeasible proposal and sends the violations back for revision. Unsafe means an inbound session graded GREEN, or remote admin or lateral movement left connected. Infeasible means a protocol the chosen diode can't proxy, under-capacity, too many VLANs, or no physical space.
 4. **A today-vs-proposed map**, built from each run: every connection the office network can open into the plant today, and what remains after the diodes go in.
-5. **Proof against a hacked IT network.** Real control commands taken from public ICS captures (IEC-104 breaker commands, DNP3 operate, Modbus writes) are replayed down the exact paths the plant's traffic uses. Substation: **51 of 51** reach plant equipment today, **0 of 51** with the plan. Water plant: **11 of 11** today, **0 of 11** with the plan. The check can fail: a plan that leaves the water plant's cellular modem in place lets its commands through.
+5. **Proof against a hacked IT network.** Real control commands taken from public ICS captures (IEC-104 breaker commands, DNP3 operate, Modbus writes) are replayed down the exact paths the plant's traffic uses. Substation: **39 of 39** reach plant equipment today, **0 of 39** with the plan. Water plant: **11 of 11** today, **0 of 11** with the plan. The check can fail: a plan that leaves the water plant's cellular modem in place lets its commands through.
 6. **Deliverables:** TX/RX proxy translation table, switch cutover CLI, `.drawio` topology, PDF report and IEC 62443 / NIST 800-82 / NERC CIP mapping.
 
 ---
@@ -51,7 +51,7 @@ Every number below is computed by [`backend/scripts/run_eval_benchmark.py`](back
 - **The verifier catches the model.** At the substation, Muse Wonder's first kit couldn't proxy IEC-104, the substation's main telemetry protocol. The verifier rejected it and the model fixed the kit on attempt 2. The Compatibility tab shows each attempt and its violations.
 - **With only 13 labelled flows, these scores are a demo sanity check, not a statistical claim.**
 
-> Both plants are synthetic (see *What is synthetic* below) and were written alongside the parsers. Treat perception scores (assets, shadows, peak Mbps) as regression tests, not generalisation evidence. The parsers are also run against **15 real public ICS captures** (CISA, UIUC ITI, Digital Bond): 13 yield Layer-7 decodes.
+> Both plants are synthetic (see *What is synthetic* below) and were written alongside the parsers. Treat perception scores (assets, shadows, peak Mbps) as regression tests, not generalisation evidence. The parsers are also run against **15 real public ICS captures** (CISA and UIUC ITI, BSD-3-Clause / CC-BY-4.0): 12 yield Layer-7 decodes.
 
 ---
 
@@ -204,8 +204,8 @@ uv run pytest -q
 
 ## 📜 Provenance
 
-- The git history starts on **2026-10-26**, the first day of the hackathon build window. Application code in [`backend/`](backend/) and [`frontend/`](frontend/) was written during the event.
-- The real industrial captures in [`data/real_ics_captures/`](data/real_ics_captures/) come from public repositories: US CISA `cisagov`, UIUC ITI (CC-BY-4.0) and Digital Bond. Sources and SHA-256 checksums are listed in [`docs/DATA_SOURCES_AND_BENCHMARK_METHODOLOGY.md`](docs/DATA_SOURCES_AND_BENCHMARK_METHODOLOGY.md).
+- The git history starts on **2026-10-26**, the hackathon kickoff day (first commit 19:56 ET, after the noon kickoff). Application code in [`backend/`](backend/) and [`frontend/`](frontend/) was written during the event.
+- The real industrial captures in [`data/real_ics_captures/`](data/real_ics_captures/) come from two public repositories: US CISA `cisagov` ICSNPP (BSD-3-Clause) and UIUC ITI `ICS-Security-Tools` (CC-BY-4.0). `data/scripts/verify_real_ics_captures.py` re-downloads each file and checks it matches. Sources and SHA-256 checksums are listed in [`docs/DATA_SOURCES_AND_BENCHMARK_METHODOLOGY.md`](docs/DATA_SOURCES_AND_BENCHMARK_METHODOLOGY.md).
 
 ### What is synthetic
 

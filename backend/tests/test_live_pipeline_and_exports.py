@@ -64,13 +64,13 @@ def test_benchmark_telemetry_and_shadow_accuracy() -> None:
 
 
 def test_real_cisa_and_iti_ics_pcaps_dissect_cleanly() -> None:
-    """Verify binary L7 dissector parses real public CISA/ITI/DigitalBond ICS captures."""
+    """Verify binary L7 dissector parses real public CISA/ITI ICS captures."""
     cfg = get_settings()
     pcap_dir = cfg.real_ics_captures_dir
     for fname in (
-        "modbus_digitalbond_quickdraw_plc.pcap",
+        "modbus_scada_master_writes_iti.pcap",
         "dnp3_substation_relay_cisa.pcap",
-        "iec104_substation_rtu_polling.pcap",
+        "iec104_rtu_breaker_commands_iti.pcap",
         "opcua_binary_session_handshake_cisa.pcap",
         "iec61850_substation_mms_and_goose.pcap",
     ):

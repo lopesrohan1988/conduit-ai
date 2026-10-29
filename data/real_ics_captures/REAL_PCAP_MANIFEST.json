@@ -1,27 +1,27 @@
 {
   "schema_version": "1.0.0",
   "dataset_name": "ConduitAI Real-World Public ICS/OT PCAP Benchmark Corpus",
-  "generated_by": "data/scripts/download_real_ics_pcaps.py",
+  "generated_by": "Curated by hand; data/scripts/verify_real_ics_captures.py re-downloads each source_url and checks its sha256",
   "validation_engine": "scapy.utils.PcapReader + strict binary magic & Layer-7 OT signature inspection",
   "summary": {
     "total_files": 15,
-    "total_packets": 9792,
-    "total_bytes": 1218378,
+    "total_packets": 9066,
+    "total_bytes": 1081040,
     "max_single_file_bytes": 294072,
     "max_allowed_file_bytes": 15728640,
     "git_lfs_required": false,
     "distinct_protocol_family_count": 10,
     "distinct_protocol_families": [
-      "Modbus TCP",
-      "Siemens S7comm-plus",
-      "Siemens S7comm",
-      "IEC 60870-5-104 (IEC-104)",
+      "BACnet/IP",
       "DNP3",
       "EtherNet/IP (CIP)",
-      "BACnet/IP",
-      "OPC-UA Binary",
+      "IEC 60870-5-104 (IEC-104)",
       "IEC 61850 (MMS & GOOSE)",
-      "IEEE C37.118 Synchrophasor"
+      "IEEE C37.118 Synchrophasor",
+      "Modbus TCP",
+      "OPC-UA Binary",
+      "Siemens S7comm",
+      "Siemens S7comm-plus"
     ],
     "source_repositories": [
       {
@@ -33,11 +33,6 @@
         "name": "ITI/ICS-Security-Tools",
         "url": "https://github.com/ITI/ICS-Security-Tools",
         "license": "CC-BY-4.0"
-      },
-      {
-        "name": "automayt/ICS-pcap",
-        "url": "https://github.com/automayt/ICS-pcap",
-        "license": "Public Community Archive (Digital Bond Quickdraw / automayt/ICS-pcap)"
       }
     ]
   },
@@ -47,7 +42,6 @@
       "protocol_family": "Modbus TCP",
       "standard_port": "TCP/502",
       "hardware_context": "Schneider Electric Modicon PLC register read/write & device identification",
-      "conduit_scenario_mapping": "scenario_1_manufacturing",
       "byte_size": 32126,
       "sha256": "bd9ddf4762e77426640b875b45351beb1bdf7c59ffd5a370e4d7669717900b32",
       "container_format": "libpcap (magic=0xd4c3b2a1, linktype=1)",
@@ -80,34 +74,19 @@
       "source_repo": "ITI/ICS-Security-Tools",
       "source_repo_url": "https://github.com/ITI/ICS-Security-Tools",
       "source_url": "https://raw.githubusercontent.com/ITI/ICS-Security-Tools/master/pcaps/modicon/modicon_test.pcap",
-      "resolved_download_url": "https://raw.githubusercontent.com/ITI/ICS-Security-Tools/master/pcaps/modicon/modicon_test.pcap",
       "license": "CC-BY-4.0"
     },
     {
-      "filename": "modbus_digitalbond_quickdraw_plc.pcap",
+      "filename": "modbus_scada_master_writes_iti.pcap",
       "protocol_family": "Modbus TCP",
       "standard_port": "TCP/502",
-      "hardware_context": "Digital Bond Quickdraw SCADA field trace of PLC coil/holding register polling & writes",
-      "conduit_scenario_mapping": "scenario_1_manufacturing",
+      "hardware_context": "SCADA master polling coils and registers (FC 01-04) interleaved with write commands (FC 05/06/15/16)",
       "byte_size": 27764,
       "sha256": "f7cca627fe9b740b5881e8b33b4143b59158240192ecbf5caa727a7dda35d110",
-      "container_format": "libpcap (magic=0xd4c3b2a1, linktype=1)",
       "packet_count": 350,
       "capture_start_utc": "2006-07-21T14:24:39Z",
       "capture_end_utc": "2006-07-21T14:26:14Z",
       "duration_seconds": 94.4808,
-      "protocols_observed": [
-        "Ethernet",
-        "IPv4",
-        "TCP",
-        "Modbus/TCP (MBAP)"
-      ],
-      "ot_signatures_verified": [
-        "Modbus/TCP (MBAP)"
-      ],
-      "ot_service_ports": [
-        "TCP/502"
-      ],
       "ip_endpoint_count": 2,
       "ip_endpoints": [
         "166.161.16.230",
@@ -119,61 +98,48 @@
         "00:90:4c:91:00:01",
         "00:c0:a8:f2:bf:fb"
       ],
-      "source_repo": "automayt/ICS-pcap",
-      "source_repo_url": "https://github.com/automayt/ICS-pcap",
-      "source_url": "https://github.com/automayt/ICS-pcap/raw/master/MODBUS/digitalbond%20pcaps/modbus_test_data_part2/modbus_test_data_part2.pcap",
-      "resolved_download_url": "https://media.githubusercontent.com/media/automayt/ICS-pcap/master/MODBUS/digitalbond%20pcaps/modbus_test_data_part2/modbus_test_data_part2.pcap",
-      "license": "Public Community Archive (Digital Bond Quickdraw / automayt/ICS-pcap)"
+      "ot_service_ports": [
+        "TCP/502"
+      ],
+      "source_repo": "ITI/ICS-Security-Tools",
+      "source_repo_url": "https://github.com/ITI/ICS-Security-Tools",
+      "source_url": "https://raw.githubusercontent.com/ITI/ICS-Security-Tools/master/pcaps/ModbusTCP/modbus_test_data_part2.pcap",
+      "license": "CC-BY-4.0"
     },
     {
-      "filename": "s7comm_siemens_s7_1200_tia_ob1.pcap",
-      "protocol_family": "Siemens S7comm-plus",
+      "filename": "s7comm_snap7_client_cisa.pcap",
+      "protocol_family": "Siemens S7comm",
       "standard_port": "TCP/102",
-      "hardware_context": "Siemens SIMATIC S7-1200 PLC & TIA Portal V12 engineering station uploading Organization Block OB1 (S7comm-plus 0x72)",
-      "conduit_scenario_mapping": "scenario_1_manufacturing",
-      "byte_size": 19895,
-      "sha256": "73e4b36469447e0fd45ccd38ca0583fbe60f6df27372b1ca11066e335deb650e",
-      "container_format": "libpcap (magic=0xd4c3b2a1, linktype=1)",
-      "packet_count": 149,
-      "capture_start_utc": "2013-12-20T15:41:23Z",
-      "capture_end_utc": "2013-12-20T15:41:29Z",
-      "duration_seconds": 5.307,
-      "protocols_observed": [
-        "Ethernet",
-        "IPv4",
-        "TCP",
-        "ISO-TSAP/COTP (RFC 1006)",
-        "Siemens S7comm-plus (0x72)"
+      "hardware_context": "Snap7 client session against an S7 PLC (COTP connect, S7 setup and reads)",
+      "byte_size": 8260,
+      "sha256": "2b91f6a8a203ec83e4f2dbb69d5e61602845f23da0baa31d95d029fb24cbd427",
+      "packet_count": 64,
+      "capture_start_utc": "2016-02-08T22:08:09Z",
+      "capture_end_utc": "2016-02-08T22:08:10Z",
+      "duration_seconds": 0.5487,
+      "ip_endpoint_count": 2,
+      "ip_endpoints": [
+        "134.217.61.131",
+        "134.217.61.211"
       ],
-      "ot_signatures_verified": [
-        "ISO-TSAP/COTP (RFC 1006)",
-        "Siemens S7comm-plus (0x72)"
+      "mac_address_count": 2,
+      "mac_addresses": [
+        "00:0c:29:c1:49:92",
+        "00:0e:8c:d0:f9:cb"
       ],
       "ot_service_ports": [
         "TCP/102"
       ],
-      "ip_endpoint_count": 2,
-      "ip_endpoints": [
-        "192.168.1.10",
-        "192.168.1.191"
-      ],
-      "mac_address_count": 2,
-      "mac_addresses": [
-        "00:1c:06:08:e7:db",
-        "90:e6:ba:84:5e:41"
-      ],
-      "source_repo": "automayt/ICS-pcap",
-      "source_repo_url": "https://github.com/automayt/ICS-pcap",
-      "source_url": "https://github.com/automayt/ICS-pcap/raw/master/S7/S7-1200-Uploading-OB1-TIAV12/S7-1200-Uploading-OB1-TIAV12.pcap",
-      "resolved_download_url": "https://media.githubusercontent.com/media/automayt/ICS-pcap/master/S7/S7-1200-Uploading-OB1-TIAV12/S7-1200-Uploading-OB1-TIAV12.pcap",
-      "license": "Public Community Archive (automayt/ICS-pcap)"
+      "source_repo": "cisagov/icsnpp-s7comm",
+      "source_repo_url": "https://github.com/cisagov/icsnpp-s7comm",
+      "source_url": "https://raw.githubusercontent.com/cisagov/icsnpp-s7comm/main/testing/traces/snap7.pcap",
+      "license": "BSD-3-Clause"
     },
     {
       "filename": "s7comm_siemens_s7_400_wincc_prod.pcapng",
       "protocol_family": "Siemens S7comm",
       "standard_port": "TCP/102",
       "hardware_context": "Production Siemens SIMATIC S7-400 PLC polled continuously by Siemens WinCC SCADA HMI (.pcapng)",
-      "conduit_scenario_mapping": "scenario_1_manufacturing",
       "byte_size": 294072,
       "sha256": "d0bae738862ee3157c73b2ca90230a3d0c8e21402923155296f9b86804a2f0ae",
       "container_format": "libpcap (magic=0xd4c3b2a1, linktype=1)",
@@ -208,7 +174,6 @@
       "source_repo": "ITI/ICS-Security-Tools",
       "source_repo_url": "https://github.com/ITI/ICS-Security-Tools",
       "source_url": "https://raw.githubusercontent.com/ITI/ICS-Security-Tools/master/pcaps/s7/wincc_s400_production.pcapng",
-      "resolved_download_url": "https://raw.githubusercontent.com/ITI/ICS-Security-Tools/master/pcaps/s7/wincc_s400_production.pcapng",
       "license": "CC-BY-4.0"
     },
     {
@@ -216,7 +181,6 @@
       "protocol_family": "Siemens S7comm-plus",
       "standard_port": "TCP/102",
       "hardware_context": "Siemens SIMATIC S7-1200/1500 next-generation S7comm-plus (0x72 OMS) session over ISO-on-TCP",
-      "conduit_scenario_mapping": "scenario_1_manufacturing",
       "byte_size": 33464,
       "sha256": "2f9befe0667443fb86b7184b6ff7fcc4eb61fae67d3ce30793ce7b2937067b0c",
       "container_format": "libpcap (magic=0xd4c3b2a1, linktype=113)",
@@ -251,7 +215,6 @@
       "source_repo": "cisagov/icsnpp-s7comm",
       "source_repo_url": "https://github.com/cisagov/icsnpp-s7comm",
       "source_url": "https://raw.githubusercontent.com/cisagov/icsnpp-s7comm/main/testing/traces/s7comm_plus.pcap",
-      "resolved_download_url": "https://raw.githubusercontent.com/cisagov/icsnpp-s7comm/main/testing/traces/s7comm_plus.pcap",
       "license": "BSD-3-Clause"
     },
     {
@@ -259,7 +222,6 @@
       "protocol_family": "IEC 60870-5-104 (IEC-104)",
       "standard_port": "TCP/2404",
       "hardware_context": "Power grid substation RTU telecontrol capture with STARTDT/TESTFR U-frames, S-frames & diverse ASDUs",
-      "conduit_scenario_mapping": "scenario_2_substation",
       "byte_size": 13952,
       "sha256": "07b9a0879dc83e420c4cf83b37fb5830d1d8fb5f6ac6edc435896f70b0fc6bc7",
       "container_format": "libpcap (magic=0xd4c3b2a1, linktype=1)",
@@ -293,56 +255,42 @@
       "source_repo": "ITI/ICS-Security-Tools",
       "source_repo_url": "https://github.com/ITI/ICS-Security-Tools",
       "source_url": "https://raw.githubusercontent.com/ITI/ICS-Security-Tools/master/pcaps/IEC60870-5-104/090813_diverse.pcap",
-      "resolved_download_url": "https://raw.githubusercontent.com/ITI/ICS-Security-Tools/master/pcaps/IEC60870-5-104/090813_diverse.pcap",
       "license": "CC-BY-4.0"
     },
     {
-      "filename": "iec104_substation_rtu_polling.pcap",
+      "filename": "iec104_rtu_breaker_commands_iti.pcap",
       "protocol_family": "IEC 60870-5-104 (IEC-104)",
       "standard_port": "TCP/2404",
-      "hardware_context": "Substation SCADA master general interrogation & spontaneous RTU telemetry over TCP/2404",
-      "conduit_scenario_mapping": "scenario_2_substation",
-      "byte_size": 10135,
-      "sha256": "a78aa971adc51e54413a865937f1799ef57118d397cef57ccd93a358ed5b85d6",
-      "container_format": "libpcap (magic=0xd4c3b2a1, linktype=1)",
-      "packet_count": 105,
-      "capture_start_utc": "2013-07-04T06:23:16Z",
-      "capture_end_utc": "2013-07-04T06:25:41Z",
-      "duration_seconds": 145.1128,
-      "protocols_observed": [
-        "Ethernet",
-        "IPv4",
-        "TCP",
-        "IEC 60870-5-104 (APCI 0x68)"
+      "hardware_context": "IEC-104 master/RTU session with single and double commands (TypeID 45/46) and measured values",
+      "byte_size": 11409,
+      "sha256": "292c18a8765db3b1bcaa9bd0b8455e4e61b8366cc5910a7363b7381eb11441b8",
+      "packet_count": 147,
+      "capture_start_utc": "2008-08-29T06:43:51Z",
+      "capture_end_utc": "2008-08-29T06:57:35Z",
+      "duration_seconds": 823.8515,
+      "ip_endpoint_count": 2,
+      "ip_endpoints": [
+        "172.27.248.109",
+        "172.27.248.79"
       ],
-      "ot_signatures_verified": [
-        "IEC 60870-5-104 (APCI 0x68)"
+      "mac_address_count": 2,
+      "mac_addresses": [
+        "00:13:72:d7:87:8a",
+        "00:15:c5:18:d4:cc"
       ],
       "ot_service_ports": [
         "TCP/2404"
       ],
-      "ip_endpoint_count": 2,
-      "ip_endpoints": [
-        "10.20.100.108",
-        "10.20.102.1"
-      ],
-      "mac_address_count": 2,
-      "mac_addresses": [
-        "00:16:d1:00:09:05",
-        "00:22:15:56:0b:54"
-      ],
-      "source_repo": "automayt/ICS-pcap",
-      "source_repo_url": "https://github.com/automayt/ICS-pcap",
-      "source_url": "https://github.com/automayt/ICS-pcap/raw/master/IEC%2060870/iec104/iec104.pcap",
-      "resolved_download_url": "https://media.githubusercontent.com/media/automayt/ICS-pcap/master/IEC%2060870/iec104/iec104.pcap",
-      "license": "Public Community Archive (automayt/ICS-pcap)"
+      "source_repo": "ITI/ICS-Security-Tools",
+      "source_repo_url": "https://github.com/ITI/ICS-Security-Tools",
+      "source_url": "https://raw.githubusercontent.com/ITI/ICS-Security-Tools/master/pcaps/IEC60870-5-104/TestDissectIec104.pcap",
+      "license": "CC-BY-4.0"
     },
     {
       "filename": "dnp3_substation_relay_cisa.pcap",
       "protocol_family": "DNP3",
       "standard_port": "TCP/20000",
       "hardware_context": "Utility substation master & outstation relay Class 0/1/2/3 polling, Unsolicited Responses & Direct Operate",
-      "conduit_scenario_mapping": "scenario_2_substation",
       "byte_size": 115403,
       "sha256": "d9b22ee7b5ece4a78d8f9995aff20d55bfb315752ce136f97c77eb5ce73511bf",
       "container_format": "libpcap (magic=0xd4c3b2a1, linktype=1)",
@@ -375,117 +323,76 @@
       "source_repo": "cisagov/icsnpp-dnp3",
       "source_repo_url": "https://github.com/cisagov/icsnpp-dnp3",
       "source_url": "https://raw.githubusercontent.com/cisagov/icsnpp-dnp3/main/testing/traces/dnp3_example.pcap",
-      "resolved_download_url": "https://raw.githubusercontent.com/cisagov/icsnpp-dnp3/main/testing/traces/dnp3_example.pcap",
       "license": "BSD-3-Clause"
     },
     {
-      "filename": "dnp3_digitalbond_quickdraw_outstation.pcap",
+      "filename": "dnp3_master_operate_iti.pcap",
       "protocol_family": "DNP3",
       "standard_port": "TCP/20000",
-      "hardware_context": "Digital Bond Quickdraw substation DNP3 master-to-outstation read/write & integrity poll trace",
-      "conduit_scenario_mapping": "scenario_2_substation",
-      "byte_size": 15838,
-      "sha256": "71779cac342a37b412df5bb6372ec22c35b5127ad2bfed4447d7ab6b92ebb4bf",
-      "container_format": "libpcap (magic=0xd4c3b2a1, linktype=1)",
-      "packet_count": 181,
+      "hardware_context": "DNP3 master/outstation session with reads and Select/Direct Operate commands",
+      "byte_size": 18790,
+      "sha256": "7a30496184c93b12ef57fd0877acbead85975b20a8db35d8ac7b5c45e4f9f305",
+      "packet_count": 214,
       "capture_start_utc": "2004-10-11T13:38:58Z",
-      "capture_end_utc": "2004-10-11T16:46:25Z",
-      "duration_seconds": 11246.6047,
-      "protocols_observed": [
-        "Ethernet",
-        "IPv4",
-        "TCP",
-        "DNP3 (0x0564)"
+      "capture_end_utc": "2007-05-03T15:27:26Z",
+      "duration_seconds": 80704107.7431,
+      "ip_endpoint_count": 5,
+      "ip_endpoints": [
+        "10.0.0.3",
+        "10.0.0.8",
+        "10.0.0.9",
+        "192.168.66.33",
+        "192.168.66.34"
       ],
-      "ot_signatures_verified": [
-        "DNP3 (0x0564)"
+      "mac_address_count": 4,
+      "mac_addresses": [
+        "00:02:b3:ce:70:51",
+        "00:16:cb:8e:3f:0b",
+        "00:42:15:69:87:25",
+        "00:50:04:93:70:67"
       ],
       "ot_service_ports": [
         "TCP/20000"
       ],
-      "ip_endpoint_count": 3,
+      "source_repo": "ITI/ICS-Security-Tools",
+      "source_repo_url": "https://github.com/ITI/ICS-Security-Tools",
+      "source_url": "https://raw.githubusercontent.com/ITI/ICS-Security-Tools/master/pcaps/bro/dnp3/dnp3.pcap",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "filename": "enip_list_identity_session_iti.pcap",
+      "protocol_family": "EtherNet/IP (CIP)",
+      "standard_port": "TCP/44818",
+      "hardware_context": "EtherNet/IP encapsulation session (RegisterSession, ListIdentity, CIP requests)",
+      "byte_size": 925,
+      "sha256": "0ba6c01fde28912e9f890d839b991cff71cca8e8259e1d93e9c3a312c43bc255",
+      "packet_count": 11,
+      "capture_start_utc": "2015-03-31T17:41:35Z",
+      "capture_end_utc": "2015-03-31T17:41:40Z",
+      "duration_seconds": 5.5432,
+      "ip_endpoint_count": 2,
       "ip_endpoints": [
-        "10.0.0.3",
-        "10.0.0.8",
-        "10.0.0.9"
+        "10.1.1.164",
+        "10.1.1.167"
       ],
       "mac_address_count": 2,
       "mac_addresses": [
-        "00:02:b3:ce:70:51",
-        "00:50:04:93:70:67"
-      ],
-      "source_repo": "automayt/ICS-pcap",
-      "source_repo_url": "https://github.com/automayt/ICS-pcap",
-      "source_url": "https://github.com/automayt/ICS-pcap/raw/master/DNP3/DNP3-TestDataPart1/DNP3-TestDataPart1.pcap",
-      "resolved_download_url": "https://media.githubusercontent.com/media/automayt/ICS-pcap/master/DNP3/DNP3-TestDataPart1/DNP3-TestDataPart1.pcap",
-      "license": "Public Community Archive (Digital Bond Quickdraw / automayt/ICS-pcap)"
-    },
-    {
-      "filename": "enip_controllogix5000_mode_change.pcap",
-      "protocol_family": "EtherNet/IP (CIP)",
-      "standard_port": "TCP/44818",
-      "hardware_context": "Rockwell Automation Allen-Bradley ControlLogix 5000 PLC remote CPU mode change via RSLogix 5000 CIP",
-      "conduit_scenario_mapping": "scenario_1_manufacturing",
-      "byte_size": 130854,
-      "sha256": "71aec9602f668ec7505d1d0e63d037213bfcd555ce3e7eca257b475bbe9cbe7c",
-      "container_format": "libpcap (magic=0xd4c3b2a1, linktype=1)",
-      "packet_count": 727,
-      "capture_start_utc": "2009-08-31T19:24:17Z",
-      "capture_end_utc": "2009-08-31T19:25:04Z",
-      "duration_seconds": 46.9931,
-      "protocols_observed": [
-        "ARP",
-        "Ethernet",
-        "IPv4",
-        "TCP",
-        "UDP",
-        "EtherNet/IP Encapsulation (CIP)"
-      ],
-      "ot_signatures_verified": [
-        "EtherNet/IP Encapsulation (CIP)"
+        "00:19:07:24:3c:ca",
+        "3c:a9:f4:21:22:f8"
       ],
       "ot_service_ports": [
         "TCP/44818"
       ],
-      "ip_endpoint_count": 10,
-      "ip_endpoints": [
-        "192.168.10.105",
-        "192.168.10.107",
-        "192.168.10.121",
-        "192.168.10.21",
-        "192.168.10.23",
-        "192.168.10.24",
-        "192.168.10.248",
-        "192.168.10.249",
-        "192.168.10.255",
-        "192.168.10.62"
-      ],
-      "mac_address_count": 11,
-      "mac_addresses": [
-        "00:00:bc:3b:d6:59",
-        "00:0c:29:19:9e:8e",
-        "00:0c:29:40:8c:b1",
-        "00:0c:29:e4:db:59",
-        "00:0c:29:e8:32:84",
-        "00:0c:29:f7:85:99",
-        "00:0c:29:f7:85:a3",
-        "00:1d:09:99:b2:2c",
-        "00:1e:f6:73:59:8b",
-        "00:30:48:95:cb:e8",
-        "ff:ff:ff:ff:ff:ff"
-      ],
-      "source_repo": "automayt/ICS-pcap",
-      "source_repo_url": "https://github.com/automayt/ICS-pcap",
-      "source_url": "https://github.com/automayt/ICS-pcap/raw/master/ETHERNET_IP/digitalbond%20pcaps/CL5000EIP-Remote-Mode-Change-Attempt/CL5000EIP-Remote-Mode-Change-Attempt.pcap",
-      "resolved_download_url": "https://media.githubusercontent.com/media/automayt/ICS-pcap/master/ETHERNET_IP/digitalbond%20pcaps/CL5000EIP-Remote-Mode-Change-Attempt/CL5000EIP-Remote-Mode-Change-Attempt.pcap",
-      "license": "Public Community Archive (Digital Bond Quickdraw / automayt/ICS-pcap)"
+      "source_repo": "ITI/ICS-Security-Tools",
+      "source_repo_url": "https://github.com/ITI/ICS-Security-Tools",
+      "source_url": "https://raw.githubusercontent.com/ITI/ICS-Security-Tools/master/pcaps/EthernetIP/enip_test.pcap",
+      "license": "CC-BY-4.0"
     },
     {
       "filename": "enip_cip_explicit_and_implicit_io_cisa.pcap",
       "protocol_family": "EtherNet/IP (CIP)",
       "standard_port": "TCP/44818, UDP/2222",
       "hardware_context": "ODVA / Rockwell EtherNet/IP explicit CIP messaging (TCP/44818), Class 1 implicit real-time I/O (UDP/2222) & LLDP",
-      "conduit_scenario_mapping": "scenario_1_manufacturing",
       "byte_size": 93889,
       "sha256": "26cfe3df042a5d96fd680abf97c4998dd1ea8a396870a8aa2e98ba2ef056af93",
       "container_format": "libpcap (magic=0xd4c3b2a1, linktype=1)",
@@ -539,7 +446,6 @@
       "source_repo": "cisagov/icsnpp-enip",
       "source_repo_url": "https://github.com/cisagov/icsnpp-enip",
       "source_url": "https://raw.githubusercontent.com/cisagov/icsnpp-enip/main/testing/traces/enip_cip_example.pcap",
-      "resolved_download_url": "https://raw.githubusercontent.com/cisagov/icsnpp-enip/main/testing/traces/enip_cip_example.pcap",
       "license": "BSD-3-Clause"
     },
     {
@@ -547,7 +453,6 @@
       "protocol_family": "BACnet/IP",
       "standard_port": "UDP/47808",
       "hardware_context": "Multi-controller BMS/HVAC network (40+ BACnet/IP field controllers) exchanging Who-Is, I-Am, ReadProperty & COV",
-      "conduit_scenario_mapping": "scenario_3_smart_building",
       "byte_size": 256049,
       "sha256": "de0dc42a39b1b1a5daebe9575986c8292a9a8f236ada3c617b61abbedf953c9e",
       "container_format": "libpcap (magic=0xd4c3b2a1, linktype=1)",
@@ -619,7 +524,6 @@
       "source_repo": "cisagov/icsnpp-bacnet",
       "source_repo_url": "https://github.com/cisagov/icsnpp-bacnet",
       "source_url": "https://raw.githubusercontent.com/cisagov/icsnpp-bacnet/main/testing/traces/bacnet_example.pcap",
-      "resolved_download_url": "https://raw.githubusercontent.com/cisagov/icsnpp-bacnet/main/testing/traces/bacnet_example.pcap",
       "license": "BSD-3-Clause"
     },
     {
@@ -627,7 +531,6 @@
       "protocol_family": "OPC-UA Binary",
       "standard_port": "TCP/4840",
       "hardware_context": "Industrial OPC Unified Architecture binary TCP session (HEL/ACK, OpenSecureChannel, CreateSession, Read/Browse)",
-      "conduit_scenario_mapping": "scenario_1_manufacturing",
       "byte_size": 83524,
       "sha256": "030950345b2c79eaf3bedf8a04c2325cfe4a5d8b40225d250ed693daf350b6b6",
       "container_format": "pcapng (0x0a0d0d0a)",
@@ -660,7 +563,6 @@
       "source_repo": "cisagov/icsnpp-opcua-binary",
       "source_repo_url": "https://github.com/cisagov/icsnpp-opcua-binary",
       "source_url": "https://raw.githubusercontent.com/cisagov/icsnpp-opcua-binary/main/pcaps/opcua_with-gap_with-handshake.pcap",
-      "resolved_download_url": "https://raw.githubusercontent.com/cisagov/icsnpp-opcua-binary/main/pcaps/opcua_with-gap_with-handshake.pcap",
       "license": "BSD-3-Clause"
     },
     {
@@ -668,7 +570,6 @@
       "protocol_family": "IEC 61850 (MMS & GOOSE)",
       "standard_port": "TCP/102, EtherType/0x88b8",
       "hardware_context": "Digital substation IED protection & control capture combining Layer-7 MMS (TCP/102) and Layer-2 multicast GOOSE (0x88b8)",
-      "conduit_scenario_mapping": "scenario_2_substation",
       "byte_size": 43379,
       "sha256": "50e405f9dbca335dcf457424a8e8ad04caa6fc85b81671e7ddb5ba8a99567c30",
       "container_format": "libpcap (magic=0xd4c3b2a1, linktype=1)",
@@ -731,7 +632,6 @@
       "source_repo": "ITI/ICS-Security-Tools",
       "source_repo_url": "https://github.com/ITI/ICS-Security-Tools",
       "source_url": "https://raw.githubusercontent.com/ITI/ICS-Security-Tools/master/pcaps/IEC61850/Sample_File_MMS_and_GOOSE.pcap",
-      "resolved_download_url": "https://raw.githubusercontent.com/ITI/ICS-Security-Tools/master/pcaps/IEC61850/Sample_File_MMS_and_GOOSE.pcap",
       "license": "CC-BY-4.0"
     },
     {
@@ -739,7 +639,6 @@
       "protocol_family": "IEEE C37.118 Synchrophasor",
       "standard_port": "TCP/4712",
       "hardware_context": "Wide-area transmission grid Phasor Measurement Unit (PMU) streaming real-time synchrophasor frames to PDC",
-      "conduit_scenario_mapping": "scenario_2_substation",
       "byte_size": 48034,
       "sha256": "a42fa6644dda7c4d68e4ea4079ecf431d44e1356c489828013fe498853ee979a",
       "container_format": "libpcap (magic=0xd4c3b2a1, linktype=1)",
@@ -772,7 +671,6 @@
       "source_repo": "ITI/ICS-Security-Tools",
       "source_repo_url": "https://github.com/ITI/ICS-Security-Tools",
       "source_url": "https://raw.githubusercontent.com/ITI/ICS-Security-Tools/master/pcaps/C37.118/C37.118_1PMU_TCP.pcap",
-      "resolved_download_url": "https://raw.githubusercontent.com/ITI/ICS-Security-Tools/master/pcaps/C37.118/C37.118_1PMU_TCP.pcap",
       "license": "CC-BY-4.0"
     }
   ]
