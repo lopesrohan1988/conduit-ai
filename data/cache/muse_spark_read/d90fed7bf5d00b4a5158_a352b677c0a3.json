@@ -1,0 +1,11 @@
+{
+ "image_sha256": "d90fed7bf5d00b4a51581d1753b5b1cf9cb154142f9aecd8d267555a0f429752",
+ "model": "muse-spark-1.3",
+ "prompt_sha": "a352b677c0a3",
+ "reads": {
+  "158,374,1090,510": {
+   "empty": true,
+   "seen": "open empty space with rear cables visible"
+  }
+ }
+}

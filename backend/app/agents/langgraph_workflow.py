@@ -27,6 +27,7 @@ from app.agents.telemetry_duckdb_agent import (
 from app.agents.vision_sam31_agent import (
     inspect_cabinet_photos,
     inspect_network_diagram,
+    reconcile_diagram,
     track_walkthrough_video,
 )
 from app.catalog_loader import get_scenario_preview
@@ -55,9 +56,10 @@ def build_conduit_langgraph(
         cab_paths = state.get("cabinet_image_paths") or []
         vid_path = state.get("video_walkthrough_path")
 
-        diag_seg, diag_mode = await inspect_network_diagram(
+        diag_seg, _diag_mode, diag_reading = await inspect_network_diagram(
             diag_path, gateway=gw, use_live_llm=use_live_llm
         )
+        scratch["diagram_reading"] = diag_reading
         cab_insps, cab_mode = await inspect_cabinet_photos(
             cab_paths, gateway=gw, use_live_llm=use_live_llm
         )
@@ -177,6 +179,17 @@ def build_conduit_langgraph(
         )
         reconcile_mode = "deterministic_graph_reconciler"
         reconcile_note = ""
+        reading = scratch.get("diagram_reading")
+        if reading and reading["regions"]:
+            reading["reconciliation"] = reconcile_diagram(reading, sw_audit, tel_audit)
+            rec = reading["reconciliation"]
+            drawing = (
+                f"Drawing read by SAM 3.1 + Muse Spark ({reading['read_source_mode']}): "
+                f"{rec['drawn_devices']} devices drawn, {rec['drawn_seen']} seen on the network, "
+                f"{len(rec['missing_from_drawing'])} host(s) on the network missing from the drawing"
+            )
+        else:
+            drawing = "No network drawing could be read"
 
         if use_live_llm and cfg.meta_api_configured:
             spark_res = await gw.chat_muse_spark(
@@ -207,8 +220,8 @@ def build_conduit_langgraph(
                     "model": cfg.muse_spark_model,
                     "source_mode": reconcile_mode,
                     "headline": (
-                        f"Muse Spark reconciled diagram vs. switch/PCAP ground truth — "
-                        f"flagged {len(sw_audit.shadow_anomalies)} undocumented Shadow OT / Bypass anomaly(ies)"
+                        f"{drawing}; asset list vs. switch/PCAP flagged "
+                        f"{len(sw_audit.shadow_anomalies)} undocumented Shadow OT / Bypass anomaly(ies)"
                         f"{reconcile_note}"
                     ),
                 }
@@ -249,6 +262,9 @@ def build_conduit_langgraph(
             )
         else:
             author = "Deterministic rule engine"
+        if "fallback_check" in trace:
+            issues = len(trace["fallback_check"]["violations"])
+            author += f" (verifier: {issues} issue(s))" if issues else " (verifier passed)"
         bom_str = " + ".join(f"{b.quantity}x {b.item_code}" for b in plan.bill_of_materials)
         return {
             "architecture_plan": plan,

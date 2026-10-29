@@ -303,6 +303,7 @@ def _measured_payload(state: dict[str, Any], scratch: dict[str, Any]) -> dict[st
     return {
         "cabinet_inspections": [c.model_dump() for c in state.get("cabinet_inspections") or []],
         "video_walkthrough": video.model_dump() if video else None,
+        "diagram_reading": scratch.get("diagram_reading"),
         "attack_replay": (
             replay_attacks(
                 plan=plan,

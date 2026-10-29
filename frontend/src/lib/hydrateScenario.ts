@@ -198,7 +198,9 @@ export function hydrateArchitectTrace(
   const attempts = Array.isArray(rawTrace.attempts)
     ? (rawTrace.attempts as Array<Record<string, unknown>>)
     : [];
+  const fallback = rawTrace.fallback_check as { violations?: unknown } | undefined;
   return {
+    fallbackViolations: Array.isArray(fallback?.violations) ? fallback.violations.map(String) : null,
     model: String(rawTrace.model ?? ""),
     accepted: Boolean(rawTrace.accepted),
     finalSourceMode: String(rawTrace.final_source_mode ?? "deterministic_rule_engine"),
@@ -416,6 +418,37 @@ export function hydrateScenarioFromBackendPayload(
     };
   } else if ("video_walkthrough" in payload) {
     next.measuredVideo = null;
+  }
+  const rawDiagram = payload.diagram_reading as Record<string, unknown> | null | undefined;
+  if (rawDiagram && typeof rawDiagram === "object" && Array.isArray(rawDiagram.regions)) {
+    const rec = (rawDiagram.reconciliation ?? {}) as Record<string, unknown>;
+    next.measuredDiagram = {
+      sourceImage: String(rawDiagram.source_image ?? ""),
+      imageWidth: Number(rawDiagram.image_width ?? 1),
+      imageHeight: Number(rawDiagram.image_height ?? 1),
+      samSourceMode: String(rawDiagram.sam_source_mode ?? ""),
+      readSourceMode: String(rawDiagram.read_source_mode ?? ""),
+      regions: (rawDiagram.regions as Array<Record<string, unknown>>).map((g) => ({
+        bbox: (Array.isArray(g.bbox) ? g.bbox.map(Number) : [0, 0, 0, 0]) as [number, number, number, number],
+        kind: String(g.kind ?? "other"),
+        name: String(g.name ?? ""),
+        hostname: g.hostname ? String(g.hostname) : null,
+        ips: Array.isArray(g.ips) ? g.ips.map(String) : [],
+        status: String(g.status ?? "not_a_device"),
+      })),
+      drawnDevices: Number(rec.drawn_devices ?? 0),
+      drawnSeen: Number(rec.drawn_seen ?? 0),
+      missingFromDrawing: Array.isArray(rec.missing_from_drawing)
+        ? (rec.missing_from_drawing as Array<Record<string, unknown>>).map((m) => ({
+            ip: String(m.ip ?? ""),
+            hostname: m.hostname ? String(m.hostname) : null,
+            vendor: m.vendor ? String(m.vendor) : null,
+            undocumented: Boolean(m.undocumented),
+          }))
+        : [],
+    };
+  } else if ("diagram_reading" in payload) {
+    next.measuredDiagram = null;
   }
 
   const rawPlan = payload.architecture_plan as

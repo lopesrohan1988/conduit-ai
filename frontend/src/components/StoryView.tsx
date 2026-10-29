@@ -160,6 +160,15 @@ export default function StoryView({ scenario, step, isAssessing, onRun }: StoryV
                 {rejected > 0 ? `, which sent back ${plural(rejected, "unsafe draft")} first` : ""}.
               </Point>
             )}
+            {trace && !trace.accepted && trace.fallbackViolations !== null && (
+              <Point tone={trace.fallbackViolations.length > 0 ? "bad" : "neutral"}>
+                Designed by the backup rule engine
+                {trace.attempts.length > 0 ? " after the AI design was rejected" : ""}.{" "}
+                {trace.fallbackViolations.length === 0
+                  ? "The independent rule checker approved it."
+                  : `The independent rule checker flagged ${plural(trace.fallbackViolations.length, "issue")}, so an engineer must review this kit before ordering (see Engineer detail).`}
+              </Point>
+            )}
           </ul>
         </div>
         <div className="space-y-1.5">

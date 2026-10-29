@@ -495,8 +495,10 @@ export default function ConduitWorkbenchPage() {
             {" · architect: "}
             {selectedScenario.architectTrace?.accepted
               ? `${selectedScenario.architectTrace.model} proposed, verifier accepted (attempt ${selectedScenario.architectTrace.attempts.length})`
-              : "deterministic rule engine"}
-            {". Topology layout and the video overlay remain illustrative."}
+              : selectedScenario.architectTrace?.fallbackViolations?.length
+                ? `deterministic rule engine, verifier found ${selectedScenario.architectTrace.fallbackViolations.length} issue(s)`
+                : "deterministic rule engine, verifier passed"}
+            {". The overlay drawn on the walkthrough video playback is illustrative."}
           </div>
         )}
 

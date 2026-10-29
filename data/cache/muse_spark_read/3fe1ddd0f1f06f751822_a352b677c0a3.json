@@ -1,0 +1,27 @@
+{
+ "image_sha256": "3fe1ddd0f1f06f751822a3c2f69894011f874f5615bf5bdc94dfc4d8e6a8d271",
+ "model": "muse-spark-1.3",
+ "prompt_sha": "a352b677c0a3",
+ "reads": {
+  "355,161,860,243": {
+   "empty": false,
+   "seen": "horizontal cable manager with white hooks"
+  },
+  "364,332,879,571": {
+   "empty": false,
+   "seen": "two patch panels with red patch cables"
+  },
+  "364,658,877,786": {
+   "empty": false,
+   "seen": "horizontal cable manager with yellow patch cables"
+  },
+  "364,815,877,894": {
+   "empty": false,
+   "seen": "horizontal cable manager with yellow cables routed through clips"
+  },
+  "368,977,877,1096": {
+   "empty": false,
+   "seen": "patch panel with connected cables"
+  }
+ }
+}

@@ -21,6 +21,7 @@ from app.catalog_loader import load_hardware_catalog
 from app.clients.meta_models import MetaModelGateway, extract_json_object
 from app.state import (
     CabinetVisionInspection,
+    ConduitArchitecturePlan,
     InferenceMode,
     VideoWalkthroughResult,
     VoiceFieldNoteTranscript,
@@ -523,6 +524,33 @@ def verify_architecture_proposal(
             )
 
     return violations
+
+
+def decision_from_plan(plan: ConduitArchitecturePlan, telemetry_audit: TelemetryAuditResult) -> ArchitectureDecision:
+    """Express a rule-engine plan as a decision so the same verifier can check it."""
+    observed = {f.flow_id: f for f in telemetry_audit.flows}
+    flow_decisions: dict[str, FlowDecision] = {}
+    for row in plan.protocol_cutover_matrix:
+        fl = observed.get(row.flow_id)
+        # Plan rows only record OT_TO_IT / IT_TO_OT; keep a bypass path visible to the verifier
+        initiator = "BYPASS_TO_OT" if fl is not None and fl.direction == "BYPASS_TO_OT" else row.observed_initiator
+        flow_decisions[row.flow_id] = FlowDecision(
+            flow_id=row.flow_id, initiator=initiator, tier=row.cutover_tier, action=row.cutover_action_type
+        )
+    return ArchitectureDecision(
+        bill_of_materials=[
+            BomDecision(
+                archetype_id=s.recommended_archetype_id,
+                quantity=s.quantity,
+                mounting=s.mounting_selection,
+                purpose="",
+            )
+            for s in plan.conduit_sizing_recommendations
+        ],
+        flow_decisions=flow_decisions,
+        target_sl=plan.executive_summary.target_security_posture_sl,
+        design_rationale="",
+    )
 
 
 def telemetry_audit_vlans(telemetry_audit: TelemetryAuditResult) -> list[int]:

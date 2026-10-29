@@ -85,6 +85,11 @@ _SCENARIO_DEMO_TRANSCRIPTS: dict[str, dict[str, Any]] = {
 }
 
 
+def region_key(box: list[float] | tuple[float, ...]) -> str:
+    """Stable id for an image region, used to record and look up per-region model reads."""
+    return ",".join(str(round(v)) for v in box)
+
+
 def _split_reasoning_tags(raw_text: str) -> tuple[str, str | None]:
     """Extract inline `<think>...</think>` reasoning blocks if present."""
     match = re.search(r"<think>(.*?)</think>", raw_text, flags=re.DOTALL)
@@ -514,6 +519,77 @@ class MetaModelGateway:
             "image_height": height,
             "boxes": boxes,
         }
+
+    async def muse_spark_read_regions(
+        self,
+        image_bytes: bytes,
+        boxes: list[list[float]],
+        prompt: str,
+        *,
+        live: bool,
+    ) -> dict[str, Any]:
+        """Ask Muse Spark to read each cropped region and return its JSON answer per box.
+
+        Recorded like `sam31_concepts`, keyed by image hash, prompt and box, so a run without
+        live access replays the model's earlier answers and never invents one.
+        """
+        image_sha = hashlib.sha256(image_bytes).hexdigest()
+        prompt_sha = hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:12]
+        cache_path = (
+            self.settings.resolved_data_dir / "cache" / "muse_spark_read" / f"{image_sha[:20]}_{prompt_sha}.json"
+        )
+        cached: dict[str, Any] = (
+            json.loads(cache_path.read_text(encoding="utf-8")) if cache_path.exists() else {}
+        )
+        recorded: dict[str, Any] = cached.get("reads", {})
+        key = region_key
+
+        source_mode = "unavailable"
+        missing = [b for b in boxes if key(b) not in recorded]
+        if live and self.settings.meta_api_configured and missing:
+            with Image.open(io.BytesIO(image_bytes)) as img:
+                rgb = img.convert("RGB")
+                crops = {}
+                for b in missing:
+                    buf = io.BytesIO()
+                    rgb.crop(tuple(round(v) for v in b)).save(buf, "PNG")
+                    crops[key(b)] = base64.b64encode(buf.getvalue()).decode("ascii")
+            sem = asyncio.Semaphore(8)
+
+            async def _one(k: str) -> tuple[str, dict[str, Any] | None]:
+                async with sem:
+                    res = await self.chat_muse_spark(
+                        [
+                            {
+                                "role": "user",
+                                "content": [
+                                    {"type": "text", "text": prompt},
+                                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{crops[k]}"}},
+                                ],
+                            }
+                        ],
+                        max_tokens=4096,
+                    )
+                    if res.get("source_mode") != "live":
+                        return k, None
+                    return k, extract_json_object(str(res.get("content") or "")) or {}
+
+            for k, got in await asyncio.gather(*(_one(k) for k in crops)):
+                if got is not None:
+                    recorded[k] = got
+                    source_mode = "live_muse_spark"
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            cache_path.write_text(
+                json.dumps(
+                    {"image_sha256": image_sha, "model": self.settings.muse_spark_model, "prompt_sha": prompt_sha, "reads": recorded},
+                    indent=1,
+                ),
+                encoding="utf-8",
+            )
+        reads = {key(b): recorded[key(b)] for b in boxes if key(b) in recorded}
+        if reads and source_mode == "unavailable":
+            source_mode = "recorded_muse_spark"
+        return {"model": self.settings.muse_spark_model, "source_mode": source_mode, "reads": reads}
 
     async def segment_sam31(
         self,

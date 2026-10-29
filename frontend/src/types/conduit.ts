@@ -222,6 +222,8 @@ export interface ArchitectTrace {
   finalSourceMode: string;
   totalLatencyMs: number;
   attempts: ArchitectAttempt[];
+  /** Verifier result for a rule-engine plan; null when a model proposal was accepted */
+  fallbackViolations: string[] | null;
 }
 
 export interface MeasuredDetection {
@@ -254,6 +256,36 @@ export interface MeasuredVideo {
   rogueDetected: boolean;
   measurementSource: string;
   notes: string[];
+}
+
+export interface DiagramRegion {
+  bbox: [number, number, number, number];
+  kind: string;
+  name: string;
+  hostname: string | null;
+  ips: string[];
+  /** seen | not_seen | not_a_device */
+  status: string;
+}
+
+export interface MissingFromDrawing {
+  ip: string;
+  hostname: string | null;
+  vendor: string | null;
+  undocumented: boolean;
+}
+
+/** SAM 3.1 boxes on the customer's drawing, each read by Muse Spark, compared with the network */
+export interface MeasuredDiagram {
+  sourceImage: string;
+  imageWidth: number;
+  imageHeight: number;
+  samSourceMode: string;
+  readSourceMode: string;
+  regions: DiagramRegion[];
+  drawnDevices: number;
+  drawnSeen: number;
+  missingFromDrawing: MissingFromDrawing[];
 }
 
 export interface AttackReplayPath {
@@ -299,6 +331,7 @@ export interface ScenarioDataset {
   provenance?: DataProvenance;
   measuredCabinets?: MeasuredCabinet[];
   measuredVideo?: MeasuredVideo | null;
+  measuredDiagram?: MeasuredDiagram | null;
   architectSourceMode?: string;
   architectTrace?: ArchitectTrace | null;
   shortIndex: number;

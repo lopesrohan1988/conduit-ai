@@ -14,7 +14,10 @@ from typing import Any
 
 from app.agents.architect_llm_planner import (
     ArchitectureDecision,
+    PlannerTrace,
+    decision_from_plan,
     propose_and_verify_architecture,
+    verify_architecture_proposal,
 )
 from app.agents.switch_config_agent import SwitchAuditResult
 from app.agents.telemetry_duckdb_agent import TelemetryAuditResult
@@ -466,6 +469,17 @@ async def run_architect_sizing_agent(
         if inference_mode == "air_gapped_open_weights"
         else gateway.settings.muse_wonder_model
     )
+    if decision is None:
+        # The rule-engine plan is held to the same hard rules as a model proposal
+        planner_trace = planner_trace or PlannerTrace(model=default_model, inference_mode=inference_mode).to_dict()
+        planner_trace["fallback_check"] = {
+            "violations": verify_architecture_proposal(
+                decision_from_plan(plan, telemetry_audit),
+                telemetry_audit=telemetry_audit,
+                cabinet_inspections=cabinet_inspections,
+                video_walkthrough=video_walkthrough,
+            )
+        }
     meta_info: dict[str, Any] = {
         "architect_model": (planner_trace or {}).get("model", default_model),
         "source_mode": (planner_trace or {}).get("final_source_mode", "deterministic_rule_engine"),

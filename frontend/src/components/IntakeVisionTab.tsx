@@ -19,6 +19,7 @@ import {
 } from "@/types/conduit";
 import { getStaticDataUrl } from "@/lib/api";
 import MeasuredPhoto from "@/components/MeasuredPhoto";
+import MeasuredDiagram from "@/components/MeasuredDiagram";
 import { getGuidedNarrative } from "@/lib/guidedCopy";
 
 interface IntakeVisionTabProps {
@@ -146,6 +147,7 @@ export default function IntakeVisionTab({
       : scenario.mediaPaths.cabinetPhotoRel;
 
   const diagramUrl = getStaticDataUrl(scenario.mediaPaths.topologyDiagramRel);
+  const measuredDiagram = scenario.measuredDiagram ?? null;
   const cabinetUrl = getStaticDataUrl(activePhotoRel);
   const videoUrl = getStaticDataUrl(videoOverride);
 
@@ -209,7 +211,13 @@ export default function IntakeVisionTab({
             {!isGuided && (
               <p className="text-xs text-slate-600 leading-relaxed">
                 {visionMeasured
-                  ? measuredCabinets.flatMap((c) => c.notes).slice(0, 3).join(" ")
+                  ? (() => {
+                      // Notes from the photo behind the headline number, not a mix of every photo
+                      const best = [...measuredCabinets].sort(
+                        (a, b) => b.empty1uSlots - a.empty1uSlots || b.dinRailFreeMm - a.dinRailFreeMm
+                      )[0];
+                      return `${best.sourceImage}: ${best.notes.slice(0, 2).join(" ")}`;
+                    })()
                   : narrative.cabinetFitPlainText}
               </p>
             )}
@@ -523,7 +531,7 @@ export default function IntakeVisionTab({
               {!activeMeasured && (
                 <p className="text-[11px] text-slate-500">
                   {visionMeasured
-                    ? "SAM 3.1 found no enclosure in this photo, so nothing was measured; boxes shown are reference annotations."
+                    ? "SAM 3.1 found nothing it could measure in this photo (no rack devices, DIN rail or modem), so no free space is claimed; boxes shown are reference annotations."
                     : "Reference annotations. Run Analysis to measure this photo with SAM 3.1."}
                 </p>
               )}
@@ -542,94 +550,106 @@ export default function IntakeVisionTab({
                     {scenario.diagramStyle}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowDiagramHud((v) => !v)}
-                  className="px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
-                >
-                  {showDiagramHud ? "Zone Boxes: On" : "Zone Boxes: Off"}
-                </button>
-              </div>
-
-              <div className="relative aspect-[16/10] bg-slate-900 rounded-lg overflow-hidden">
-                {!diagramLoadFailed ? (
-                  <img
-                    src={diagramUrl}
-                    alt={`${scenario.facilityName} Topology Diagram`}
-                    onError={() => setDiagramLoadFailed(true)}
-                    className="w-full h-full object-contain"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-media-grid bg-slate-900 flex flex-col justify-between p-5 select-none text-slate-200">
-                    <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 border-b border-slate-700 pb-1.5">
-                      <span>DIAGRAM PARSER // {scenario.id.toUpperCase()}</span>
-                      <span>PURDUE L0–L4</span>
-                    </div>
-                    <div className="my-auto space-y-2.5 px-2">
-                      <div className="p-2.5 rounded border border-sky-400/40 bg-sky-900/20 flex items-center justify-between text-xs font-mono text-sky-200">
-                        <span>L4 CORPORATE IT / WAN</span>
-                        <span className="text-[10px] text-slate-300">
-                          Historian · MES · SIEM
-                        </span>
-                      </div>
-                      <div className="mx-auto w-2/3 p-2 rounded border border-amber-400/50 bg-amber-900/25 text-center text-xs font-mono text-amber-200">
-                        L3.5 {scenario.telemetry.firewallVendor} (
-                        {scenario.preCutoverSl})
-                      </div>
-                      <div className="grid grid-cols-2 gap-3 text-xs font-mono">
-                        <div className="p-2.5 rounded border border-emerald-400/40 bg-emerald-900/20 text-emerald-200">
-                          L2/L3 SCADA ({scenario.telemetry.peakBandwidthMbps}{" "}
-                          Mbps)
-                        </div>
-                        <div className="p-2.5 rounded border border-emerald-400/40 bg-emerald-900/20 text-emerald-200">
-                          L1 PLCs ({scenario.telemetry.documentedAssets} Listed)
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-[10px] font-mono text-amber-300 flex items-center justify-between border-t border-slate-700 pt-1.5">
-                      <span>
-                        {scenario.telemetry.shadowAssetCount} Unlisted Floor
-                        Devices Missing From Diagram
-                      </span>
-                      <span>SAM 3.1 OCR</span>
-                    </div>
-                  </div>
-                )}
-
-                {showDiagramHud && (
-                  <svg
-                    viewBox="0 0 100 100"
-                    preserveAspectRatio="none"
-                    className="absolute inset-0 w-full h-full pointer-events-none"
+                {!measuredDiagram && (
+                  <button
+                    type="button"
+                    onClick={() => setShowDiagramHud((v) => !v)}
+                    className="px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
                   >
-                    {scenario.samDiagramZones.map((z) => (
-                      <g key={z.id}>
-                        <rect
-                          x={z.x}
-                          y={z.y}
-                          width={z.w}
-                          height={z.h}
-                          fill="rgba(56, 189, 248, 0.1)"
-                          stroke="#38bdf8"
-                          strokeWidth="0.45"
-                          strokeDasharray="1.8 1.2"
-                        />
-                      </g>
-                    ))}
-                  </svg>
+                    {showDiagramHud ? "Zone Boxes: On" : "Zone Boxes: Off"}
+                  </button>
                 )}
-
-                {showDiagramHud &&
-                  scenario.samDiagramZones.map((z) => (
-                    <div
-                      key={`${z.id}-lbl`}
-                      style={{ left: `${z.x}%`, top: `${z.y}%` }}
-                      className="absolute pointer-events-none px-1.5 py-0.5 bg-slate-900/90 text-[10px] font-mono text-sky-200 rounded-br"
-                    >
-                      {z.purdueLevel} · {z.vlan}
-                    </div>
-                  ))}
               </div>
+
+              {measuredDiagram && !diagramLoadFailed ? (
+                <MeasuredDiagram url={diagramUrl} diagram={measuredDiagram} />
+              ) : (
+                <>
+                  <div className="relative aspect-[16/10] bg-slate-900 rounded-lg overflow-hidden">
+                    {!diagramLoadFailed ? (
+                      <img
+                        src={diagramUrl}
+                        alt={`${scenario.facilityName} Topology Diagram`}
+                        onError={() => setDiagramLoadFailed(true)}
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-media-grid bg-slate-900 flex flex-col justify-between p-5 select-none text-slate-200">
+                        <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 border-b border-slate-700 pb-1.5">
+                          <span>DIAGRAM PARSER // {scenario.id.toUpperCase()}</span>
+                          <span>PURDUE L0–L4</span>
+                        </div>
+                        <div className="my-auto space-y-2.5 px-2">
+                          <div className="p-2.5 rounded border border-sky-400/40 bg-sky-900/20 flex items-center justify-between text-xs font-mono text-sky-200">
+                            <span>L4 CORPORATE IT / WAN</span>
+                            <span className="text-[10px] text-slate-300">
+                              Historian · MES · SIEM
+                            </span>
+                          </div>
+                          <div className="mx-auto w-2/3 p-2 rounded border border-amber-400/50 bg-amber-900/25 text-center text-xs font-mono text-amber-200">
+                            L3.5 {scenario.telemetry.firewallVendor} (
+                            {scenario.preCutoverSl})
+                          </div>
+                          <div className="grid grid-cols-2 gap-3 text-xs font-mono">
+                            <div className="p-2.5 rounded border border-emerald-400/40 bg-emerald-900/20 text-emerald-200">
+                              L2/L3 SCADA ({scenario.telemetry.peakBandwidthMbps}{" "}
+                              Mbps)
+                            </div>
+                            <div className="p-2.5 rounded border border-emerald-400/40 bg-emerald-900/20 text-emerald-200">
+                              L1 PLCs ({scenario.telemetry.documentedAssets} Listed)
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-[10px] font-mono text-amber-300 flex items-center justify-between border-t border-slate-700 pt-1.5">
+                          <span>
+                            {scenario.telemetry.shadowAssetCount} Unlisted Floor
+                            Devices Missing From Diagram
+                          </span>
+                          <span>SAM 3.1 OCR</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {showDiagramHud && (
+                      <svg
+                        viewBox="0 0 100 100"
+                        preserveAspectRatio="none"
+                        className="absolute inset-0 w-full h-full pointer-events-none"
+                      >
+                        {scenario.samDiagramZones.map((z) => (
+                          <g key={z.id}>
+                            <rect
+                              x={z.x}
+                              y={z.y}
+                              width={z.w}
+                              height={z.h}
+                              fill="rgba(56, 189, 248, 0.1)"
+                              stroke="#38bdf8"
+                              strokeWidth="0.45"
+                              strokeDasharray="1.8 1.2"
+                            />
+                          </g>
+                        ))}
+                      </svg>
+                    )}
+
+                    {showDiagramHud &&
+                      scenario.samDiagramZones.map((z) => (
+                        <div
+                          key={`${z.id}-lbl`}
+                          style={{ left: `${z.x}%`, top: `${z.y}%` }}
+                          className="absolute pointer-events-none px-1.5 py-0.5 bg-slate-900/90 text-[10px] font-mono text-sky-200 rounded-br"
+                        >
+                          {z.purdueLevel} · {z.vlan}
+                        </div>
+                      ))}
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Reference zone annotations. Run Analysis to read this drawing with SAM 3.1 and Muse
+                    Spark and compare it with the devices seen on the network.
+                  </p>
+                </>
+              )}
             </div>
           )}
         </div>

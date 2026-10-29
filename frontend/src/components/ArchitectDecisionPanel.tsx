@@ -8,6 +8,31 @@ interface ArchitectDecisionPanelProps {
   scenario: ScenarioDataset;
 }
 
+/** Verifier verdict on a rule-engine plan, which gets the same hard-rule check as a model proposal. */
+function FallbackCheck({ violations }: { violations: string[] | null }) {
+  if (violations === null) return null;
+  if (violations.length === 0) {
+    return (
+      <div className="text-xs text-emerald-800">
+        The same verifier checked the rule-engine plan and found no violations.
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-1">
+      <div className="text-xs font-medium text-rose-800">
+        The verifier found {violations.length} issue{violations.length === 1 ? "" : "s"} in the
+        rule-engine plan. An engineer must review before deployment:
+      </div>
+      <ul className="list-disc pl-5 text-xs text-rose-800 space-y-0.5">
+        {violations.map((v, i) => (
+          <li key={i}>{v}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 /** Shows how the cutover plan was produced: Muse Wonder proposals and the verifier's verdicts. */
 export default function ArchitectDecisionPanel({ scenario }: ArchitectDecisionPanelProps) {
   const [expanded, setExpanded] = useState(false);
@@ -28,11 +53,12 @@ export default function ArchitectDecisionPanel({ scenario }: ArchitectDecisionPa
 
   if (!trace || trace.attempts.length === 0) {
     return (
-      <div className="bg-white border border-slate-200 rounded-xl px-5 py-3 text-xs sm:text-sm text-slate-700 flex items-center gap-2.5">
-        <BrainCircuit className="w-4 h-4 text-slate-500 shrink-0" />
-        <span>
-          Plan produced by the deterministic rule engine (no live model call in this run).
-        </span>
+      <div className="bg-white border border-slate-200 rounded-xl px-5 py-3 space-y-2">
+        <div className="text-xs sm:text-sm text-slate-700 flex items-center gap-2.5">
+          <BrainCircuit className="w-4 h-4 text-slate-500 shrink-0" />
+          <span>Plan produced by the deterministic rule engine (no live model call in this run).</span>
+        </div>
+        <FallbackCheck violations={trace?.fallbackViolations ?? null} />
       </div>
     );
   }
@@ -69,6 +95,12 @@ export default function ArchitectDecisionPanel({ scenario }: ArchitectDecisionPa
           {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
         </div>
       </button>
+
+      {trace.fallbackViolations !== null && (
+        <div className="px-5 pb-3">
+          <FallbackCheck violations={trace.fallbackViolations} />
+        </div>
+      )}
 
       {expanded && (
         <div className="border-t border-slate-100 px-5 py-3 space-y-3">

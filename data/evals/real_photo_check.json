@@ -1,0 +1,226 @@
+{
+ "description": "Real Wikimedia Commons photos used to check SAM 3.1 cabinet measurement outside the synthetic demo. Labels were written by the project author from looking at each photo. Images are not redistributed; run backend/scripts/check_real_photos.py to download them from Commons.",
+ "photos": [
+  {
+   "file": "Patch_Panel.jpg",
+   "commons_page": "https://commons.wikimedia.org/wiki/File:Patch_Panel.jpg",
+   "download_url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b9/Patch_Panel.jpg/1280px-Patch_Panel.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+   "license": "CC BY-SA 3.0",
+   "author": "Agott at English Wikipedia",
+   "label": {
+    "enclosure": "wall network enclosure",
+    "empty_u": null,
+    "cellular_modem": false,
+    "note": "Structured-wiring wall box; no rack units visible to count"
+   }
+  },
+  {
+   "file": "Patchpanel.JPG",
+   "commons_page": "https://commons.wikimedia.org/wiki/File:Patchpanel.JPG",
+   "download_url": "https://upload.wikimedia.org/wikipedia/commons/6/6f/Patchpanel.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+   "license": "CC BY 2.5",
+   "author": "Florian Lindner",
+   "label": {
+    "enclosure": "19-inch rack",
+    "empty_u": 0,
+    "cellular_modem": false,
+    "note": "Fully populated: patch panels alternate with horizontal cable managers"
+   }
+  },
+  {
+   "file": "Patchpanel1.jpg",
+   "commons_page": "https://commons.wikimedia.org/wiki/File:Patchpanel1.jpg",
+   "download_url": "https://upload.wikimedia.org/wikipedia/commons/0/08/Patchpanel1.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+   "license": "CC BY-SA 4.0",
+   "author": "Yasser hesham",
+   "label": {
+    "enclosure": "19-inch rack",
+    "empty_u": null,
+    "cellular_modem": false,
+    "note": "Wall of punch-down panels shot at an angle"
+   }
+  },
+  {
+   "file": "Cisco_SVX_4300_series_19_rack.jpg",
+   "commons_page": "https://commons.wikimedia.org/wiki/File:Cisco_SVX_4300_series_19%22_rack.jpg",
+   "download_url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d0/Cisco_SVX_4300_series_19%22_rack.jpg/1280px-Cisco_SVX_4300_series_19%22_rack.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+   "license": "CC BY 2.0",
+   "author": "ftzdomino",
+   "label": {
+    "enclosure": "19-inch rack",
+    "empty_u": null,
+    "cellular_modem": false,
+    "note": "Empty open-frame rack, product shot; every U is free but none are bounded by devices"
+   }
+  },
+  {
+   "file": "Layout_and_identifying_fiber_optic_cables_for_a_power_substa.jpg",
+   "commons_page": "https://commons.wikimedia.org/wiki/File:Layout_and_identifying_fiber_optic_cables_for_a_power_substation_in_Queens._(CS179,_11-07-2019)_(49034201261).jpg",
+   "download_url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0a/Layout_and_identifying_fiber_optic_cables_for_a_power_substation_in_Queens._%28CS179%2C_11-07-2019%29_%2849034201261%29.jpg/1280px-Layout_and_identifying_fiber_optic_cables_for_a_power_substation_in_Queens._%28CS179%2C_11-07-2019%29_%2849034201261%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+   "license": "CC BY 2.0",
+   "author": "MTA Capital Construction Mega Projects",
+   "label": {
+    "enclosure": "19-inch rack",
+    "empty_u": null,
+    "cellular_modem": false,
+    "note": "Rack interior from the side with a technician in front"
+   }
+  },
+  {
+   "file": "Layout_and_installation_of_fiber_optic_cable_in_a_communicat.jpg",
+   "commons_page": "https://commons.wikimedia.org/wiki/File:Layout_and_installation_of_fiber_optic_cable_in_a_communication_rack_in_Queens._(49281750862).jpg",
+   "download_url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fe/Layout_and_installation_of_fiber_optic_cable_in_a_communication_rack_in_Queens._%2849281750862%29.jpg/1280px-Layout_and_installation_of_fiber_optic_cable_in_a_communication_rack_in_Queens._%2849281750862%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+   "license": "CC BY 2.0",
+   "author": "MTA Capital Construction Mega Projects",
+   "label": {
+    "enclosure": "19-inch rack",
+    "empty_u": null,
+    "cellular_modem": false,
+    "note": "Open frame, heavy cabling, oblique"
+   }
+  },
+  {
+   "file": "Netzwerkschrank_in_19_-Ausf_hrung.jpg",
+   "commons_page": "https://commons.wikimedia.org/wiki/File:Netzwerkschrank_in_19%22-Ausf%C3%BChrung.jpg",
+   "download_url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/75/Netzwerkschrank_in_19%22-Ausf%C3%BChrung.jpg/1280px-Netzwerkschrank_in_19%22-Ausf%C3%BChrung.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+   "license": "CC BY-SA 4.0",
+   "author": "Achimsh",
+   "label": {
+    "enclosure": "19-inch rack",
+    "empty_u": null,
+    "cellular_modem": false,
+    "note": "Patch panels at top, clearly empty lower half (several U, not countable exactly)"
+   }
+  },
+  {
+   "file": "Rack_Cabinet_EASV.jpg",
+   "commons_page": "https://commons.wikimedia.org/wiki/File:Rack_Cabinet,_EASV.jpg",
+   "download_url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/61/Rack_Cabinet%2C_EASV.jpg/1280px-Rack_Cabinet%2C_EASV.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+   "license": "CC BY-SA 2.0",
+   "author": "Kent Madsen",
+   "label": {
+    "enclosure": "19-inch rack",
+    "empty_u": null,
+    "cellular_modem": false,
+    "note": "Cabinet seen from a distance behind a door"
+   }
+  },
+  {
+   "file": "SDH_Racks.jpg",
+   "commons_page": "https://commons.wikimedia.org/wiki/File:SDH_Racks.jpg",
+   "download_url": "https://upload.wikimedia.org/wikipedia/commons/4/4c/SDH_Racks.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+   "license": "CC BY-SA 3.0",
+   "author": "Deasington",
+   "label": {
+    "enclosure": "19-inch rack",
+    "empty_u": null,
+    "cellular_modem": false,
+    "note": "Row of racks at a steep angle"
+   }
+  },
+  {
+   "file": "48_GPIO_Ethernet_interface.jpg",
+   "commons_page": "https://commons.wikimedia.org/wiki/File:48_GPIO_Ethernet_interface.jpg",
+   "download_url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ad/48_GPIO_Ethernet_interface.jpg/1280px-48_GPIO_Ethernet_interface.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+   "license": "CC BY-SA 4.0",
+   "author": "Lambtron",
+   "label": {
+    "enclosure": "no enclosure",
+    "empty_u": null,
+    "cellular_modem": false,
+    "note": "Single board on a DIN-rail carrier, product shot"
+   }
+  },
+  {
+   "file": "Components_for_DIN_rail.JPG",
+   "commons_page": "https://commons.wikimedia.org/wiki/File:Components_for_DIN_rail.JPG",
+   "download_url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/4d/Components_for_DIN_rail.JPG/1280px-Components_for_DIN_rail.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+   "license": "CC BY-SA 3.0",
+   "author": "Dmitry G",
+   "label": {
+    "enclosure": "no enclosure",
+    "empty_u": null,
+    "cellular_modem": false,
+    "note": "Components on a loose DIN rail, no cabinet"
+   }
+  },
+  {
+   "file": "Light_circuit_protection_against_residual_current.JPG",
+   "commons_page": "https://commons.wikimedia.org/wiki/File:Light_circuit_protection_against_residual_current.JPG",
+   "download_url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f6/Light_circuit_protection_against_residual_current.JPG/1280px-Light_circuit_protection_against_residual_current.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+   "license": "CC BY-SA 3.0",
+   "author": "Dmitry G",
+   "label": {
+    "enclosure": "no enclosure",
+    "empty_u": null,
+    "cellular_modem": false,
+    "note": "Breaker and terminals on a wall-mounted rail, no cabinet"
+   }
+  },
+  {
+   "file": "PLC_Panasonic_FP-XH_C30T.jpg",
+   "commons_page": "https://commons.wikimedia.org/wiki/File:PLC_Panasonic_FP-XH_C30T.jpg",
+   "download_url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ea/PLC_Panasonic_FP-XH_C30T.jpg/1280px-PLC_Panasonic_FP-XH_C30T.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+   "license": "CC BY-SA 4.0",
+   "author": "Angga Panca Alam Anugrah",
+   "label": {
+    "enclosure": "DIN-rail cabinet",
+    "empty_u": null,
+    "cellular_modem": false,
+    "note": "PLC and terminal blocks inside a control cabinet"
+   }
+  },
+  {
+   "file": "Smart-meter-gateway.jpg",
+   "commons_page": "https://commons.wikimedia.org/wiki/File:Smart-meter-gateway.jpg",
+   "download_url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/bd/Smart-meter-gateway.jpg/1280px-Smart-meter-gateway.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+   "license": "CC BY-SA 4.0",
+   "author": "Pichiciago",
+   "label": {
+    "enclosure": "DIN-rail cabinet",
+    "empty_u": null,
+    "cellular_modem": false,
+    "note": "Smart-meter gateway inside a meter cabinet"
+   }
+  },
+  {
+   "file": "DIGIDIM_router2.jpg",
+   "commons_page": "https://commons.wikimedia.org/wiki/File:DIGIDIM_router2.jpg",
+   "download_url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/4e/DIGIDIM_router2.jpg/1280px-DIGIDIM_router2.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+   "license": "CC BY-SA 3.0",
+   "author": "Symppis",
+   "label": {
+    "enclosure": "no enclosure",
+    "empty_u": null,
+    "cellular_modem": false,
+    "note": "DIN-rail router, product shot"
+   }
+  },
+  {
+   "file": "DIN_rail.JPG",
+   "commons_page": "https://commons.wikimedia.org/wiki/File:DIN_rail.JPG",
+   "download_url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0d/DIN_rail.JPG/1280px-DIN_rail.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+   "license": "Public domain",
+   "author": "Dmitry G",
+   "label": {
+    "enclosure": "no enclosure",
+    "empty_u": null,
+    "cellular_modem": false,
+    "note": "Bare DIN rail on the floor"
+   }
+  },
+  {
+   "file": "I3_Engineering_Atom_Hydrogen_controller.jpg",
+   "commons_page": "https://commons.wikimedia.org/wiki/File:I3_Engineering_Atom_Hydrogen_controller.jpg",
+   "download_url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8b/I3_Engineering_Atom_Hydrogen_controller.jpg/1280px-I3_Engineering_Atom_Hydrogen_controller.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+   "license": "CC BY-SA 4.0",
+   "author": "I3mikev",
+   "label": {
+    "enclosure": "no enclosure",
+    "empty_u": null,
+    "cellular_modem": false,
+    "note": "Controller on a desk"
+   }
+  }
+ ]
+}

@@ -1,8 +1,8 @@
 """Meta SAM 3.1 Tri-Modal Industrial Vision & Video Walkthrough Agent.
 
 Executes:
-- Mode 1: Network diagram / blueprint / whiteboard segmentation (`sam-3.1`) + multimodal
-  crop/node extraction (`muse-spark-1.3`).
+- Mode 1: SAM 3.1 finds the boxes on the customer's network drawing and `muse-spark-1.3`
+  reads each crop; the drawing is then compared with the hosts seen on the network.
 - Mode 2: Physical 19-inch rack & 35mm DIN-rail free-space measurement from SAM 3.1 boxes
   (see `sam_geometry`) + rogue cellular modem detection.
 - Mode 3: SAM 3.1 on sampled `.mp4` walkthrough frames, linked into persistent tracks.
@@ -11,10 +11,9 @@ Executes:
 from __future__ import annotations
 
 import asyncio
-import base64
 import io
-import json
 import mimetypes
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -35,15 +34,20 @@ from app.agents.sam_geometry import (
     classify_enclosure,
     find_rogue_modems,
     inside,
+    iou,
     measure_din_rail,
     measure_rack,
     track_boxes,
 )
-from app.catalog_loader import load_hardware_catalog, load_sam31_vision_prompts
-from app.clients.meta_models import MetaModelGateway, extract_json_object
+from app.agents.switch_config_agent import SwitchAuditResult
+from app.agents.telemetry_duckdb_agent import TelemetryAuditResult
+from app.catalog_loader import load_hardware_catalog
+from app.clients.meta_models import MetaModelGateway, region_key
 from app.state import (
     CabinetDetection,
     CabinetVisionInspection,
+    DetectedDiagramNode,
+    DetectedZoneBox,
     DiagramSegmentationResult,
     VideoTrackObject,
     VideoWalkthroughResult,
@@ -61,86 +65,120 @@ def _infer_diagram_style(image_path: Path) -> str:
     return "CAD_VISIO_DIAGRAM"
 
 
+DIAGRAM_BOX_PROMPT = "rectangle box"
+DIAGRAM_READ_PROMPT = (
+    "Read this box cut from a network drawing. Return strict JSON only: "
+    '{"name": "device or zone name as written", "hostname": "hostname or null", '
+    '"ips": ["every IPv4 address written, ranges expanded"], '
+    '"kind": "device | firewall | zone | legend | other"}'
+)
+_DRAWN_KINDS = {"device", "firewall"}
+
+
 async def inspect_network_diagram(
     diagram_path: str | Path | None,
     *,
     gateway: MetaModelGateway,
     use_live_llm: bool = False,
-) -> tuple[DiagramSegmentationResult, str]:
-    """Run SAM 3.1 Mode 1 diagram segmentation (+ optional live Muse Spark VLM extraction)."""
-    prompt_pack = load_sam31_vision_prompts()
-    fallback_dict = dict(
-        prompt_pack.get("mode_1_network_diagram", {}).get("few_shot_example_output", {})
-    )
+) -> tuple[DiagramSegmentationResult, str, dict[str, Any] | None]:
+    """SAM 3.1 finds the boxes drawn on the customer's diagram; Muse Spark reads each one.
 
+    Returns the segmentation, a source mode, and the per-box reading used to compare the
+    drawing with the devices actually seen on the network.
+    """
     if not diagram_path or not Path(diagram_path).exists():
-        return DiagramSegmentationResult.model_validate(fallback_dict), "demo_cache_fallback"
+        return DiagramSegmentationResult(source_image_type="CAD_VISIO_DIAGRAM"), "unavailable", None
 
     path = Path(diagram_path)
-    inferred_style = _infer_diagram_style(path)
-    fallback_dict["source_image_type"] = inferred_style
+    image_bytes = path.read_bytes()
+    mime = mimetypes.guess_type(path.name)[0] or "image/png"
+    sam = await gateway.sam31_concepts(image_bytes, [DIAGRAM_BOX_PROMPT], live=use_live_llm, mime_type=mime)
+    boxes: list[list[float]] = []
+    for b in sam["boxes"].get(DIAGRAM_BOX_PROMPT, []):
+        if all(iou(Box(*b), Box(*k)) < 0.8 for k in boxes):
+            boxes.append(b)
+    read = await gateway.muse_spark_read_regions(image_bytes, boxes, DIAGRAM_READ_PROMPT, live=use_live_llm)
 
-    if not use_live_llm or not gateway.settings.meta_api_configured:
-        return DiagramSegmentationResult.model_validate(fallback_dict), "deterministic_vision_profile"
-
-    # 1. Live SAM 3.1 segmentation via `/v1/responses`
-    sam_res = await gateway.segment_sam31(
-        path,
-        prompts=[
-            "security zone box",
-            "firewall icon",
-            "PLC controller icon",
-            "network switch icon",
-            "server historian icon",
-        ],
-        mode="mode_1_network_diagram",
-    )
-    live_boxes = sam_res.get("boxes", [])
-    source_mode = str(sam_res.get("source_mode", "demo_cache_fallback"))
-
-    # If live SAM 3.1 already segmented diagram boxes cleanly, fuse directly for low-latency SSE;
-    # otherwise fall back to full multimodal Muse Spark VLM OCR crop extraction.
-    if live_boxes and fallback_dict.get("detected_zones"):
-        updated = json.loads(json.dumps(fallback_dict))
-        for idx, z in enumerate(updated["detected_zones"]):
-            if idx < len(live_boxes):
-                z["bbox_xyxy"] = live_boxes[idx]["bbox_xyxy"]
-        return DiagramSegmentationResult.model_validate(updated), source_mode
-
-    # 2. Multimodal OCR & node extraction via `muse-spark-1.3` when SAM boxes are empty
-    try:
-        mime = mimetypes.guess_type(path.name)[0] or "image/png"
-        b64_img = base64.b64encode(path.read_bytes()).decode("ascii")
-        spark_res = await gateway.chat_muse_spark(
-            [
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": (
-                                "Extract strict JSON matching `DiagramSegmentationResult` with keys ONLY: "
-                                "`source_image_type` (CAD_VISIO_DIAGRAM | HANDDRAWN_WHITEBOARD_SKETCH | "
-                                "SCANNED_PAPER_BLUEPRINT | AUTOCAD_DARK_PID), "
-                                "`detected_zones`, `detected_diagram_nodes`, and `detected_diagram_conduits`."
-                            ),
-                        },
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": f"data:{mime};base64,{b64_img}"},
-                        },
-                    ],
-                }
-            ],
-            max_tokens=1536,
+    regions: list[dict[str, Any]] = []
+    for b in boxes:
+        r = read["reads"].get(",".join(str(round(v)) for v in b))
+        if r is None:
+            continue
+        ips = [str(ip).strip() for ip in (r.get("ips") or []) if str(ip).strip().count(".") == 3]
+        regions.append(
+            {
+                "bbox": [round(v, 1) for v in b],
+                "kind": str(r.get("kind") or "other").lower(),
+                "name": str(r.get("name") or "")[:120],
+                "hostname": (str(r["hostname"])[:80] if r.get("hostname") else None),
+                "ips": ips,
+            }
         )
-        parsed = extract_json_object(spark_res.get("content", ""))
-        if parsed:
-            return DiagramSegmentationResult.model_validate(parsed), "live_sam31_plus_muse_spark"
-    except Exception:
-        pass
 
-    return DiagramSegmentationResult.model_validate(fallback_dict), source_mode
+    nodes = [
+        DetectedDiagramNode(
+            node_id=f"N{i:02d}",
+            semantic_class=g["kind"].upper(),
+            extracted_label=g["hostname"] or g["name"],
+            extracted_ip=g["ips"][0] if g["ips"] else None,
+            bbox_xyxy=g["bbox"],
+        )
+        for i, g in enumerate((g for g in regions if g["kind"] in _DRAWN_KINDS), start=1)
+    ]
+    zones = [
+        DetectedZoneBox(zone_box_id=f"Z{i:02d}", label=g["name"], inferred_purdue_level="unclassified", bbox_xyxy=g["bbox"])
+        for i, g in enumerate((g for g in regions if g["kind"] == "zone"), start=1)
+    ]
+    result = DiagramSegmentationResult(
+        source_image_type=_infer_diagram_style(path),  # type: ignore[arg-type]
+        detected_zones=zones,
+        detected_diagram_nodes=nodes,
+    )
+    reading = {
+        "source_image": path.name,
+        "image_width": sam["image_width"],
+        "image_height": sam["image_height"],
+        "sam_source_mode": sam["source_mode"],
+        "read_source_mode": read["source_mode"],
+        "regions": regions,
+    }
+    return result, sam["source_mode"], reading
+
+
+def reconcile_diagram(
+    reading: dict[str, Any], switch_audit: SwitchAuditResult, telemetry_audit: TelemetryAuditResult
+) -> dict[str, Any]:
+    """Compare the addresses written on the drawing with the hosts seen on the network.
+
+    Only subnets that appear on the drawing are compared, so outside addresses don't count.
+    """
+    drawn = {ip for g in reading["regions"] if g["kind"] in _DRAWN_KINDS for ip in g["ips"]}
+    subnets = {ip.rsplit(".", 1)[0] for ip in drawn}
+    by_ip = {a.ip_address: a for a in switch_audit.assets}
+    seen = set(by_ip) | {ip for f in telemetry_audit.flows for ip in (f.src_ip, f.dst_ip)}
+    seen = {ip for ip in seen if ip.rsplit(".", 1)[0] in subnets}
+
+    for g in reading["regions"]:
+        if g["kind"] not in _DRAWN_KINDS or not g["ips"]:
+            g["status"] = "not_a_device"
+        else:
+            g["status"] = "seen" if any(ip in seen for ip in g["ips"]) else "not_seen"
+    missing = [
+        {
+            "ip": ip,
+            "hostname": by_ip[ip].hostname if ip in by_ip else None,
+            "vendor": by_ip[ip].vendor if ip in by_ip else None,
+            # Also absent from the plant's asset list, or bridging around the firewall
+            "undocumented": ip in by_ip and (by_ip[ip].is_shadow_asset or by_ip[ip].is_dual_homed_bypass),
+        }
+        for ip in sorted(seen - drawn, key=lambda x: tuple(int(o) for o in x.split(".")))
+    ]
+    return {
+        "drawn_devices": sum(1 for g in reading["regions"] if g["status"] != "not_a_device"),
+        "drawn_seen": sum(1 for g in reading["regions"] if g["status"] == "seen"),
+        "drawn_not_seen": sum(1 for g in reading["regions"] if g["status"] == "not_seen"),
+        "missing_from_drawing": missing,
+    }
 
 
 def _catalog_fit(empty_u: int, din_mm: float) -> tuple[list[str], list[str]]:
@@ -198,16 +236,59 @@ def _detections_from_measurements(
     return dets
 
 
+RACK_GAP_PROMPT = (
+    "This crop is the space between two pieces of equipment in a 19-inch rack. Is it empty rack "
+    "space with nothing mounted (open rails or a plain blanking plate), or is something mounted "
+    "there (patch panel, cable manager, device, shelf)? Return strict JSON only: "
+    '{"empty": true or false, "seen": "what occupies the space, briefly"}'
+)
+
+
+def _measure_rack_from(concepts: dict[str, Any]) -> RackMeasurement | None:
+    width, height = int(concepts["image_width"]), int(concepts["image_height"])
+    devices = [Box.of(b) for p in RACK_DEVICE_PROMPTS for b in concepts["boxes"].get(p, [])]
+    return measure_rack(devices, width, height)
+
+
 def inspection_from_concepts(
-    concepts: dict[str, Any], *, source_image: str, free_ports_hint: int = 6
+    concepts: dict[str, Any],
+    *,
+    source_image: str,
+    free_ports_hint: int = 6,
+    gap_reads: dict[str, Any] | None = None,
 ) -> CabinetVisionInspection | None:
-    """Measure one photo from its SAM 3.1 boxes; None when the photo shows no enclosure."""
+    """Measure one photo from its SAM 3.1 boxes; None when the photo shows no enclosure.
+
+    With `gap_reads`, a gap between rack devices counts as empty only if Muse Spark looked at
+    its crop and confirmed nothing is mounted there.
+    """
     width, height = int(concepts["image_width"]), int(concepts["image_height"])
 
     def boxes(prompt: str) -> list[Box]:
         return [Box.of(b) for b in concepts["boxes"].get(prompt, [])]
 
-    rack = measure_rack([b for p in RACK_DEVICE_PROMPTS for b in boxes(p)], width, height)
+    rack = _measure_rack_from(concepts)
+    gap_note = None
+    if rack is not None and gap_reads is not None:
+        kept = [
+            (b, n)
+            for b, n in rack.empty_slots
+            if (gap_reads.get(region_key((b.x1, b.y1, b.x2, b.y2))) or {}).get("empty") is True
+        ]
+        dropped = rack.empty_1u_slots - sum(n for _, n in kept)
+        if dropped:
+            seen = sorted(
+                {
+                    str(r.get("seen"))
+                    for r in gap_reads.values()
+                    if isinstance(r, dict) and r.get("empty") is not True and r.get("seen")
+                }
+            )
+            gap_note = (
+                f"{dropped} U between devices not counted: Muse Spark did not confirm it empty"
+                + (f" (saw: {'; '.join(seen)[:160]})." if seen else ".")
+            )
+        rack = replace(rack, empty_slots=kept)
     cabinets = [b for b in boxes(CABINET_PROMPT) if b.w * b.h >= 0.2 * width * height]
     enclosure = max(cabinets, key=lambda b: b.w * b.h) if cabinets else None
     din = measure_din_rail(boxes(DIN_RAIL_PROMPT), width, height, enclosure)
@@ -221,6 +302,10 @@ def inspection_from_concepts(
     modems = find_rogue_modems(
         [m for m in boxes(MODEM_PROMPT) if inside(m, enclosure)], boxes(ANTENNA_PROMPT)
     )
+    if not is_rack and not modems and not any(inside(b, enclosure) for b in boxes(DIN_RAIL_PROMPT)):
+        # An enclosure with no rail, rack device or modem found gives nothing to measure; reporting
+        # "0 mm free" would read as a measurement (seen on real racks shot at an angle or behind a door)
+        return None
     empty_u = rack.empty_1u_slots if rack else 0
     din_mm = din.max_contiguous_mm
     mounting, archetypes = _catalog_fit(empty_u, din_mm)
@@ -230,6 +315,8 @@ def inspection_from_concepts(
             f"1U = {rack.rack_unit_px:.0f} px, scaled from {RACK_PANEL_WIDTH_MM} mm 19-inch panel width; "
             f"{len(rack.devices)} occupied band(s), {empty_u} empty U between them."
         )
+    if gap_note:
+        notes.append(gap_note)
     if din.free_segments:
         notes.append(f"DIN rail scaled from its 35 mm height; longest free segment {din_mm:.0f} mm.")
     elif not is_rack:
@@ -292,7 +379,16 @@ async def inspect_cabinet_photos(
         modes.append(str(concepts["source_mode"]))
         if concepts["source_mode"] == "unavailable":
             continue
-        insp = inspection_from_concepts(concepts, source_image=path.name, free_ports_hint=free_ports_hint)
+        rack = _measure_rack_from(concepts)
+        gaps = [[b.x1, b.y1, b.x2, b.y2] for b, _ in (rack.empty_slots if rack else [])]
+        gap_reads = (
+            (await gateway.muse_spark_read_regions(path.read_bytes(), gaps, RACK_GAP_PROMPT, live=use_live_llm))["reads"]
+            if gaps
+            else {}
+        )
+        insp = inspection_from_concepts(
+            concepts, source_image=path.name, free_ports_hint=free_ports_hint, gap_reads=gap_reads
+        )
         if insp is not None:
             inspections.append(insp)
     return inspections, _combined_source_mode(modes)

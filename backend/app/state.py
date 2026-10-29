@@ -78,7 +78,7 @@ class DetectedDiagramNode(BaseModel):
     extracted_label: str
     extracted_ip: str | None = None
     parent_zone_box_id: str | None = None
-    confidence: float = Field(..., ge=0.0, le=1.0)
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
     bbox_xyxy: list[float] = Field(..., min_length=4, max_length=4)
 
 

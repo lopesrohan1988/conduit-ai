@@ -11,6 +11,7 @@ from app.agents.architect_llm_planner import (
     ArchitectureDecision,
     BomDecision,
     FlowDecision,
+    decision_from_plan,
     propose_and_verify_architecture,
     verify_architecture_proposal,
 )
@@ -275,3 +276,31 @@ def test_verifier_requires_lateral_movement_to_be_severed() -> None:
         _decision(raw), telemetry_audit=tel, cabinet_inspections=[DIN_CABINET], video_walkthrough=None
     )
     assert any("lateral movement" in v for v in violations), violations
+
+
+def test_rule_engine_plan_is_held_to_the_same_verifier() -> None:
+    tel = TelemetryAuditResult(
+        peak_bandwidth_mbps=10.0,
+        flows=[
+            *TELEMETRY.flows,
+            _flow("F-MODEM", 502, "BYPASS_TO_OT", src_ip="192.168.10.254", protocol="Modbus TCP", preliminary_tier="RED"),
+        ],
+    )
+    plan = synthesize_custom_architecture_plan(
+        facility_name="Test Plant",
+        switch_audit=SwitchAuditResult(),
+        telemetry_audit=tel,
+        cabinet_inspections=[DIN_CABINET],
+        video_walkthrough=None,
+        voice_transcript=None,
+    )
+    decision = decision_from_plan(plan, tel)
+    assert decision.flow_decisions["F-MODEM"].initiator == "BYPASS_TO_OT"
+    kwargs = {"telemetry_audit": tel, "cabinet_inspections": [DIN_CABINET], "video_walkthrough": None}
+    assert verify_architecture_proposal(decision, **kwargs) == []
+
+    # A rule-engine plan that left the bypass in service would be rejected
+    row = next(r for r in plan.protocol_cutover_matrix if r.flow_id == "F-MODEM")
+    row.cutover_tier, row.cutover_action_type = "AMBER", "PULL_TO_PUSH_PROXY_REVERSAL"
+    violations = verify_architecture_proposal(decision_from_plan(plan, tel), **kwargs)
+    assert any("bypass" in v for v in violations), violations
