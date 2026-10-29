@@ -328,3 +328,31 @@ async def test_recorded_proposals_replay_through_the_verifier_without_a_key(tmp_
     # The recorded unsafe first draft is still rejected by the live verifier
     assert [a["source_mode"] for a in trace.attempts] == ["recorded", "recorded"]
     assert trace.attempts[0]["violations"] and not trace.attempts[1]["violations"]
+
+
+def test_documented_master_may_keep_monitoring_while_its_commands_stop() -> None:
+    def tel(documented: bool) -> TelemetryAuditResult:
+        return TelemetryAuditResult(
+            peak_bandwidth_mbps=1.0,
+            flows=[
+                _flow(
+                    "F-HMI", 2404, "IT_TO_OT", protocol="IEC-104", preliminary_tier="RED",
+                    has_write_operations=True, function_detail="TypeID 45 Single Command",
+                    source_documented=documented, source_role="IEC-104 master" if documented else None,
+                )
+            ],
+        )
+
+    raw = {
+        "flow_decisions": [
+            {"flow_id": "F-HMI", "initiator": "IT_TO_OT", "tier": "AMBER", "action": "PULL_TO_PUSH_PROXY_REVERSAL"}
+        ],
+        "bill_of_materials": [{"archetype_id": "ARCH_A_FIELD_DIODE", "quantity": 1, "mounting": "DIN_RAIL"}],
+        "target_sl": "SL-4",
+        "design_rationale": "",
+    }
+    kwargs = {"cabinet_inspections": [DIN_CABINET], "video_walkthrough": None}
+    assert verify_architecture_proposal(_decision(raw), telemetry_audit=tel(True), **kwargs) == []
+    # An unknown host sending commands may not be kept on a proxy
+    rejected = verify_architecture_proposal(_decision(raw), telemetry_audit=tel(False), **kwargs)
+    assert any("inbound write operations" in v for v in rejected), rejected

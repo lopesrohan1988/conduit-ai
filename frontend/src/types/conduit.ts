@@ -112,6 +112,8 @@ export interface TopologyEdgeSpec {
   directionBefore: "OT_TO_IT" | "IT_TO_OT" | "BYPASS_TO_OT" | "LOCAL";
   beforeLabel: string;
   afterLabel: string;
+  /** After the cutover: cut at the boundary, carried through the diode or OT-locked gateway, or local */
+  afterAction?: "cut" | "via_diode" | "via_gateway" | "local";
 }
 
 export type FlowTier = "GREEN" | "AMBER" | "RED_BLOCKER" | "CRITICAL_VIOLATION";
@@ -316,6 +318,7 @@ export interface AttackReplay {
 
 /** Counts behind the "today vs. proposed" story, computed from the run */
 export interface TopologySummary {
+  remoteCommandsDropped?: number;
   itToOtPathsToday: number;
   commandPathsToday: number;
   bypassPathsToday: number;

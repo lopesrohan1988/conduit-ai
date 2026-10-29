@@ -203,6 +203,13 @@ export default function StoryView({ scenario, step, isAssessing, onRun }: StoryV
               used to ask the plant for data, the diode now reads it inside the plant and sends a
               copy out.
             </Point>
+            {(summary.remoteCommandsDropped ?? 0) > 0 && (
+              <Point>
+                The control centre keeps receiving its plant data, but its remote commands stop: a
+                diode only lets data out. If the site needs remote control, the plant-controlled
+                gateway is the upgrade.
+              </Point>
+            )}
             {summary.bypassPathsToday > 0 && (
               <Point tone="bad">
                 {summary.rogueModemInPhoto

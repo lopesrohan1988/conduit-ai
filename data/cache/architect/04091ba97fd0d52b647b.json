@@ -1,0 +1,10 @@
+{
+ "responses": [
+  {
+   "content": "{\"flow_decisions\": [{\"flow_id\": \"FLOW-01\", \"initiator\": \"IT_TO_OT\", \"tier\": \"AMBER\", \"action\": \"PULL_TO_PUSH_PROXY_REVERSAL\", \"rationale\": \"Legitimate asset-listed control-centre master; monitoring preserved via pull-to-push, breaker commands blocked inward.\"}, {\"flow_id\": \"FLOW-02\", \"initiator\": \"BYPASS_TO_OT\", \"tier\": \"RED\", \"action\": \"SEVER_CRITICAL_VIOLATION_AT_L1\", \"rationale\": \"Undocumented shadow source issuing breaker commands; unauthorized rogue bypass write path.\"}, {\"flow_id\": \"FLOW-03\", \"initiator\": \"BYPASS_TO_OT\", \"tier\": \"RED\", \"action\": \"SEVER_CRITICAL_VIOLATION_AT_L1\", \"rationale\": \"Undocumented shadow source issuing breaker commands; unauthorized rogue bypass write path.\"}, {\"flow_id\": \"FLOW-04\", \"initiator\": \"BYPASS_TO_OT\", \"tier\": \"RED\", \"action\": \"SEVER_CRITICAL_VIOLATION_AT_L1\", \"rationale\": \"Undocumented shadow source issuing breaker commands; unauthorized rogue bypass write path.\"}], \"bill_of_materials\": [{\"archetype_id\": \"ARCH_A_FIELD_DIODE\", \"quantity\": 1, \"mounting\": \"DIN_RAIL\", \"purpose\": \"Carries FLOW-01 IEC-104 monitoring pull-to-push proxy; severed FLOW-02/03/04 carry no traffic\"}], \"target_sl\": \"SL-4\", \"design_rationale\": \"Pure unidirectional ARCH_A enforces SL-4 isolation, supports IEC-104, and exceeds the 1.25x headroom for FLOW-01 within VLAN limits. No verified closed-loop write requires ARCH_D, so all inbound commands and rogue bypass paths are physically blocked.\"}",
+   "reasoning": null,
+   "model": "muse-wonder-1.0",
+   "finish_reason": "stop"
+  }
+ ]
+}

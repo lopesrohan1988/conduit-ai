@@ -32,4 +32,4 @@ CORP-EMS-01,RCC-EMS-MASTER01,10.100.5.20,00:50:56:A2:05:14,"VMware, Inc.",Region
 CORP-DNP-01,RCC-SOE-DNP3-01,10.100.5.21,00:50:56:A2:05:15,"VMware, Inc.",SCADA DNP3 Fault & SOE Master,L4,Control_Center_WAN,100,SCADA DNP3 Fault & SOE Master,HIGH,2025-11-10
 CORP-DGA-01,ASSET-DGA-POLL01,10.100.5.30,00:50:56:A2:05:1E,"VMware, Inc.",Transformer Fleet DGA Poller,L4,Enterprise_WAN,100,Transformer Fleet DGA Poller,HIGH,2025-11-10
 CORP-SOC-01,NERC-SIEM-COL01,10.100.5.100,00:50:56:A2:05:64,"VMware, Inc.",Utility NERC CIP SIEM Collector,L4,Enterprise_WAN,100,Utility NERC CIP SIEM Collector,HIGH,2025-11-10
-CORP-IT-WK44,CORP-MPLS-WKSTN44,10.100.88.44,00:50:56:A2:58:2C,"VMware, Inc.",Corporate IT Host (Unauth Breaker Cmd),L4,Enterprise_WAN,100,Corporate IT Host (Unauth Breaker Cmd),HIGH,2025-11-10
+CORP-IT-WK44,CORP-MPLS-WKSTN44,10.100.88.44,00:50:56:A2:58:2C,"VMware, Inc.",Corporate IT workstation,L4,Enterprise_WAN,100,Corporate IT workstation,HIGH,2025-11-10

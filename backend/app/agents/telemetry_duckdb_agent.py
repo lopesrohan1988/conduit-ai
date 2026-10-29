@@ -519,6 +519,7 @@ def _merge_flow_group(members: list[dict[str, Any]], peer_side: str) -> dict[str
     # A scanner's flow that matches what its whole peer group does (e.g. its own RTSP stream) is normal
     rep["lateral"] = all(m["lateral"] for m in members)
     rep["fw_note"] = next((m["fw_note"] for m in members if m["fw_note"]), "")
+    rep["merged_" + peer_side + "s"] = peers
     role = "sources" if peer_side == "src_ip" else "destinations"
     rep["peer_summary"] = f"{len(peers)} {role}: {', '.join(peers[:6])}{' …' if len(peers) > 6 else ''}"
     return rep
@@ -692,6 +693,8 @@ def run_telemetry_duckdb_agent(
                 has_write_operations=item["has_write"],
                 uses_dynamic_ephemeral_ports=item["ephemeral_dcom"],
                 lateral_movement_suspected=item["lateral"],
+                merged_src_ips=item.get("merged_src_ips", []),
+                merged_dst_ips=item.get("merged_dst_ips", []),
                 packet_count=item["packet_count"],
                 bytes_transferred=item["bytes"],
                 p95_mbps=round(item["peak_mbps"] * 0.85, 2),

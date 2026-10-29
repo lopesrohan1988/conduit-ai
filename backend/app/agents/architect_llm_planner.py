@@ -160,6 +160,8 @@ def build_evidence_pack(
             "has_write_operations": f.has_write_operations,
             "uses_dynamic_ephemeral_ports": f.uses_dynamic_ephemeral_ports,
             "lateral_movement_suspected": f.lateral_movement_suspected,
+            "source_on_asset_list": f.source_documented,
+            "source_role": f.source_role,
             "peak_mbps": f.peak_mbps,
             "rule_engine_hint_tier": f.preliminary_tier,
         }
@@ -247,8 +249,11 @@ def _build_prompt(evidence: dict[str, Any], catalog: dict[str, Any]) -> str:
         "- GREEN + DROP_IN_PROXY_MAPPING: OT-initiated one-way push (syslog, MQTT publish, OPC-UA "
         "push, SFTP push, RTSP pulled locally by the diode TX).\n"
         "- AMBER + PULL_TO_PUSH_PROXY_REVERSAL: inbound IT read polling the diode TX can perform "
-        "locally and push one-way. AMBER + ROUTE_VIA_ARCH_D_OT_LOCKED_GATEWAY only for verified "
-        "closed-loop writes (e.g. signed MES recipes) and only if ARCH_D is in the BoM.\n"
+        "locally and push one-way. Also allowed for a session that mixes monitoring with commands "
+        "when its source is on the site's asset list as a legitimate master (see source_role): the "
+        "diode keeps the monitoring and its commands stop, because nothing can travel inward. "
+        "AMBER + ROUTE_VIA_ARCH_D_OT_LOCKED_GATEWAY only for verified closed-loop writes (e.g. "
+        "signed MES recipes) and only if ARCH_D is in the BoM.\n"
         "- RED + DEPLOY_OPC_UA_WRAPPER_THEN_PROXY: OPC-DA/DCOM or dynamic ports. RED + "
         "REPLACE_SMB_WITH_SFTP_RELAY: SMB file shares. RED + SEVER_CRITICAL_VIOLATION_AT_L1: "
         "unauthorized writes, remote admin (RDP/SSH/Telnet/VNC inbound), rogue bypass paths.\n\n"
@@ -417,10 +422,21 @@ def verify_architecture_proposal(
             violations.append(
                 f"SAFETY: {fid} is inbound ({d.initiator}); a one-way diode drops inbound sessions, so it cannot be GREEN."
             )
-        if fl.has_write_operations and inbound and d.action not in {SEVER, "ROUTE_VIA_ARCH_D_OT_LOCKED_GATEWAY"}:
+        # A documented master's monitoring may be kept through the diode: the TX polls the devices
+        # itself, so the master's commands have no inbound path and simply stop
+        keeps_monitoring = (
+            d.action == "PULL_TO_PUSH_PROXY_REVERSAL" and d.initiator == "IT_TO_OT" and fl.source_documented
+        )
+        if (
+            fl.has_write_operations
+            and inbound
+            and d.action not in {SEVER, "ROUTE_VIA_ARCH_D_OT_LOCKED_GATEWAY"}
+            and not keeps_monitoring
+        ):
             violations.append(
-                f"SAFETY: {fid} carries inbound write operations ({fl.function_detail}); only {SEVER} "
-                "or an OT-locked ARCH_D route is safe."
+                f"SAFETY: {fid} carries inbound write operations ({fl.function_detail}); only {SEVER}, "
+                "an OT-locked ARCH_D route, or (for a source on the asset list) a read-only "
+                "PULL_TO_PUSH_PROXY_REVERSAL that drops the commands is safe."
             )
         if inbound and (fl.dst_port == 135 or fl.uses_dynamic_ephemeral_ports) and d.action not in {
             "DEPLOY_OPC_UA_WRAPPER_THEN_PROXY",

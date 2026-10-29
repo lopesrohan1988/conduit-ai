@@ -388,6 +388,7 @@ export function hydrateScenarioFromBackendPayload(
       itToOtPathsAfter: Number(sm.it_to_ot_paths_after ?? 0),
       feedsKept: Number(sm.feeds_kept ?? 0),
       connectionsCut: Number(sm.connections_cut ?? 0),
+      remoteCommandsDropped: Number(sm.remote_commands_dropped ?? 0),
     };
   }
   if (Array.isArray(payload.cabinet_inspections)) {

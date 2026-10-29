@@ -40,12 +40,38 @@ def _classification(tier: str, action: str) -> str:
 _NODE_W = 230.0
 
 
+_PER_ROW, _ROW_GAP = 6, 105.0
+
+
 def _spread(count: int, y: float) -> list[tuple[float, float]]:
-    """Evenly spaced x positions, widening the canvas so cards never overlap."""
+    """Evenly spaced positions; a long row wraps onto extra rows below so the map stays readable."""
     if count <= 0:
         return []
-    step = max(_NODE_W, _CANVAS_W / count)
-    return [(round(step * i + (step - _NODE_W) / 2, 1), y) for i in range(count)]
+    out: list[tuple[float, float]] = []
+    for start in range(0, count, _PER_ROW):
+        n = min(_PER_ROW, count - start)
+        step = max(_NODE_W + 20, _CANVAS_W / n)
+        offset = (_CANVAS_W - step * n) / 2 if step * n < _CANVAS_W else 0.0
+        row_y = y + (start // _PER_ROW) * _ROW_GAP
+        out += [(round(offset + step * i + (step - _NODE_W) / 2, 1), row_y) for i in range(n)]
+    return out
+
+
+def _after_action(direction: str, actions: list[str]) -> str:
+    """How a connection crosses the boundary once the plan is in place.
+
+    Every office<->plant connection that survives goes through the diode (or the OT-locked
+    gateway); one that is cut stops there. Bypass paths never reach the boundary.
+    """
+    if direction == "LOCAL":
+        return "local"
+    if all(a == SEVER for a in actions):
+        return "cut"
+    if direction == "BYPASS_TO_OT":
+        return "cut"
+    if any(a == "ROUTE_VIA_ARCH_D_OT_LOCKED_GATEWAY" for a in actions):
+        return "via_gateway"
+    return "via_diode"
 
 
 def build_topology_view(
@@ -81,34 +107,39 @@ def build_topology_view(
     # One edge per (IT-or-bypass host, OT host) pair; flows inside OT keep their own pair
     pairs: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     for row in plan.protocol_cutover_matrix:
-        src, dst = row.observed_src_ip, row.observed_dst_ip
-        zs, zd = zone(src), zone(dst)
-        if zs == "OT" and zd != "OT":
-            outer, inner = dst, src
-        elif zd == "OT" and zs != "OT":
-            outer, inner = src, dst
-        elif zs == "OT" and zd == "OT":
-            outer, inner = src, dst
-        else:
-            continue
         flow = flows.get(row.flow_id)
-        if zone(src) == "BYPASS":
-            direction = "BYPASS_TO_OT"
-        elif zs == "OT" and zd == "OT":
-            direction = "LOCAL"
-        else:
-            direction = flow.direction if flow else row.observed_initiator
-        local_unchanged = direction == "LOCAL" and row.cutover_action_type != SEVER
-        pairs[(outer, inner)].append(
-            {
-                "row": row,
-                "direction": direction,
-                "writes": bool(flow and flow.has_write_operations),
-                "classification": (
-                    "LOCAL" if local_unchanged else _classification(row.cutover_tier, row.cutover_action_type)
-                ),
-            }
-        )
+        # A merged row stands for many hosts (one master polling seven RTUs): draw each of them
+        srcs = (flow.merged_src_ips if flow and flow.merged_src_ips else None) or [row.observed_src_ip]
+        dsts = (flow.merged_dst_ips if flow and flow.merged_dst_ips else None) or [row.observed_dst_ip]
+        for src in srcs:
+            for dst in dsts:
+                zs, zd = zone(src), zone(dst)
+                if zs == "OT" and zd != "OT":
+                    outer, inner = dst, src
+                elif zd == "OT" and zs != "OT":
+                    outer, inner = src, dst
+                elif zs == "OT" and zd == "OT":
+                    outer, inner = src, dst
+                else:
+                    continue
+                if zs == "BYPASS":
+                    direction = "BYPASS_TO_OT"
+                elif zs == "OT" and zd == "OT":
+                    direction = "LOCAL"
+                else:
+                    direction = flow.direction if flow else row.observed_initiator
+                local_unchanged = direction == "LOCAL" and row.cutover_action_type != SEVER
+                pairs[(outer, inner)].append(
+                    {
+                        "row": row,
+                        "pair": (src, dst),
+                        "direction": direction,
+                        "writes": bool(flow and flow.has_write_operations),
+                        "classification": (
+                            "LOCAL" if local_unchanged else _classification(row.cutover_tier, row.cutover_action_type)
+                        ),
+                    }
+                )
 
     hosts_by_zone: dict[str, list[str]] = defaultdict(list)
     for outer, inner in pairs:
@@ -193,6 +224,7 @@ def build_topology_view(
                     if worst["classification"] == "LOCAL"
                     else _AFTER_LABEL.get(worst["row"].cutover_action_type, "reviewed")
                 ),
+                "afterAction": _after_action(direction, [i["row"].cutover_action_type for i in items]),
             }
         )
 
@@ -201,18 +233,27 @@ def build_topology_view(
     rogue_modem_photo = any(
         d.semantic_class == "ROGUE_CELLULAR_BYPASS_MODEM" for c in (cabinet_inspections or []) for d in c.detections
     )
+    # Counted per host pair, so the numbers match the lines on the map
     summary = {
-        "it_to_ot_paths_today": len({(i["row"].observed_src_ip, i["row"].observed_dst_ip) for i in inbound}),
-        "command_paths_today": sum(1 for i in inbound if i["writes"]),
-        "bypass_paths_today": len({i["row"].observed_src_ip for i in rows if i["direction"] == "BYPASS_TO_OT"}),
+        "it_to_ot_paths_today": len({i["pair"] for i in inbound}),
+        "command_paths_today": len({i["pair"] for i in inbound if i["writes"]}),
+        "bypass_paths_today": len({i["pair"][0] for i in rows if i["direction"] == "BYPASS_TO_OT"}),
         "rogue_modem_in_photo": rogue_modem_photo,
         # After cutover an IT host can only reach OT through an OT-locked gateway, never directly
-        "it_to_ot_paths_after": sum(
-            1 for i in inbound if i["row"].cutover_action_type == "ROUTE_VIA_ARCH_D_OT_LOCKED_GATEWAY"
+        "it_to_ot_paths_after": len(
+            {i["pair"] for i in inbound if i["row"].cutover_action_type == "ROUTE_VIA_ARCH_D_OT_LOCKED_GATEWAY"}
         ),
-        "feeds_kept": sum(
-            1 for i in rows if i["row"].cutover_action_type != SEVER and i["direction"] != "LOCAL"
+        "feeds_kept": len(
+            {i["pair"] for i in rows if i["row"].cutover_action_type != SEVER and i["direction"] != "LOCAL"}
         ),
-        "connections_cut": sum(1 for i in rows if i["row"].cutover_action_type == SEVER),
+        "connections_cut": len({i["pair"] for i in rows if i["row"].cutover_action_type == SEVER}),
+        # Monitoring kept through the diode while the same source's commands stop
+        "remote_commands_dropped": len(
+            {
+                i["pair"]
+                for i in inbound
+                if i["writes"] and i["row"].cutover_action_type not in {SEVER, "ROUTE_VIA_ARCH_D_OT_LOCKED_GATEWAY"}
+            }
+        ),
     }
     return {"nodes": nodes, "edges": edges, "summary": summary}

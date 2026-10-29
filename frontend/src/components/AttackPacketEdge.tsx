@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useLayoutEffect, useRef, useState } from "react";
-import { getBezierPath, type Edge, type EdgeProps } from "@xyflow/react";
+import { Position, getBezierPath, useInternalNode, type Edge, type EdgeProps } from "@xyflow/react";
 
 export type AttackPacketData = {
   /** True when the plan stops this path: the packet halts at `stopAt` and an ✕ appears */
@@ -9,6 +9,8 @@ export type AttackPacketData = {
   /** Fraction of the path the packet covers before it is stopped (1 = reaches the target) */
   stopAt: number;
   delaySec: number;
+  /** Node the packet passes through on the way (the firewall today), entering at its top */
+  via?: string;
 };
 
 export type AttackPacketEdgeType = Edge<AttackPacketData, "attackPacket">;
@@ -26,7 +28,20 @@ export default function AttackPacketEdge({
   targetPosition,
   data,
 }: EdgeProps<AttackPacketEdgeType>) {
-  const [path] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
+  const viaNode = useInternalNode(data?.via ?? "");
+  let path: string;
+  if (data?.via && viaNode) {
+    // source -> top of the via node, through it, bottom of the via node -> target
+    const { x, y } = viaNode.internals.positionAbsolute;
+    const w = viaNode.measured.width ?? 0;
+    const h = viaNode.measured.height ?? 0;
+    const cx = x + w / 2;
+    const [inPath] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX: cx, targetY: y, targetPosition: Position.Top });
+    const [outPath] = getBezierPath({ sourceX: cx, sourceY: y + h, sourcePosition: Position.Bottom, targetX, targetY, targetPosition });
+    path = `${inPath} L ${cx},${y + h} ${outPath.replace(/^M[^C]*/, "")}`;
+  } else {
+    [path] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
+  }
   const pathRef = useRef<SVGPathElement>(null);
   const [end, setEnd] = useState<{ x: number; y: number }>({ x: targetX, y: targetY });
   const blocked = data?.blocked ?? false;

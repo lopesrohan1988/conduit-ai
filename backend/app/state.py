@@ -277,6 +277,12 @@ class ProtocolFlowAnalysis(BaseModel):
     has_write_operations: bool = False
     uses_dynamic_ephemeral_ports: bool = False
     lateral_movement_suspected: bool = False
+    # Whether the session's initiator is on the site's own asset list, and the role it gives it
+    source_documented: bool = False
+    source_role: str | None = None
+    # Every source / destination folded into this row when repetitive flows were merged
+    merged_src_ips: list[str] = Field(default_factory=list)
+    merged_dst_ips: list[str] = Field(default_factory=list)
     packet_count: int = 0
     bytes_transferred: int = 0
     p95_mbps: float = 0.0

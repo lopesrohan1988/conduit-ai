@@ -24,6 +24,7 @@ from app.agents.telemetry_duckdb_agent import (
     run_telemetry_duckdb_agent,
     zone_map_from_assets,
 )
+from app.agents.switch_config_agent import parse_asset_inventory_csv
 from app.agents.vision_sam31_agent import (
     inspect_cabinet_photos,
     inspect_network_diagram,
@@ -157,6 +158,11 @@ def build_conduit_langgraph(
             vlans_observed=sw_audit.vlans_observed if sw_audit else None,
             zone_map=zone_map_from_assets(sw_audit.assets) if sw_audit else None,
         )
+        documented = parse_asset_inventory_csv(state.get("asset_inventory_csv_path"))
+        for flow in tel_audit.flows:
+            row = documented.get(flow.src_ip)
+            flow.source_documented = row is not None
+            flow.source_role = (row.get("role") or row.get("protocol_role") or row.get("model")) if row else None
         scratch["telemetry_audit"] = tel_audit
         return {
             "protocol_flows": tel_audit.flows,

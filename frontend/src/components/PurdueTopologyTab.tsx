@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import {
   ScenarioDataset,
+  TopologyEdgeSpec,
   TopologyNodeSpec,
   UserLensMode,
 } from "@/types/conduit";
@@ -330,7 +331,11 @@ export default function PurdueTopologyTab({
     const lanes: Array<[string, number]> = [
       [isGuided ? "Office network (IT)" : "Enterprise IT · Purdue L4", Math.min(...ys)],
       [isGuided ? "The wall between them" : "IT/OT boundary · L3.5", boundary?.y ?? 230],
-      [isGuided ? "Plant network (OT)" : "Plant OT · Purdue L0–L3", Math.max(...ys)],
+      // Plant hosts may wrap onto several rows; label the first one
+      [
+        isGuided ? "Plant network (OT)" : "Plant OT · Purdue L0–L3",
+        Math.min(...ys.filter((y) => y > (boundary?.y ?? 230)), Math.max(...ys)),
+      ],
     ];
     const laneNodes: LaneLabelNode[] = lanes.map(([label, y], i) => ({
       id: `lane-${i}`,
@@ -352,152 +357,104 @@ export default function PurdueTopologyTab({
     ]
   );
 
+  // Every office <-> plant connection passes through the boundary: today the firewall carries it
+  // both ways; after the cutover the diode (or OT-locked gateway) carries plant data out and a cut
+  // connection stops there. Bypass devices never touch the boundary, which is the point.
   const edges: Edge[] = useMemo(() => {
     const isAfter = cutoverMode === "after";
     const nodeMap = new Map(scenario.topologyNodes.map((n) => [n.id, n]));
+    const boundaryId = scenario.topologyNodes.find((n) => n.isBoundaryNode)?.id;
+    const severity: Record<string, number> = { CRITICAL_VIOLATION: 0, RED_BLOCKER: 1, AMBER: 2, GREEN: 3, LOCAL: 4 };
+    const color = (c: string) =>
+      c === "CRITICAL_VIOLATION" || c === "RED_BLOCKER" ? "#e11d48" : c === "AMBER" ? "#d97706" : "#059669";
+    const labelStyle = (c: string) => ({
+      labelStyle: { fill: c === "GREEN" ? "#047857" : c === "AMBER" ? "#b45309" : "#be123c", fontSize: 10, fontFamily: "monospace", fontWeight: 600 },
+      labelBgStyle: { fill: c === "GREEN" ? "#ecfdf5" : c === "AMBER" ? "#fffbeb" : "#fff1f2", fillOpacity: 0.96, strokeWidth: 1 },
+      labelBgPadding: [5, 3] as [number, number],
+    });
+    const outcomeOf = (e: TopologyEdgeSpec) =>
+      e.afterAction ??
+      (e.classification === "LOCAL" ? "local" : e.classification === "CRITICAL_VIOLATION" ? "cut" : "via_diode");
 
-    return scenario.topologyEdges.map((e) => {
-      const isCritical = e.classification === "CRITICAL_VIOLATION";
-      const isRedBlocker = e.classification === "RED_BLOCKER";
-      const isAmber = e.classification === "AMBER";
+    type Segment = { source: string; target: string; up: boolean; kind: string; labels: string[] };
+    const segments = new Map<string, Segment>();
+    const addSegment = (source: string, target: string, kind: string, label?: string) => {
+      const up = (nodeMap.get(source)?.y ?? 0) > (nodeMap.get(target)?.y ?? 0);
+      const key = `${source}>${target}`;
+      const seg = segments.get(key);
+      if (!seg) {
+        segments.set(key, { source, target, up, kind, labels: label ? [label] : [] });
+        return;
+      }
+      if ((severity[kind] ?? 9) < (severity[seg.kind] ?? 9)) seg.kind = kind;
+      if (label && !seg.labels.includes(label)) seg.labels.push(label);
+    };
 
-      if (isAfter && isCritical) {
-        const srcNode = nodeMap.get(e.source);
-        const dstNode = nodeMap.get(e.target);
-        const srcDown = (srcNode?.y ?? 0) < (dstNode?.y ?? 0);
-        return {
-          id: `${e.id}-after`,
+    const direct: Edge[] = [];
+    for (const e of scenario.topologyEdges) {
+      const outcome = outcomeOf(e);
+      const crossing = boundaryId && (e.directionBefore === "IT_TO_OT" || e.directionBefore === "OT_TO_IT");
+      // Inside the plant, or a bypass device: drawn directly between the two hosts
+      if (!crossing) {
+        const removed = isAfter && outcome === "cut";
+        const kind = e.classification === "LOCAL" ? "GREEN" : e.classification;
+        const up = (nodeMap.get(e.source)?.y ?? 0) > (nodeMap.get(e.target)?.y ?? 0);
+        direct.push({
+          id: `${e.id}-${cutoverMode}`,
           source: e.source,
           target: e.target,
-          sourceHandle: srcDown ? "bottom-source" : "top-source",
-          targetHandle: srcDown ? "top-target" : "bottom-target",
-          label: `✕ ${e.afterLabel}`,
-          animated: false,
-          style: {
-            stroke: "#94a3b8",
-            strokeWidth: 1.5,
-            strokeDasharray: "5 5",
-            opacity: 0.65,
-          },
-          labelStyle: {
-            fill: "#be123c",
-            fontSize: 10,
-            fontFamily: "monospace",
-            fontWeight: 600,
-          },
-          labelBgStyle: {
-            fill: "#fff1f2",
-            fillOpacity: 0.96,
-            stroke: "#fecdd3",
-            strokeWidth: 1,
-          },
-          labelBgPadding: [5, 3] as [number, number],
-        };
+          sourceHandle: up ? "top-source" : "bottom-source",
+          targetHandle: up ? "bottom-target" : "top-target",
+          label: removed ? `✕ ${e.afterLabel}` : isAfter ? e.afterLabel : e.beforeLabel,
+          animated: !removed,
+          markerEnd: removed ? undefined : { type: MarkerType.ArrowClosed, color: color(kind) },
+          style: removed
+            ? { stroke: "#94a3b8", strokeWidth: 1.5, strokeDasharray: "5 5", opacity: 0.65 }
+            : { stroke: color(kind), strokeWidth: 2, strokeDasharray: e.directionBefore === "BYPASS_TO_OT" ? "6 3" : undefined },
+          ...labelStyle(removed ? "CRITICAL_VIOLATION" : kind),
+        });
+        continue;
       }
-
-      if (isAfter && (isAmber || isRedBlocker)) {
-        const srcNode = nodeMap.get(e.source);
-        const dstNode = nodeMap.get(e.target);
-        const shouldFlip = (srcNode?.y ?? 0) < (dstNode?.y ?? 0);
-        const finalSource = shouldFlip ? e.target : e.source;
-        const finalTarget = shouldFlip ? e.source : e.target;
-
-        return {
-          id: `${e.id}-after`,
-          source: finalSource,
-          target: finalTarget,
-          sourceHandle: "top-source",
-          targetHandle: "bottom-target",
-          label: `✓ ${e.afterLabel}`,
-          animated: true,
-          markerEnd: {
-            type: MarkerType.ArrowClosed,
-            color: "#059669",
-          },
-          style: {
-            stroke: "#059669",
-            strokeWidth: 2,
-          },
-          labelStyle: {
-            fill: "#047857",
-            fontSize: 10,
-            fontFamily: "monospace",
-            fontWeight: 600,
-          },
-          labelBgStyle: {
-            fill: "#ecfdf5",
-            fillOpacity: 0.96,
-            stroke: "#a7f3d0",
-            strokeWidth: 1,
-          },
-          labelBgPadding: [5, 3] as [number, number],
-        };
+      const itNode = e.directionBefore === "IT_TO_OT" ? e.source : e.target;
+      const otNode = e.directionBefore === "IT_TO_OT" ? e.target : e.source;
+      if (!isAfter) {
+        // Today: through the firewall, in whichever direction the connection is opened
+        if (e.directionBefore === "IT_TO_OT") {
+          addSegment(itNode, boundaryId, e.classification);
+          addSegment(boundaryId, otNode, e.classification, e.beforeLabel);
+        } else {
+          addSegment(otNode, boundaryId, e.classification, e.beforeLabel);
+          addSegment(boundaryId, itNode, e.classification);
+        }
+      } else if (outcome === "cut") {
+        // The office side can no longer get past the diode
+        addSegment(itNode, boundaryId, "CUT", `✕ ${e.afterLabel}`);
+      } else {
+        // Plant data leaves through the diode (or the OT-locked gateway); nothing comes back in
+        addSegment(otNode, boundaryId, outcome === "via_gateway" ? "GATEWAY" : "GREEN", e.afterLabel);
+        addSegment(boundaryId, itNode, outcome === "via_gateway" ? "GATEWAY" : "GREEN");
       }
+    }
 
-      const srcNode = nodeMap.get(e.source);
-      const dstNode = nodeMap.get(e.target);
-      const goingUp = (srcNode?.y ?? 0) > (dstNode?.y ?? 0);
-
-      const strokeColor =
-        isCritical || isRedBlocker
-          ? "#e11d48"
-          : isAmber
-            ? "#d97706"
-            : "#059669";
-
-      const labelTextFill =
-        isCritical || isRedBlocker
-          ? "#be123c"
-          : isAmber
-            ? "#b45309"
-            : "#047857";
-
-      const labelBgFill =
-        isCritical || isRedBlocker
-          ? "#fff1f2"
-          : isAmber
-            ? "#fffbeb"
-            : "#ecfdf5";
-
-      const labelBorder =
-        isCritical || isRedBlocker
-          ? "#fecdd3"
-          : isAmber
-            ? "#fde68a"
-            : "#a7f3d0";
-
+    const routed: Edge[] = [...segments.values()].map((seg, i) => {
+      const cut = seg.kind === "CUT";
+      const stroke = cut ? "#94a3b8" : seg.kind === "GATEWAY" ? "#2563eb" : color(seg.kind);
       return {
-        id: `${e.id}-${cutoverMode}`,
-        source: e.source,
-        target: e.target,
-        sourceHandle: goingUp ? "top-source" : "bottom-source",
-        targetHandle: goingUp ? "bottom-target" : "top-target",
-        label: isAfter ? e.afterLabel : e.beforeLabel,
-        animated: true,
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          color: strokeColor,
-        },
-        style: {
-          stroke: strokeColor,
-          strokeWidth: isCritical ? 2.4 : 2,
-          strokeDasharray: isCritical ? "6 3" : undefined,
-        },
-        labelStyle: {
-          fill: labelTextFill,
-          fontSize: 10,
-          fontFamily: "monospace",
-          fontWeight: 600,
-        },
-        labelBgStyle: {
-          fill: labelBgFill,
-          fillOpacity: 0.96,
-          stroke: labelBorder,
-          strokeWidth: 1,
-        },
-        labelBgPadding: [5, 3] as [number, number],
+        id: `seg-${cutoverMode}-${i}`,
+        source: seg.source,
+        target: seg.target,
+        sourceHandle: seg.up ? "top-source" : "bottom-source",
+        targetHandle: seg.up ? "bottom-target" : "top-target",
+        label: seg.labels.length > 2 ? `${seg.labels[0]} +${seg.labels.length - 1} more` : seg.labels.join(" · ") || undefined,
+        animated: !cut,
+        markerEnd: cut ? undefined : { type: MarkerType.ArrowClosed, color: stroke },
+        style: cut
+          ? { stroke, strokeWidth: 1.5, strokeDasharray: "5 5", opacity: 0.7 }
+          : { stroke, strokeWidth: 2, strokeDasharray: seg.kind === "CRITICAL_VIOLATION" ? "6 3" : undefined },
+        ...labelStyle(cut ? "CRITICAL_VIOLATION" : seg.kind === "GATEWAY" ? "GREEN" : seg.kind),
       };
     });
+    return [...routed, ...direct];
   }, [scenario.topologyEdges, scenario.topologyNodes, cutoverMode]);
 
   // One packet per attacker → target pair from the replay; under the plan, IT attacks stop at the
@@ -527,7 +484,13 @@ export default function PurdueTopologyTab({
         target: end,
         sourceHandle: down ? "bottom-source" : "top-source",
         targetHandle: down ? "top-target" : "bottom-target",
-        data: { blocked, stopAt: blocked ? (viaBypass ? 0.18 : 0.97) : 1, delaySec: out.length * 0.35 },
+        data: {
+          blocked,
+          stopAt: blocked ? (viaBypass ? 0.18 : 0.97) : 1,
+          delaySec: out.length * 0.35,
+          // Today an office attacker's packets pass through the firewall; a bypass device skips it
+          via: !blocked && !viaBypass && boundary ? boundary.id : undefined,
+        },
       });
     });
     return out;
@@ -617,7 +580,7 @@ export default function PurdueTopologyTab({
             onNodeClick={(_, node) => setSelectedNodeId(node.id)}
             fitView
             fitViewOptions={{ padding: 0.16 }}
-            minZoom={0.45}
+            minZoom={0.15}
             maxZoom={1.6}
           >
             <Background color="#cbd5e1" gap={20} size={1} />

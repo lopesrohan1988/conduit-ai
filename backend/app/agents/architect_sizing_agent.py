@@ -10,6 +10,7 @@ Combines:
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from app.agents.architect_llm_planner import (
@@ -43,6 +44,10 @@ from app.state import (
     VideoWalkthroughResult,
     VoiceFieldNoteTranscript,
 )
+
+
+# Roles an asset list gives a legitimate supervisory master (SCADA/EMS/HMI/control centre)
+_MASTER_ROLE_RE = re.compile(r"master|scada|\bems\b|hmi|control[ _-]?cent", re.IGNORECASE)
 
 
 def generate_switch_cutover_cli(
@@ -247,6 +252,20 @@ def synthesize_custom_architecture_plan(
             elif fl.dst_port in {139, 445}:
                 action = "REPLACE_SMB_WITH_SFTP_RELAY"
                 presc = "Replace legacy SMB share with OT-initiated SFTP file push across Diode TX."
+            elif (
+                fl.has_write_operations
+                and fl.direction == "IT_TO_OT"
+                and fl.source_documented
+                and _MASTER_ROLE_RE.search(fl.source_role or "")
+                and fl.dst_port not in {22, 23, 3389, 5900}
+            ):
+                # A documented control centre: keep its monitoring through the diode, drop its commands
+                tier = "AMBER"
+                action = "PULL_TO_PUSH_PROXY_REVERSAL"
+                presc = (
+                    f"Diode TX polls {fl.dst_ip}:{fl.dst_port} locally and pushes {fl.protocol} values out to "
+                    f"{fl.src_ip}; its remote commands ({fl.function_detail}) stop, since nothing travels inward."
+                )
             else:
                 action = "SEVER_CRITICAL_VIOLATION_AT_L1"
                 presc = f"CRITICAL VIOLATION ({fl.function_detail}): Physically sever at Layer 1/2."
