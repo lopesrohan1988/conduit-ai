@@ -123,6 +123,34 @@ async def test_deliverable_exports_drawio_pdf_and_zip() -> None:
                 "05_digital_twin_verification.log",
                 "06_target_purdue_conduit.drawio",
             }.issubset(names)
+            cli = zf.read("01_switch_vlan_port_security_cutover.ios.conf").decode()
+        # The bundle carries the site's own switch and the rogue modem's real port, not invented ones
+        assert "Stratix5700-AQUA-CORE1" in cli
+        assert "interface Fa1/24" in cli
+        assert "GigabitEthernet1/0/" not in cli
+
+
+def test_switch_cutover_uses_only_ports_the_dump_shows() -> None:
+    import asyncio
+
+    from app.agents.langgraph_workflow import build_conduit_langgraph, build_scenario_initial_state
+    from app.clients.meta_models import MetaModelGateway
+
+    def cli_for(scenario_id: str) -> str:
+        graph, scratch = build_conduit_langgraph(settings=get_settings(), gateway=MetaModelGateway(), use_live_llm=False)
+        asyncio.run(graph.ainvoke(build_scenario_initial_state(scenario_id)))
+        return scratch["architect_meta"]["switch_cutover_cli"]
+
+    substation = cli_for("scenario_2_substation")
+    # Hirschmann HiOS syntax, and the office uplink is where the office hosts were learned
+    assert "Syntax: Hirschmann HiOS" in substation and "configure terminal" not in substation
+    assert "interface 1/1\n shutdown" in substation
+    water = cli_for("scenario_4_water_treatment")
+    assert "interface Fa1/24" in water and "interface Gi1/1" in water
+    # No switch dump: placeholders, never a made-up port or VLAN
+    capture = cli_for("capture__modbus_schneider_modicon_plc")
+    assert "No switch dump" in capture and "interface DIODE_TX_PORT" in capture
+    assert "switchport access vlan PLANT_VLAN" in capture
 
 
 @pytest.mark.asyncio

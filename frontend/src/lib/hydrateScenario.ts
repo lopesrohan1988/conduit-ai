@@ -604,21 +604,34 @@ export function hydrateScenarioFromBackendPayload(
     next.bom = { ...next.bom, switchCutoverCli: rawCli };
   }
 
-  if (isCustom && compArr.length > 0) {
+  // The run's own mapping, so the table matches the PDF the client downloads
+  if (compArr.length > 0) {
     const mappedComp: ComplianceClauseRow[] = compArr.map((c, idx) => ({
       id: `COMP-LIVE-${idx + 1}`,
       standard: String(c.framework ?? "IEC 62443-3-3"),
       clauseId: String(c.clause_id ?? "SR 5.1"),
       findingCode: `FND-0${idx + 1}`,
       severity: "CRITICAL",
-      preCutoverState: String(c.pre_cutover_status ?? "NON_COMPLIANT"),
-      postCutoverState: String(c.post_cutover_status ?? "COMPLIANT_SL4"),
+      preCutoverState: complianceLabel(String(c.pre_cutover_status ?? "NON_COMPLIANT")),
+      postCutoverState: complianceLabel(String(c.post_cutover_status ?? "COMPLIANT_SL4")),
       diodeSatisfactionNote: String(c.auditor_evidence ?? ""),
     }));
     next.compliance = mappedComp;
   }
 
   return next;
+}
+
+function complianceLabel(status: string): string {
+  return (
+    {
+      NON_COMPLIANT: "Not compliant",
+      PARTIAL_SL2_ONLY: "Partial (SL-2 only)",
+      COMPLIANT_SL3: "Compliant (SL-3)",
+      COMPLIANT_SL4: "Compliant (SL-4)",
+      COMPLIANT: "Compliant",
+    }[status] ?? status
+  );
 }
 
 /** Convert recorded browser audio Blob (WebM/Ogg) into mono 16kHz 16-bit PCM WAV bytes */

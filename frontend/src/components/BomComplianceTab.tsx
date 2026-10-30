@@ -373,9 +373,7 @@ ${scenario.flows
                           </span>
                         </div>
                         <div className="text-xs text-slate-500 mt-1">
-                          {item.mountingOption} · Up to{" "}
-                          {item.sustainedCeilingMbps} Mbps sustained (Site needs{" "}
-                          {scenario.bom.sizedBandwidthWithHeadroomMbps} Mbps)
+                          {item.mountingOption} · Up to {item.sustainedCeilingMbps} Mbps sustained
                         </div>
                       </div>
 
@@ -389,6 +387,11 @@ ${scenario.flows
                       </div>
                     </div>
                   ))}
+                </div>
+                {/* Capacity is judged for the whole kit, so one diode is never compared with the site total */}
+                <div className="mt-2 text-xs text-slate-600">
+                  Kit carries {scenario.bom.sustainedCapacityMbps} Mbps sustained · site needs{" "}
+                  {scenario.bom.sizedBandwidthWithHeadroomMbps} Mbps (peak × 1.25)
                 </div>
               </div>
 
@@ -483,7 +486,7 @@ ${scenario.flows
                           {row.postCutoverState}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-slate-600 max-w-md truncate">
+                      <td className="py-3 px-4 text-slate-600 min-w-[18rem]">
                         {row.diodeSatisfactionNote}
                       </td>
                     </tr>

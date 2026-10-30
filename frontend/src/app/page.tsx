@@ -449,12 +449,14 @@ export default function ConduitWorkbenchPage() {
               <div className="text-xs text-slate-500">Unlisted Devices</div>
               <div
                 className={`text-sm font-semibold font-mono ${
-                  selectedScenario.isCriticalRogueScenario
-                    ? "text-rose-700"
-                    : "text-amber-700"
+                  selectedScenario.captureSite
+                    ? "text-slate-500"
+                    : selectedScenario.isCriticalRogueScenario
+                      ? "text-rose-700"
+                      : "text-amber-700"
                 }`}
               >
-                {selectedScenario.telemetry.shadowAssetCount} Found
+                {selectedScenario.captureSite ? "Not checked" : `${selectedScenario.telemetry.shadowAssetCount} Found`}
               </div>
             </div>
 

@@ -85,6 +85,36 @@ def export_drawio_xml(plan: ConduitArchitecturePlan) -> str:
 """
 
 
+# Plain-language wording for the report; the enum names stay in the JSON bundle
+_PDF_ACTION = {
+    "DROP_IN_PROXY_MAPPING": "Keep: one-way out through the diode",
+    "PULL_TO_PUSH_PROXY_REVERSAL": "Keep: diode polls the plant and pushes a copy out",
+    "DEPLOY_OPC_UA_WRAPPER_THEN_PROXY": "Keep: protocol adapter, then one-way out",
+    "REPLACE_SMB_WITH_SFTP_RELAY": "Keep: file push out only",
+    "ROUTE_VIA_ARCH_D_OT_LOCKED_GATEWAY": "Keep: plant-initiated only, through a locked gateway",
+    "SEVER_CRITICAL_VIOLATION_AT_L1": "Cut",
+}
+_PDF_DIRECTION = {
+    "IT_TO_OT": "Office to plant",
+    "OT_TO_IT": "Plant to office",
+    "BYPASS_TO_OT": "Bypass into plant",
+    "LOCAL": "Inside plant",
+}
+
+
+_PDF_LABEL = {
+    "ROGUE_IT_BRIDGE": "Rogue IT bridge (bypasses the firewall)",
+    "DUAL_HOMED_BYPASS_ASSET": "Dual-homed host bridging IT and OT",
+    "UNDOCUMENTED_SHADOW_ASSET": "Device missing from the asset list",
+    "COMPLIANT_SL4": "Compliant (SL-4)",
+    "COMPLIANT_SL3": "Compliant (SL-3)",
+}
+
+
+def _plain(value: str) -> str:
+    return _PDF_LABEL.get(value) or value.replace("_", " ").capitalize()
+
+
 def export_executive_pdf(
     plan: ConduitArchitecturePlan,
     twin: ModalTwinVerificationResult,
@@ -124,6 +154,12 @@ def export_executive_pdf(
         textColor=colors.HexColor("#1e293b"),
     )
 
+    cell_style = ParagraphStyle("ConduitCell", parent=body_style, fontSize=8, leading=10)
+
+    def cell(text: str) -> Paragraph:
+        # Wrapped table cell, so long values are never cut off
+        return Paragraph(html.escape(text), cell_style)
+
     story = []
     es = plan.executive_summary
     story.append(
@@ -151,7 +187,7 @@ def export_executive_pdf(
             [
                 str(item.line_item),
                 item.item_code,
-                item.description[:44],
+                cell(item.description),
                 str(item.quantity),
                 f"${item.estimated_unit_cost_usd:,.0f}",
                 f"${item.estimated_extended_cost_usd:,.0f}",
@@ -173,30 +209,52 @@ def export_executive_pdf(
 
     # Section 2: Protocol Cutover Matrix
     story.append(Paragraph("2. Green / Amber / Red Protocol Cutover Matrix", sec_style))
-    cut_data = [["Flow", "Protocol", "Port", "Direction", "Tier", "Action"]]
-    for row in plan.protocol_cutover_matrix[:10]:
+    cut_data = [["Flow", "Connection", "Protocol / port", "Direction", "Tier", "Decision"]]
+    for row in plan.protocol_cutover_matrix:
         cut_data.append(
             [
                 row.flow_id,
-                row.protocol[:22],
-                str(row.port),
-                row.observed_initiator,
+                cell(f"{row.observed_src_ip} to {row.observed_dst_ip}"),
+                cell(f"{row.protocol} / {row.port}"),
+                cell(_PDF_DIRECTION.get(row.observed_initiator, _plain(row.observed_initiator))),
                 row.cutover_tier,
-                row.cutover_action_type[:28],
+                cell(_PDF_ACTION.get(row.cutover_action_type, _plain(row.cutover_action_type))),
             ]
         )
-    cut_tbl = Table(cut_data, colWidths=[52, 110, 42, 70, 55, 206])
+    cut_tbl = Table(cut_data, colWidths=[48, 112, 100, 72, 45, 158], repeatRows=1)
     cut_tbl.setStyle(
         TableStyle(
             [
                 ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e3a8a")),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
                 ("FONTSIZE", (0, 0), (-1, -1), 8),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
                 ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
             ]
         )
     )
     story.append(cut_tbl)
+
+    if plan.shadow_assets_and_bypasses:
+        story.append(Paragraph("Unlisted devices and bypass paths", sec_style))
+        shadow_data = [["Finding", "Addresses", "Severity", "Action"]]
+        for a in plan.shadow_assets_and_bypasses:
+            shadow_data.append(
+                [cell(_plain(a.anomaly_type)), cell(", ".join(a.ip_addresses)), a.severity, cell(a.remediation_action)]
+            )
+        shadow_tbl = Table(shadow_data, colWidths=[110, 95, 60, 270], repeatRows=1)
+        shadow_tbl.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#7f1d1d")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                    ("FONTSIZE", (0, 0), (-1, -1), 8),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+                ]
+            )
+        )
+        story.append(shadow_tbl)
 
     # Section 3: Verifiable Socket Digital Twin Proof
     story.append(Paragraph("3. Layer-1/2 Unidirectional Socket Digital Twin Verification", sec_style))
@@ -205,7 +263,7 @@ def export_executive_pdf(
             f"<b>Sandbox ID:</b> {html.escape(twin.sandbox_id)} ({twin.execution_backend}) &nbsp;|&nbsp; "
             f"<b>Telemetry Continuity:</b> {twin.telemetry_continuity_pct:.1f}% &nbsp;|&nbsp; "
             f"<b>Inbound Exploit Drop Rate:</b> {twin.inbound_exploit_block_rate_pct:.1f}% &nbsp;|&nbsp; "
-            f"<b>Verdict:</b> {twin.overall_verdict}",
+            f"<b>Verdict:</b> {_plain(twin.overall_verdict)}",
             body_style,
         )
     )
@@ -215,7 +273,7 @@ def export_executive_pdf(
     comp_data = [["Framework", "Clause", "Pre-Cutover", "Post-Cutover"]]
     for c in plan.compliance_mapping:
         comp_data.append(
-            [c.framework[:28], c.clause_id[:28], c.pre_cutover_status, c.post_cutover_status]
+            [cell(c.framework), cell(c.clause_id), cell(_plain(c.pre_cutover_status)), cell(_plain(c.post_cutover_status))]
         )
     comp_tbl = Table(comp_data, colWidths=[155, 155, 110, 115])
     comp_tbl.setStyle(
@@ -239,10 +297,11 @@ def export_cutover_zip_bundle(
     twin: ModalTwinVerificationResult,
     *,
     switch_hostname: str = "OT-CORE-SW01",
+    cli_script: str | None = None,
 ) -> bytes:
     """Package Cisco/Hirschmann CLI, TX/RX proxy JSONs, Digital Twin log, and `.drawio` into `.zip`."""
     buf = io.BytesIO()
-    cli_script = generate_switch_cutover_cli(plan, switch_hostname=switch_hostname)
+    cli_script = cli_script or generate_switch_cutover_cli(plan, switch_hostname=switch_hostname)
     tx_config = {
         "role": "DIODE_TX_INNER_OT_SIDE",
         "facility": plan.executive_summary.facility_name,

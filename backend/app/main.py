@@ -58,6 +58,8 @@ gateway = MetaModelGateway(settings=settings)
 _LATEST_SCENARIO_PLANS: dict[str, ConduitArchitecturePlan] = {}
 # The evidence behind each of those plans, so the rule checker can be challenged on them
 _LATEST_SCENARIO_EVIDENCE: dict[str, dict[str, Any]] = {}
+# The switch cutover config built with that plan, so the bundle carries the ports the UI showed
+_LATEST_SCENARIO_CLI: dict[str, str] = {}
 
 
 async def _resolve_scenario_plan(scenario_id: str) -> ConduitArchitecturePlan:
@@ -67,7 +69,7 @@ async def _resolve_scenario_plan(scenario_id: str) -> ConduitArchitecturePlan:
     cached = _LATEST_SCENARIO_PLANS.get(scenario_id)
     if cached is not None:
         return cached
-    compiled_graph, _ = build_conduit_langgraph(
+    compiled_graph, scratch = build_conduit_langgraph(
         settings=settings, gateway=gateway, use_live_llm=False
     )
     final_state = await compiled_graph.ainvoke(
@@ -75,6 +77,8 @@ async def _resolve_scenario_plan(scenario_id: str) -> ConduitArchitecturePlan:
     )
     plan: ConduitArchitecturePlan = final_state["architecture_plan"]
     _LATEST_SCENARIO_PLANS[scenario_id] = plan
+    if cli := scratch.get("architect_meta", {}).get("switch_cutover_cli"):
+        _LATEST_SCENARIO_CLI[scenario_id] = cli
     return plan
 
 app = FastAPI(
@@ -471,6 +475,8 @@ async def stream_scenario_assessment(
 
         plan_final = accumulated_state["architecture_plan"]
         _LATEST_SCENARIO_PLANS[scenario_id] = plan_final
+        if cli := scratch.get("architect_meta", {}).get("switch_cutover_cli"):
+            _LATEST_SCENARIO_CLI[scenario_id] = cli
         if scratch.get("telemetry_audit") is not None:
             _LATEST_SCENARIO_EVIDENCE[scenario_id] = {
                 "telemetry_audit": scratch["telemetry_audit"],
@@ -660,7 +666,7 @@ async def export_scenario_deliverable(
             },
         )
     if fmt == "zip":
-        zip_bytes = export_cutover_zip_bundle(plan, twin)
+        zip_bytes = export_cutover_zip_bundle(plan, twin, cli_script=_LATEST_SCENARIO_CLI.get(scenario_id))
         return Response(
             content=zip_bytes,
             media_type="application/zip",

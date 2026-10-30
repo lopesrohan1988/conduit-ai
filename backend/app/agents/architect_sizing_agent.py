@@ -27,6 +27,7 @@ from app.catalog_loader import load_hardware_catalog
 from app.clients.meta_models import MetaModelGateway
 from app.state import (
     ArchetypeId,
+    AssetNode,
     BomLineItem,
     CabinetVisionInspection,
     ComplianceMappingRow,
@@ -51,51 +52,96 @@ from app.state import (
 _MASTER_ROLE_RE = re.compile(r"master|scada|\bems\b|hmi|control[ _-]?cent", re.IGNORECASE)
 
 
+# Hirschmann HiOS switches; everything else gets Cisco IOS syntax (Stratix runs IOS)
+_HIOS_HOSTNAME_RE = re.compile(r"^(MACH|RSP|GRS|BRS|OS\d|OCTOPUS|BOBCAT|DRAGON)", re.IGNORECASE)
+_DIODE_TX_PORT = "DIODE_TX_PORT"
+
+
 def generate_switch_cutover_cli(
     plan: ConduitArchitecturePlan,
     *,
     switch_hostname: str = "OT-CORE-SW01",
+    assets: list[AssetNode] | None = None,
 ) -> str:
-    """Synthesize copy-ready Cisco IOS / Stratix VLAN isolation & port-security cutover CLI."""
+    """Copy-ready switch cutover config, using only ports the switch dump actually shows.
+
+    Bypass devices are shut on the port their MAC was learned on, and the office-facing uplinks
+    are the ports where office (L4) hosts were learned. A port the dump does not show is left as a
+    named placeholder, never invented.
+    """
     primary_sizing = plan.conduit_sizing_recommendations[0]
     ot_zone = plan.reconciled_zones[0] if plan.reconciled_zones else None
-    ot_vlan = ot_zone.vlans[0] if (ot_zone and ot_zone.vlans) else 10
+    # Only a VLAN some device was seen on; the plan's zones fall back to a default when there is no dump
+    seen_vlans = {a.vlan for a in assets or [] if a.vlan}
+    ot_vlan = ot_zone.vlans[0] if (ot_zone and ot_zone.vlans and ot_zone.vlans[0] in seen_vlans) else "PLANT_VLAN"
     first_proxy = (
         plan.tx_rx_proxy_translation_table[0]
         if plan.tx_rx_proxy_translation_table
         else None
     )
-    tx_vip = first_proxy.tx_inner_vip if first_proxy else f"192.168.{ot_vlan}.250"
+    tx_vip = first_proxy.tx_inner_vip if first_proxy else "address to be assigned"
+    hios = bool(_HIOS_HOSTNAME_RE.match(switch_hostname))
+    port_by_ip = {a.ip_address: a.switch_port for a in assets or [] if a.switch_port}
+    port_by_mac = {a.mac_address.upper(): a.switch_port for a in assets or [] if a.switch_port}
+    it_uplinks = sorted({a.switch_port for a in assets or [] if a.switch_port and a.purdue_level == "L4"})
+
+    def shut(port: str, description: str) -> list[str]:
+        if hios:
+            return [f"interface {port}", " shutdown", " exit", "!"]
+        return [f"interface {port}", f" description {description}", " shutdown", " exit", "!"]
 
     lines = [
-        f"! ==========================================================================",
-        f"! ConduitAI Autonomous Cutover Script — {plan.executive_summary.facility_name}",
+        "! ==========================================================================",
+        f"! ConduitAI Cutover Script — {plan.executive_summary.facility_name}",
         f"! Target Switch: {switch_hostname} | Target Posture: IEC 62443 {plan.executive_summary.target_security_posture_sl}",
-        f"! Enforced Diode: {primary_sizing.quantity}x {primary_sizing.recommended_archetype_id} ({primary_sizing.mounting_selection})",
-        f"! ==========================================================================",
-        "configure terminal",
+        "! Enforced Diode: "
+        + ", ".join(
+            f"{r.quantity}x {r.recommended_archetype_id} ({r.mounting_selection})"
+            for r in plan.conduit_sizing_recommendations
+        ),
+        f"! Syntax: {'Hirschmann HiOS' if hios else 'Cisco IOS'} | "
+        + ("Ports are taken from the switch dump's MAC table" if port_by_ip else "No switch dump: fill in every placeholder"),
+        "! ==========================================================================",
+        "enable" if hios else "",
+        "configure" if hios else "configure terminal",
         "!",
     ]
+    lines = [line for line in lines if line]
 
-    # 1. Sever rogue bypass ports if any CRITICAL anomalies detected
+    # 1. Shut every bypass device on the port the switch learned it on
     for anom in plan.shadow_assets_and_bypasses:
-        if anom.anomaly_type in ("ROGUE_IT_BRIDGE", "DUAL_HOMED_BYPASS_ASSET"):
-            lines.extend(
-                [
-                    f"! [CRITICAL] Quarantine {anom.anomaly_type}: {', '.join(anom.ip_addresses)} ({anom.mac_address})",
-                    "interface GigabitEthernet1/0/24",
-                    f" description QUARANTINED_{anom.anomaly_id}_AIRGAP_BYPASS",
-                    " shutdown",
-                    " exit",
-                    "!",
-                ]
-            )
+        if anom.anomaly_type not in ("ROGUE_IT_BRIDGE", "DUAL_HOMED_BYPASS_ASSET"):
+            continue
+        port = next((port_by_ip[ip] for ip in anom.ip_addresses if ip in port_by_ip), None) or port_by_mac.get(
+            (anom.mac_address or "").upper()
+        )
+        lines.append(f"! [CRITICAL] Quarantine {anom.anomaly_type}: {', '.join(anom.ip_addresses)} ({anom.mac_address})")
+        if port:
+            lines += shut(port, f"QUARANTINED_{anom.anomaly_id}_BYPASS")
+        else:
+            lines += [
+                f"! Port not in the switch dump: find it with 'show mac address-table address {anom.mac_address}'"
+                if not hios
+                else f"! Port not in the switch dump: find it with 'show mac-addr-table' for {anom.mac_address}",
+                "!",
+            ]
 
-    # 2. Dedicated Diode TX Uplink Interface
-    lines.extend(
-        [
-            f"! Provision Dedicated Hardware Data Diode TX Inner Interface ({tx_vip})",
-            "interface GigabitEthernet1/0/47",
+    # 2. Diode TX port on the plant VLAN
+    lines += [
+        f"! Diode TX inner interface ({tx_vip}). The dump has no interface status:",
+        f"! replace {_DIODE_TX_PORT} with a free access port before applying.",
+        f"interface {_DIODE_TX_PORT}",
+    ]
+    if hios:
+        lines += [
+            f" vlan participation include {ot_vlan}",
+            f" vlan pvid {ot_vlan}",
+            " no shutdown",
+            " exit",
+            "!",
+        ]
+    else:
+        lines += [
             f" description CONDUITAI_{primary_sizing.recommended_archetype_id}_TX_INGRESS",
             " switchport mode access",
             f" switchport access vlan {ot_vlan}",
@@ -108,17 +154,25 @@ def generate_switch_cutover_cli(
             " no lldp transmit",
             " exit",
             "!",
-            "! Decommission Legacy Bi-Directional IT/OT Firewall Trunk",
-            "interface GigabitEthernet1/0/48",
-            " description LEGACY_IT_FIREWALL_UPLINK_DECOMMISSIONED_POST_CUTOVER",
-            " shutdown",
-            " exit",
-            "end",
-            "write memory",
         ]
-    )
+
+    # 3. The two-way office uplinks go once the diode carries the kept feeds
+    lines.append("! Decommission the two-way office uplink(s): ports where office hosts were learned")
+    if it_uplinks:
+        for port in it_uplinks:
+            lines += shut(port, "LEGACY_IT_UPLINK_DECOMMISSIONED_POST_CUTOVER")
+    else:
+        lines += ["! No office host was learned on this switch: shut the firewall uplink by hand", "!"]
+
+    lines += ["end", "copy config running-config nvm" if hios else "write memory"]
     return "\n".join(lines)
 
+
+# A plant host already opens this session, so there is no inbound poll to reverse: the diode carries it outward
+_PLANT_INITIATED_PROXY = (
+    "Plant host {src} keeps opening its {proto} session; Diode TX terminates it locally and forwards "
+    "a copy one-way to {dst} on the IT RX replica."
+)
 
 _ACTION_PRESCRIPTIONS: dict[str, str] = {
     "DROP_IN_PROXY_MAPPING": "Route {proto} unidirectionally across {arch} TX -> RX replica.",
@@ -239,10 +293,11 @@ def synthesize_custom_architecture_plan(
                 if chosen_arch == "ARCH_D_BIDIRECTIONAL_GATEWAY"
                 else "PULL_TO_PUSH_PROXY_REVERSAL"
             )
-            presc = (
-                f"Reverse inbound {fl.protocol} poll: Diode TX polls OT {fl.dst_ip}:{fl.dst_port} "
-                f"locally and pushes state snapshots one-way to IT RX replica."
+            presc = _ACTION_PRESCRIPTIONS[action].format(
+                proto=fl.protocol, arch=chosen_arch, dst=f"{fl.dst_ip}:{fl.dst_port}", detail=fl.function_detail
             )
+            if action == "PULL_TO_PUSH_PROXY_REVERSAL" and initiator == "OT_TO_IT":
+                presc = _PLANT_INITIATED_PROXY.format(proto=fl.protocol, src=fl.src_ip, dst=f"{fl.dst_ip}:{fl.dst_port}")
         else:
             if fl.lateral_movement_suspected:
                 action = "SEVER_CRITICAL_VIOLATION_AT_L1"
@@ -279,6 +334,8 @@ def synthesize_custom_architecture_plan(
             presc = _ACTION_PRESCRIPTIONS[action].format(
                 proto=fl.protocol, arch=chosen_arch, dst=f"{fl.dst_ip}:{fl.dst_port}", detail=fl.function_detail
             )
+            if action == "PULL_TO_PUSH_PROXY_REVERSAL" and initiator == "OT_TO_IT":
+                presc = _PLANT_INITIATED_PROXY.format(proto=fl.protocol, src=fl.src_ip, dst=f"{fl.dst_ip}:{fl.dst_port}")
             if flow_decision.rationale:
                 presc += f" Rationale: {flow_decision.rationale}"
         if action == "SEVER_CRITICAL_VIOLATION_AT_L1":
@@ -521,7 +578,7 @@ async def run_architect_sizing_agent(
             None,
         ),
         "switch_cutover_cli": generate_switch_cutover_cli(
-            plan, switch_hostname=switch_audit.switch_hostname
+            plan, switch_hostname=switch_audit.switch_hostname, assets=switch_audit.assets
         ),
     }
     return plan, meta_info

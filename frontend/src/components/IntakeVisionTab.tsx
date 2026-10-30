@@ -188,8 +188,11 @@ export default function IntakeVisionTab({
     Boolean(scenario.mediaPaths.topologyDiagramRel) && (subTab === "diagram_check" || subTab === "all_grid");
   const showVideoPanel =
     Boolean(scenario.mediaPaths.walkthroughVideoRel) && (subTab === "rack_video" || subTab === "all_grid");
+  // A capture has no voice note and no asset list, so there is nothing to show in that panel
   const showVoiceAndShadow =
-    subTab === "voice_and_shadow" || subTab === "all_grid";
+    !scenario.captureSite && (subTab === "voice_and_shadow" || subTab === "all_grid");
+  // Nothing was photographed, so print a dash rather than a zero that reads like a measurement
+  const notMeasured = Boolean(scenario.captureSite);
 
   return (
     <div className="space-y-4">
@@ -209,7 +212,7 @@ export default function IntakeVisionTab({
                     : "bg-slate-50 text-slate-600 border-slate-200"
                 }`}
               >
-                {visionMeasured ? "Measured by SAM 3.1" : "Reference values"}
+                {visionMeasured ? "Measured by SAM 3.1" : notMeasured ? "No photos supplied" : "Reference values"}
               </span>
             </div>
             <h3 className="text-sm sm:text-base font-semibold text-slate-900">
@@ -234,20 +237,21 @@ export default function IntakeVisionTab({
             <div className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200/80">
               <div className="text-[11px] text-slate-500">Open 1U Slots</div>
               <div className="text-sm font-semibold text-slate-900 font-mono mt-0.5">
-                {scenario.samCabinetMetrics.empty1uSlots} U
+                {notMeasured ? "not measured" : `${scenario.samCabinetMetrics.empty1uSlots} U`}
               </div>
             </div>
             <div className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200/80">
               <div className="text-[11px] text-slate-500">Free DIN Rail</div>
               <div className="text-sm font-semibold text-slate-900 font-mono mt-0.5">
-                {scenario.samCabinetMetrics.dinRailFreeMm} mm
+                {notMeasured ? "not measured" : `${scenario.samCabinetMetrics.dinRailFreeMm} mm`}
               </div>
             </div>
             <div className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200/80">
               <div className="text-[11px] text-slate-500">Spare Ports</div>
               <div className="text-sm font-semibold text-slate-900 font-mono mt-0.5">
-                {scenario.samCabinetMetrics.freeRj45Ports} RJ45 ·{" "}
-                {scenario.samCabinetMetrics.freeSfpPorts} SFP
+                {notMeasured
+                  ? "no switch dump"
+                  : `${scenario.samCabinetMetrics.freeRj45Ports} RJ45 · ${scenario.samCabinetMetrics.freeSfpPorts} SFP`}
               </div>
             </div>
           </div>
@@ -267,7 +271,7 @@ export default function IntakeVisionTab({
                     : "bg-amber-50 text-amber-800 border-amber-200"
                 }`}
               >
-                {scenario.shadowAssets.length} Unlisted Found
+                {scenario.captureSite ? "No asset list to check" : `${scenario.shadowAssets.length} Unlisted Found`}
               </span>
             </div>
             <h3 className="text-sm sm:text-base font-semibold text-slate-900">
@@ -331,6 +335,7 @@ export default function IntakeVisionTab({
             <span>Network Diagram</span>
           </button>
 
+          {!scenario.captureSite && (
           <button
             type="button"
             onClick={() => setSubTab("voice_and_shadow")}
@@ -343,6 +348,7 @@ export default function IntakeVisionTab({
             <Mic className="w-3.5 h-3.5" />
             <span>Voice &amp; Unlisted Gear ({scenario.shadowAssets.length})</span>
           </button>
+          )}
         </div>
 
         <button

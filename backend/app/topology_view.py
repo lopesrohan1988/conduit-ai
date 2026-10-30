@@ -57,6 +57,24 @@ def _spread(count: int, y: float) -> list[tuple[float, float]]:
     return out
 
 
+# Kept upper-case when an enum category is turned into a label ("SUBSTATION_IED_OR_RTAC")
+_ACRONYMS = {
+    "CIP", "DCS", "DMZ", "DNP3", "EMS", "EWS", "HMI", "IED", "IO", "IOT", "IT", "LIMS", "OPC", "OT",
+    "PI", "PLC", "PMU", "RTAC", "RTU", "SCADA", "SIEM", "SIS", "UPS", "VFD", "VM", "WAN",
+}
+
+
+def _role_label(category: str) -> str:
+    """'SUBSTATION_IED_OR_RTAC' -> 'Substation IED or RTAC'; free text from an asset list is kept as written."""
+    if category != category.upper():
+        return category
+    words = category.replace("_", " ").split()
+    return " ".join(
+        w if w in _ACRONYMS else (w.lower() if i and w in {"OR", "AND", "OF", "TO"} else w.capitalize())
+        for i, w in enumerate(words)
+    )
+
+
 def _after_action(direction: str, actions: list[str]) -> str:
     """How a connection crosses the boundary once the plan is in place.
 
@@ -164,7 +182,7 @@ def build_topology_view(
         level = "BYPASS" if z == "BYPASS" else (a.purdue_level if a else ("L4" if z == "IT" else "L1"))
         if level == "L0":
             level = "L1"
-        role = (a.device_category.replace("_", " ").title() if a and a.device_category != "UNKNOWN" else None) or (
+        role = (_role_label(a.device_category) if a and a.device_category != "UNKNOWN" else None) or (
             "Corporate IT host" if z == "IT" else "Plant device"
         )
         x, y = positions[ip]

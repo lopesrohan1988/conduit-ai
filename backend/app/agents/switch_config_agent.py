@@ -453,7 +453,8 @@ async def run_switch_config_agent(
         f"Switch `{audit.switch_hostname}` audit discovered {audit.total_discovered_assets} endpoints "
         f"across VLANs {audit.vlans_observed} and {len(audit.shadow_anomalies)} shadow/bypass anomalies:\n"
         f"{compact_shadows}\n"
-        "Return strict JSON: {\"switch_cutover_summary\": \"one-sentence IOS/HiOS port-lockdown note\"}"
+        "Return strict JSON: {\"switch_cutover_summary\": \"one imperative sentence telling the engineer which "
+        "IOS/HiOS ports to lock down; nothing has been changed yet, so never describe it as done\"}"
     )
     llm_res = await gateway.chat_baseten_open(
         [{"role": "user", "content": prompt}],
@@ -466,7 +467,7 @@ async def run_switch_config_agent(
         note = str(parsed["switch_cutover_summary"]).strip()
         if note:
             audit.shadow_anomalies[0].remediation_action = (
-                f"{audit.shadow_anomalies[0].remediation_action} [{note}]"
+                f"{audit.shadow_anomalies[0].remediation_action} [Switch model's lockdown note: {note}]"
             )
     return audit
 
