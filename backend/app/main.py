@@ -48,6 +48,7 @@ from app.state import (
     VoiceFieldNoteTranscript,
 )
 from app.attack_replay import replay_attacks
+from app.run_store import RunStore, session_of
 from app.review import (
     apply_override,
     build_evidence_manifest,
@@ -62,26 +63,22 @@ from app.twin.modal_cutover_twin import verify_cutover_in_digital_twin
 settings = get_settings()
 gateway = MetaModelGateway(settings=settings)
 
-# Most recent pipeline-computed plan per scenario, so exports match what the user just saw
-_LATEST_SCENARIO_PLANS: dict[str, ConduitArchitecturePlan] = {}
-# The evidence behind each of those plans, so the rule checker can be challenged on them
-_LATEST_SCENARIO_EVIDENCE: dict[str, dict[str, Any]] = {}
-# The switch cutover config built with that plan, so the bundle carries the ports the UI showed
-_LATEST_SCENARIO_CLI: dict[str, str] = {}
-# The run behind that plan (state, scratch) plus its engineer review, evidence manifest and conflicts
-_LATEST_SCENARIO_RUN: dict[str, dict[str, Any]] = {}
+# The latest run per (browser session, site): its state and plan, the switch config shown with it,
+# the engineer review, evidence manifest and site questions. Exports and reviews read from here.
+_RUNS = RunStore()
 
 
-def _remember_run(scenario_id: str, state: dict[str, Any], scratch: dict[str, Any]) -> dict[str, Any]:
+def _remember_run(session: str, scenario_id: str, state: dict[str, Any], scratch: dict[str, Any]) -> dict[str, Any]:
     """Keep a finished run so engineers can review it and exports can cite its evidence."""
     run = {
         "state": state,
         "scratch": scratch,
+        "cli": scratch.get("architect_meta", {}).get("switch_cutover_cli"),
         "review": new_review(),
         "manifest": build_evidence_manifest(state, scratch),
         "conflicts": find_evidence_conflicts(state, scratch),
     }
-    _LATEST_SCENARIO_RUN[scenario_id] = run
+    _RUNS.put(session, scenario_id, run)
     return run
 
 
@@ -90,24 +87,19 @@ def _review_payload(run: dict[str, Any]) -> dict[str, Any]:
     return {**run["review"], "plan_fingerprint": plan_fingerprint(plan)}
 
 
-async def _resolve_scenario_plan(scenario_id: str) -> ConduitArchitecturePlan:
-    """Return the last streamed plan for a scenario, or compute one with the rule engine."""
+async def _resolve_run(session: str, scenario_id: str) -> dict[str, Any]:
+    """This session's last run of a site, or a fresh rule-engine run when it has none."""
     if get_scenario_preview(scenario_id) is None:
         raise HTTPException(status_code=404, detail=f"Scenario '{scenario_id}' not found.")
-    cached = _LATEST_SCENARIO_PLANS.get(scenario_id)
-    if cached is not None:
-        return cached
+    run = _RUNS.get(session, scenario_id)
+    if run is not None:
+        return run
     compiled_graph, scratch = build_conduit_langgraph(
         settings=settings, gateway=gateway, use_live_llm=False
     )
     initial_state = build_scenario_initial_state(scenario_id, settings=settings)
     final_state = await compiled_graph.ainvoke(initial_state)
-    plan: ConduitArchitecturePlan = final_state["architecture_plan"]
-    _LATEST_SCENARIO_PLANS[scenario_id] = plan
-    _remember_run(scenario_id, {**initial_state, **final_state}, scratch)
-    if cli := scratch.get("architect_meta", {}).get("switch_cutover_cli"):
-        _LATEST_SCENARIO_CLI[scenario_id] = cli
-    return plan
+    return _remember_run(session, scenario_id, {**initial_state, **final_state}, scratch)
 
 app = FastAPI(
     title="ConduitAI — Autonomous OT Isolation & Hardware Diode Workbench API",
@@ -370,6 +362,7 @@ def _measured_payload(state: dict[str, Any], scratch: dict[str, Any]) -> dict[st
 
 @app.get("/api/v1/assessments/{scenario_id}/stream", tags=["Assessments"])
 async def stream_scenario_assessment(
+    request: Request,
     scenario_id: str,
     inference_mode: str | None = Query(default=None),
     step_delay_ms: int = Query(default=40, ge=0, le=1000),
@@ -393,6 +386,7 @@ async def stream_scenario_assessment(
         else step_delay_ms > 0
     )
 
+    session = session_of(request)
     initial_state = build_scenario_initial_state(
         scenario_id, inference_mode=effective_mode, settings=settings
     )
@@ -506,16 +500,7 @@ async def stream_scenario_assessment(
             await asyncio.sleep(delay_sec)
 
         plan_final = accumulated_state["architecture_plan"]
-        _LATEST_SCENARIO_PLANS[scenario_id] = plan_final
-        if cli := scratch.get("architect_meta", {}).get("switch_cutover_cli"):
-            _LATEST_SCENARIO_CLI[scenario_id] = cli
-        if scratch.get("telemetry_audit") is not None:
-            _LATEST_SCENARIO_EVIDENCE[scenario_id] = {
-                "telemetry_audit": scratch["telemetry_audit"],
-                "cabinet_inspections": accumulated_state.get("cabinet_inspections") or [],
-                "video_walkthrough": accumulated_state.get("video_walkthrough_result"),
-            }
-        run = _remember_run(scenario_id, accumulated_state, scratch)
+        run = _remember_run(session, scenario_id, accumulated_state, scratch)
         twin_final = accumulated_state["twin_verification"]
         voice_final = accumulated_state["voice_transcript"]
         architect_model = scratch.get("architect_meta", {}).get(
@@ -562,13 +547,20 @@ async def stream_scenario_assessment(
 
 
 @app.post("/api/v1/assessments/{scenario_id}/challenge-verifier", tags=["Assessments"])
-async def challenge_scenario_verifier(scenario_id: str) -> dict[str, Any]:
+async def challenge_scenario_verifier(request: Request, scenario_id: str) -> dict[str, Any]:
     """Reopen the most dangerous connection the latest plan cut and show the verifier's verdict."""
-    plan = _LATEST_SCENARIO_PLANS.get(scenario_id)
-    evidence = _LATEST_SCENARIO_EVIDENCE.get(scenario_id)
-    if plan is None or evidence is None:
+    run = _run_or_409(request, scenario_id)
+    state, scratch = run["state"], run["scratch"]
+    if scratch.get("telemetry_audit") is None:
         raise HTTPException(status_code=409, detail="Run the analysis for this site first.")
-    return {"challenge": challenge_verifier(plan, **evidence)}
+    return {
+        "challenge": challenge_verifier(
+            state["architecture_plan"],
+            telemetry_audit=scratch["telemetry_audit"],
+            cabinet_inspections=state.get("cabinet_inspections") or [],
+            video_walkthrough=state.get("video_walkthrough_result"),
+        )
+    }
 
 
 class OverrideRequest(BaseModel):
@@ -583,17 +575,17 @@ class SignOffRequest(BaseModel):
     note: str = Field(default="", max_length=1000)
 
 
-def _run_or_409(scenario_id: str) -> dict[str, Any]:
-    run = _LATEST_SCENARIO_RUN.get(scenario_id)
+def _run_or_409(request: Request, scenario_id: str) -> dict[str, Any]:
+    run = _RUNS.get(session_of(request), scenario_id)
     if run is None:
         raise HTTPException(status_code=409, detail="Run the analysis for this site first.")
     return run
 
 
 @app.get("/api/v1/assessments/{scenario_id}/review", tags=["Engineer Review"])
-async def get_engineer_review(scenario_id: str) -> dict[str, Any]:
+async def get_engineer_review(request: Request, scenario_id: str) -> dict[str, Any]:
     """Overrides, sign-off, evidence manifest and evidence conflicts for the latest run."""
-    run = _run_or_409(scenario_id)
+    run = _run_or_409(request, scenario_id)
     return {
         "review": _review_payload(run),
         "evidence_manifest": run["manifest"],
@@ -602,9 +594,9 @@ async def get_engineer_review(scenario_id: str) -> dict[str, Any]:
 
 
 @app.post("/api/v1/assessments/{scenario_id}/review/override", tags=["Engineer Review"])
-async def override_flow_decision(scenario_id: str, req: OverrideRequest) -> dict[str, Any]:
+async def override_flow_decision(request: Request, scenario_id: str, req: OverrideRequest) -> dict[str, Any]:
     """Change one connection's decision. The verifier re-checks it; only an accepted change is applied."""
-    run = _run_or_409(scenario_id)
+    run = _run_or_409(request, scenario_id)
     state, scratch = run["state"], run["scratch"]
     try:
         entry, new_plan = apply_override(
@@ -628,14 +620,13 @@ async def override_flow_decision(scenario_id: str, req: OverrideRequest) -> dict
         # The plan changed, so an earlier sign-off no longer covers it
         run["review"]["signoff"] = None
         state["architecture_plan"] = new_plan
-        _LATEST_SCENARIO_PLANS[scenario_id] = new_plan
         switch = scratch.get("switch_audit")
         cli = generate_switch_cutover_cli(
             new_plan,
             switch_hostname=switch.switch_hostname if switch else "OT-CORE-SW01",
             assets=switch.assets if switch else None,
         )
-        _LATEST_SCENARIO_CLI[scenario_id] = cli
+        run["cli"] = cli
         run["manifest"] = build_evidence_manifest(state, scratch)
         response.update(
             {
@@ -650,9 +641,9 @@ async def override_flow_decision(scenario_id: str, req: OverrideRequest) -> dict
 
 
 @app.post("/api/v1/assessments/{scenario_id}/review/signoff", tags=["Engineer Review"])
-async def sign_off_plan(scenario_id: str, req: SignOffRequest) -> dict[str, Any]:
+async def sign_off_plan(request: Request, scenario_id: str, req: SignOffRequest) -> dict[str, Any]:
     """Record who approved this exact plan; any later override voids it."""
-    run = _run_or_409(scenario_id)
+    run = _run_or_409(request, scenario_id)
     run["review"]["signoff"] = sign_off(
         run["state"]["architecture_plan"], run["review"], reviewer=req.reviewer.strip(), note=req.note.strip()
     )
@@ -767,11 +758,13 @@ async def analyze_custom_uploaded_site(
     tags=["Deliverable Exports"],
 )
 async def export_scenario_deliverable(
+    request: Request,
     scenario_id: str,
     export_format: str,
 ) -> Response:
     """Download `.drawio` topology XML, ReportLab `.pdf` report, or `.zip` cutover bundle."""
-    plan = await _resolve_scenario_plan(scenario_id)
+    run = await _resolve_run(session_of(request), scenario_id)
+    plan: ConduitArchitecturePlan = run["state"]["architecture_plan"]
 
     twin = verify_cutover_in_digital_twin(plan, scenario_id=scenario_id)
     fmt = export_format.strip().lower()
@@ -786,11 +779,10 @@ async def export_scenario_deliverable(
             },
         )
     if fmt == "pdf":
-        run = _LATEST_SCENARIO_RUN.get(scenario_id) or {}
         pdf_bytes = export_executive_pdf(
             plan,
             twin,
-            review=_review_payload(run) if run else None,
+            review=_review_payload(run),
             manifest=run.get("manifest"),
             conflicts=run.get("conflicts"),
         )
@@ -802,12 +794,11 @@ async def export_scenario_deliverable(
             },
         )
     if fmt == "zip":
-        run = _LATEST_SCENARIO_RUN.get(scenario_id) or {}
         zip_bytes = export_cutover_zip_bundle(
             plan,
             twin,
-            cli_script=_LATEST_SCENARIO_CLI.get(scenario_id),
-            review=_review_payload(run) if run else None,
+            cli_script=run.get("cli"),
+            review=_review_payload(run),
             manifest=run.get("manifest"),
             conflicts=run.get("conflicts"),
         )
@@ -826,9 +817,9 @@ async def export_scenario_deliverable(
 
 
 @app.post("/api/v1/twin/verify", tags=["Digital Twin"])
-async def verify_scenario_digital_twin(req: TwinVerifyRequest) -> dict[str, Any]:
+async def verify_scenario_digital_twin(request: Request, req: TwinVerifyRequest) -> dict[str, Any]:
     """Execute on-demand Layer-1/2 `os.pipe()` + TCP socket Digital Twin verification."""
-    plan = await _resolve_scenario_plan(req.scenario_id)
+    plan = (await _resolve_run(session_of(request), req.scenario_id))["state"]["architecture_plan"]
 
     twin = await asyncio.to_thread(
         verify_cutover_in_digital_twin,
@@ -840,14 +831,14 @@ async def verify_scenario_digital_twin(req: TwinVerifyRequest) -> dict[str, Any]
 
 
 @app.post("/api/v1/visuals/rack-card", tags=["Visual Synthesis"])
-async def generate_rack_installation_card(req: RackCardRequest) -> dict[str, Any]:
+async def generate_rack_installation_card(request: Request, req: RackCardRequest) -> dict[str, Any]:
     """Generate an annotated hardware diode rack/DIN installation visual via `muse-image-1.0`."""
     if req.prompt_override:
         prompt = req.prompt_override
     else:
         sc_id = req.scenario_id or "scenario_2_substation"
         try:
-            plan = await _resolve_scenario_plan(sc_id)
+            plan = (await _resolve_run(session_of(request), sc_id))["state"]["architecture_plan"]
             rec = plan.conduit_sizing_recommendations[0]
             prompt = (
                 f"Clean industrial engineering elevation diagram of {rec.quantity}x "

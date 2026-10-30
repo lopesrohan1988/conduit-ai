@@ -4,6 +4,36 @@ import { getDefaultModelStack } from "./fallbackData";
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8008";
 
+const SESSION_KEY = "conduitai.session";
+let sessionId: string | null = null;
+
+/** A random id per browser tab, so this visitor's runs, reviews and downloads stay their own on a shared server */
+export function getSessionId(): string {
+  if (sessionId) return sessionId;
+  try {
+    sessionId = window.sessionStorage.getItem(SESSION_KEY);
+  } catch {
+    // Storage blocked: the id lasts until the page reloads
+  }
+  if (!sessionId) {
+    sessionId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `s-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+    try {
+      window.sessionStorage.setItem(SESSION_KEY, sessionId);
+    } catch {
+      // Not kept across reloads this time
+    }
+  }
+  return sessionId;
+}
+
+/** Tag an API URL with this tab's session (a query parameter, since EventSource cannot send headers) */
+export function withSession(url: string): string {
+  return `${url}${url.includes("?") ? "&" : "?"}session=${encodeURIComponent(getSessionId())}`;
+}
+
 export function getStaticDataUrl(relativePath: string): string {
   const cleaned = relativePath.replace(/^\/+/, "");
   return `${API_BASE}/static/data/${cleaned}`;
@@ -146,5 +176,5 @@ export function getExportEndpointUrl(
   scenarioId: string,
   format: "drawio" | "pdf" | "zip"
 ): string {
-  return `${API_BASE}/api/v1/assessments/${encodeURIComponent(scenarioId)}/export/${format}`;
+  return withSession(`${API_BASE}/api/v1/assessments/${encodeURIComponent(scenarioId)}/export/${format}`);
 }

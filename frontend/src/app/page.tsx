@@ -18,6 +18,7 @@ import {
 } from "@/lib/fallbackData";
 import {
   API_BASE,
+  withSession,
   fetchBackendModelHealth,
   fetchBackendScenariosList,
   fetchScenarioPreview,
@@ -198,9 +199,11 @@ export default function ConduitWorkbenchPage() {
     );
     setTimelineSteps(initialSteps);
 
-    const sseUrl = `${API_BASE}/api/v1/assessments/${encodeURIComponent(
-      selectedScenarioId
-    )}/stream?inference_mode=${encodeURIComponent(inferenceMode)}`;
+    const sseUrl = withSession(
+      `${API_BASE}/api/v1/assessments/${encodeURIComponent(
+        selectedScenarioId
+      )}/stream?inference_mode=${encodeURIComponent(inferenceMode)}`
+    );
 
     try {
       const es = new EventSource(sseUrl);

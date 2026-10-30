@@ -101,3 +101,40 @@ async def test_streamed_run_carries_review_and_every_model() -> None:
         # Every pipeline stage is in the manifest, not just the last one streamed
         assert len(complete["evidence_manifest"]["models"]) == 7
         assert complete["review"] == {"overrides": [], "signoff": None, "plan_fingerprint": complete["review"]["plan_fingerprint"]}
+
+
+@pytest.mark.asyncio
+async def test_sessions_never_see_each_others_runs() -> None:
+    a, b = "?session=alice-1234abcd", "?session=bob-5678efgh"
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://testserver") as client:
+        assert (await client.get(f"{BASE}/export/drawio{a}")).status_code == 200
+        # Bob has not run this site, so there is nothing of Alice's for him to review
+        assert (await client.get(f"{BASE}/review{b}")).status_code == 409
+        r = await client.post(
+            f"{BASE}/review/override{a}",
+            json={"flow_id": "FLOW-03", "action": "SEVER_CRITICAL_VIOLATION_AT_L1", "reason": "Alice cuts it", "reviewer": "Alice"},
+        )
+        assert r.json()["override"]["accepted"] is True
+        await client.post(f"{BASE}/review/signoff{a}", json={"reviewer": "Alice"})
+
+        # Bob's own export runs his own plan: none of Alice's change or sign-off is in it
+        with zipfile.ZipFile(io.BytesIO((await client.get(f"{BASE}/export/zip{b}")).content)) as zf:
+            plan = json.loads(zf.read("04_architecture_plan.json"))
+            review = json.loads(zf.read("08_engineer_review.json"))["review"]
+        row = next(x for x in plan["protocol_cutover_matrix"] if x["flow_id"] == "FLOW-03")
+        assert row["cutover_action_type"] != "SEVER_CRITICAL_VIOLATION_AT_L1"
+        assert review["overrides"] == [] and review["signoff"] is None
+        alice = (await client.get(f"{BASE}/review{a}")).json()["review"]
+        assert alice["signoff"]["reviewer"] == "Alice"
+
+
+def test_run_store_is_bounded_and_expires() -> None:
+    from app.run_store import RunStore
+
+    store = RunStore(max_runs=2, ttl_seconds=3600)
+    for i in range(3):
+        store.put("s", f"site{i}", {"i": i})
+    assert len(store) == 2 and store.get("s", "site0") is None and store.get("s", "site2") == {"i": 2}
+    expired = RunStore(max_runs=10, ttl_seconds=0)
+    expired.put("s", "site", {})
+    assert expired.get("s", "site") is None

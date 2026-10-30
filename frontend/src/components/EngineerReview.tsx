@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { BadgeCheck, CheckCircle2, FileSearch, HelpCircle, Loader2, PenLine, XCircle } from "lucide-react";
 import { EvidenceConflict, EvidenceManifest, ScenarioDataset } from "@/types/conduit";
-import { API_BASE } from "@/lib/api";
+import { API_BASE, withSession } from "@/lib/api";
 import { Checklist } from "@/components/AgentLoop";
 
 /** Plain wording for each cutover action; the enum names stay in the JSON bundle */
@@ -98,7 +98,7 @@ export function EngineerReviewPanel({
     setBusy("override");
     setError("");
     try {
-      onPayload(await postJson(`${base}/override`, { flow_id: flowId, action, reason, reviewer }));
+      onPayload(await postJson(withSession(`${base}/override`), { flow_id: flowId, action, reason, reviewer }));
       setReason("");
     } catch (e) {
       setError(String((e as Error).message));
@@ -110,7 +110,7 @@ export function EngineerReviewPanel({
     setBusy("signoff");
     setError("");
     try {
-      onPayload(await postJson(`${base}/signoff`, { reviewer, note }));
+      onPayload(await postJson(withSession(`${base}/signoff`), { reviewer, note }));
     } catch (e) {
       setError(String((e as Error).message));
     } finally {

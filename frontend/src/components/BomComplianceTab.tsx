@@ -14,7 +14,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { ArchetypeId, ScenarioDataset, UserLensMode } from "@/types/conduit";
-import { API_BASE, getExportEndpointUrl } from "@/lib/api";
+import { API_BASE, getExportEndpointUrl, withSession } from "@/lib/api";
 import { buildCustomerProposalEmail } from "@/lib/guidedCopy";
 import { EvidenceManifestPanel, SignoffStatus } from "@/components/EngineerReview";
 
@@ -111,7 +111,7 @@ export default function BomComplianceTab({
     if (generatingRackCard) return;
     setGeneratingRackCard(true);
     try {
-      const res = await fetch(`${API_BASE}/api/v1/visuals/rack-card`, {
+      const res = await fetch(withSession(`${API_BASE}/api/v1/visuals/rack-card`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ scenario_id: scenario.id }),

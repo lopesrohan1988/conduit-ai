@@ -17,7 +17,7 @@ import {
   ScenarioDataset,
   UserLensMode,
 } from "@/types/conduit";
-import { API_BASE } from "@/lib/api";
+import { API_BASE, withSession } from "@/lib/api";
 import { hydrateTwinVerification } from "@/lib/hydrateScenario";
 import ArchitectDecisionPanel from "@/components/ArchitectDecisionPanel";
 import AttackReplayPanel from "@/components/AttackReplayPanel";
@@ -126,7 +126,7 @@ export default function CutoverMatrixTab({
         () => controller.abort(),
         useModalCloud ? 45000 : 8000
       );
-      const res = await fetch(`${API_BASE}/api/v1/twin/verify`, {
+      const res = await fetch(withSession(`${API_BASE}/api/v1/twin/verify`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { BrainCircuit, CheckCircle2, CornerDownLeft, FlaskConical, Loader2, MinusCircle, ShieldCheck, XCircle } from "lucide-react";
 import { ArchitectAttempt, ScenarioDataset, VerifierCheck } from "@/types/conduit";
-import { API_BASE } from "@/lib/api";
+import { API_BASE, withSession } from "@/lib/api";
 
 interface Challenge {
   connection: string;
@@ -116,7 +116,7 @@ function CheckerChallenge({ scenarioId }: { scenarioId: string }) {
   const run = async () => {
     setState("running");
     try {
-      const res = await fetch(`${API_BASE}/api/v1/assessments/${encodeURIComponent(scenarioId)}/challenge-verifier`, {
+      const res = await fetch(withSession(`${API_BASE}/api/v1/assessments/${encodeURIComponent(scenarioId)}/challenge-verifier`), {
         method: "POST",
       });
       const body = (await res.json()) as { challenge?: Challenge | null; detail?: string };
