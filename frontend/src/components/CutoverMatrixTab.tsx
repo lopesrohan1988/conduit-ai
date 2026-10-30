@@ -21,6 +21,7 @@ import { API_BASE } from "@/lib/api";
 import { hydrateTwinVerification } from "@/lib/hydrateScenario";
 import ArchitectDecisionPanel from "@/components/ArchitectDecisionPanel";
 import AttackReplayPanel from "@/components/AttackReplayPanel";
+import { EngineerReviewPanel } from "@/components/EngineerReview";
 import {
   explainFlowInPlainEnglish,
   getPlainEnglishTierSummary,
@@ -29,6 +30,8 @@ import {
 interface CutoverMatrixTabProps {
   scenario: ScenarioDataset;
   userLens?: UserLensMode;
+  /** Applies a review response (new plan, map, review log) to the scenario */
+  onReviewPayload?: (payload: Record<string, unknown>) => void;
 }
 
 type MatrixSubTab = "business_proof" | "engineer_rules";
@@ -62,6 +65,7 @@ const TIER_META: Record<
 export default function CutoverMatrixTab({
   scenario,
   userLens = "guided_collab",
+  onReviewPayload,
 }: CutoverMatrixTabProps) {
   const [subTab, setSubTab] = useState<MatrixSubTab>(
     userLens === "engineer_deep" ? "engineer_rules" : "business_proof"
@@ -171,6 +175,8 @@ export default function CutoverMatrixTab({
       <AttackReplayPanel replay={scenario.attackReplay} />
 
       <ArchitectDecisionPanel scenario={scenario} />
+
+      {onReviewPayload && <EngineerReviewPanel scenario={scenario} onPayload={onReviewPayload} />}
 
       {twinError && (
         <div className="bg-rose-50 border border-rose-200 text-rose-800 rounded-xl px-4 py-2.5 text-xs sm:text-sm">

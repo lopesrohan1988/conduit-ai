@@ -130,6 +130,8 @@ export interface ProtocolFlowEntry {
   classification: FlowTier;
   catalogProtocolId: string;
   prescribedCutoverAction: string;
+  /** The plan's action enum for this row, e.g. SEVER_CRITICAL_VIOLATION_AT_L1 */
+  cutoverActionType?: string;
   txInnerConfig: string;
   rxOuterConfig: string;
 }
@@ -338,6 +340,52 @@ export interface TopologySummary {
   connectionsCut: number;
 }
 
+/** One engineer change to a connection's decision, as the verifier judged it */
+export interface ReviewOverride {
+  id: string;
+  flowId: string;
+  connection: string;
+  fromAction: string;
+  toAction: string;
+  reason: string;
+  reviewer: string;
+  at: string;
+  accepted: boolean;
+  violations: string[];
+  checks: VerifierCheck[];
+}
+
+export interface ReviewSignoff {
+  reviewer: string;
+  note: string;
+  at: string;
+  planFingerprint: string;
+  overridesApplied: number;
+}
+
+export interface EngineerReview {
+  overrides: ReviewOverride[];
+  signoff: ReviewSignoff | null;
+  planFingerprint: string;
+}
+
+/** Two sources that disagree, phrased as the question to put to the site */
+export interface EvidenceConflict {
+  topic: string;
+  sources: Array<{ source: string; value: string }>;
+  question: string;
+}
+
+export interface EvidenceManifest {
+  generatedAt: string;
+  planFingerprint: string;
+  inputs: Array<{ role: string; file: string; bytes: number; sha256: string }>;
+  voiceTranscriptSource: string | null;
+  models: Array<{ stage: string; model: string; sourceMode: string }>;
+  architect: { model: string; sourceMode: string; drafts: number; draftsRejected: number };
+  findings: Array<{ id: string; finding: string; decision: string; evidence: string }>;
+}
+
 /** A public ICS capture offered as a site the pipeline has never seen */
 export interface CaptureSiteInfo {
   scenarioId: string;
@@ -364,6 +412,10 @@ export interface ScenarioDataset {
   measuredDiagram?: MeasuredDiagram | null;
   architectSourceMode?: string;
   architectTrace?: ArchitectTrace | null;
+  /** Engineer overrides and sign-off for the latest run (absent before a run) */
+  review?: EngineerReview | null;
+  evidenceManifest?: EvidenceManifest | null;
+  evidenceConflicts?: EvidenceConflict[];
   shortIndex: number;
   shortLabel: string;
   badgeTag?: string;

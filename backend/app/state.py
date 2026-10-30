@@ -284,6 +284,10 @@ class ProtocolFlowAnalysis(BaseModel):
     merged_src_ips: list[str] = Field(default_factory=list)
     merged_dst_ips: list[str] = Field(default_factory=list)
     packet_count: int = 0
+    # Where the row was seen: packets in the capture, and whether the firewall log has it too
+    # (bytes and peak then come from the log's 24 h totals)
+    pcap_packets: int = 0
+    in_firewall_log: bool = False
     bytes_transferred: int = 0
     p95_mbps: float = 0.0
     peak_mbps: float = 0.0

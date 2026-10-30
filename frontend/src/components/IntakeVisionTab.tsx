@@ -20,6 +20,7 @@ import {
 import { getStaticDataUrl } from "@/lib/api";
 import MeasuredPhoto from "@/components/MeasuredPhoto";
 import MeasuredDiagram from "@/components/MeasuredDiagram";
+import { EvidenceConflictsPanel } from "@/components/EngineerReview";
 import { getGuidedNarrative } from "@/lib/guidedCopy";
 
 interface IntakeVisionTabProps {
@@ -196,6 +197,8 @@ export default function IntakeVisionTab({
 
   return (
     <div className="space-y-4">
+      <EvidenceConflictsPanel conflicts={scenario.evidenceConflicts} />
+
       {/* Top 2 Clean Summary Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Card 1: Physical Rack Space (SAM 3.1) */}

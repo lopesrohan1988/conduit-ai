@@ -14,7 +14,7 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 from starlette.datastructures import UploadFile as StarletteUploadFile
 
@@ -48,6 +48,14 @@ from app.state import (
     VoiceFieldNoteTranscript,
 )
 from app.attack_replay import replay_attacks
+from app.review import (
+    apply_override,
+    build_evidence_manifest,
+    find_evidence_conflicts,
+    new_review,
+    plan_fingerprint,
+    sign_off,
+)
 from app.topology_view import build_topology_view
 from app.twin.modal_cutover_twin import verify_cutover_in_digital_twin
 
@@ -60,6 +68,26 @@ _LATEST_SCENARIO_PLANS: dict[str, ConduitArchitecturePlan] = {}
 _LATEST_SCENARIO_EVIDENCE: dict[str, dict[str, Any]] = {}
 # The switch cutover config built with that plan, so the bundle carries the ports the UI showed
 _LATEST_SCENARIO_CLI: dict[str, str] = {}
+# The run behind that plan (state, scratch) plus its engineer review, evidence manifest and conflicts
+_LATEST_SCENARIO_RUN: dict[str, dict[str, Any]] = {}
+
+
+def _remember_run(scenario_id: str, state: dict[str, Any], scratch: dict[str, Any]) -> dict[str, Any]:
+    """Keep a finished run so engineers can review it and exports can cite its evidence."""
+    run = {
+        "state": state,
+        "scratch": scratch,
+        "review": new_review(),
+        "manifest": build_evidence_manifest(state, scratch),
+        "conflicts": find_evidence_conflicts(state, scratch),
+    }
+    _LATEST_SCENARIO_RUN[scenario_id] = run
+    return run
+
+
+def _review_payload(run: dict[str, Any]) -> dict[str, Any]:
+    plan = run["state"]["architecture_plan"]
+    return {**run["review"], "plan_fingerprint": plan_fingerprint(plan)}
 
 
 async def _resolve_scenario_plan(scenario_id: str) -> ConduitArchitecturePlan:
@@ -72,11 +100,11 @@ async def _resolve_scenario_plan(scenario_id: str) -> ConduitArchitecturePlan:
     compiled_graph, scratch = build_conduit_langgraph(
         settings=settings, gateway=gateway, use_live_llm=False
     )
-    final_state = await compiled_graph.ainvoke(
-        build_scenario_initial_state(scenario_id, settings=settings)
-    )
+    initial_state = build_scenario_initial_state(scenario_id, settings=settings)
+    final_state = await compiled_graph.ainvoke(initial_state)
     plan: ConduitArchitecturePlan = final_state["architecture_plan"]
     _LATEST_SCENARIO_PLANS[scenario_id] = plan
+    _remember_run(scenario_id, {**initial_state, **final_state}, scratch)
     if cli := scratch.get("architect_meta", {}).get("switch_cutover_cli"):
         _LATEST_SCENARIO_CLI[scenario_id] = cli
     return plan
@@ -379,12 +407,16 @@ async def stream_scenario_assessment(
         started = time.perf_counter()
         delay_sec = step_delay_ms / 1000.0
         accumulated_state: dict[str, Any] = dict(initial_state)
+        all_events: list[dict[str, Any]] = list(initial_state.get("agent_events") or [])
         step_idx = 0
 
         async for chunk in compiled_graph.astream(initial_state, stream_mode="updates"):
             for node_name, update_dict in chunk.items():
                 accumulated_state.update(update_dict)
                 events = update_dict.get("agent_events") or []
+                # Each node returns only its own events; keep the whole run's for the evidence manifest
+                all_events.extend(events)
+                accumulated_state["agent_events"] = list(all_events)
                 ev_meta = events[-1] if events else {}
 
                 if delay_sec > 0:
@@ -483,6 +515,7 @@ async def stream_scenario_assessment(
                 "cabinet_inspections": accumulated_state.get("cabinet_inspections") or [],
                 "video_walkthrough": accumulated_state.get("video_walkthrough_result"),
             }
+        run = _remember_run(scenario_id, accumulated_state, scratch)
         twin_final = accumulated_state["twin_verification"]
         voice_final = accumulated_state["voice_transcript"]
         architect_model = scratch.get("architect_meta", {}).get(
@@ -515,6 +548,9 @@ async def stream_scenario_assessment(
             "switch_cutover_cli": scratch.get("architect_meta", {}).get(
                 "switch_cutover_cli", ""
             ),
+            "evidence_manifest": run["manifest"],
+            "evidence_conflicts": run["conflicts"],
+            "review": _review_payload(run),
         }
         yield {
             "id": str(step_idx + 1),
@@ -533,6 +569,94 @@ async def challenge_scenario_verifier(scenario_id: str) -> dict[str, Any]:
     if plan is None or evidence is None:
         raise HTTPException(status_code=409, detail="Run the analysis for this site first.")
     return {"challenge": challenge_verifier(plan, **evidence)}
+
+
+class OverrideRequest(BaseModel):
+    flow_id: str
+    action: str
+    reason: str = Field(..., min_length=5, max_length=500)
+    reviewer: str = Field(..., min_length=2, max_length=120)
+
+
+class SignOffRequest(BaseModel):
+    reviewer: str = Field(..., min_length=2, max_length=120)
+    note: str = Field(default="", max_length=1000)
+
+
+def _run_or_409(scenario_id: str) -> dict[str, Any]:
+    run = _LATEST_SCENARIO_RUN.get(scenario_id)
+    if run is None:
+        raise HTTPException(status_code=409, detail="Run the analysis for this site first.")
+    return run
+
+
+@app.get("/api/v1/assessments/{scenario_id}/review", tags=["Engineer Review"])
+async def get_engineer_review(scenario_id: str) -> dict[str, Any]:
+    """Overrides, sign-off, evidence manifest and evidence conflicts for the latest run."""
+    run = _run_or_409(scenario_id)
+    return {
+        "review": _review_payload(run),
+        "evidence_manifest": run["manifest"],
+        "evidence_conflicts": run["conflicts"],
+    }
+
+
+@app.post("/api/v1/assessments/{scenario_id}/review/override", tags=["Engineer Review"])
+async def override_flow_decision(scenario_id: str, req: OverrideRequest) -> dict[str, Any]:
+    """Change one connection's decision. The verifier re-checks it; only an accepted change is applied."""
+    run = _run_or_409(scenario_id)
+    state, scratch = run["state"], run["scratch"]
+    try:
+        entry, new_plan = apply_override(
+            state["architecture_plan"],
+            flow_id=req.flow_id,
+            action=req.action,
+            reason=req.reason.strip(),
+            reviewer=req.reviewer.strip(),
+            telemetry_audit=scratch["telemetry_audit"],
+            cabinet_inspections=state.get("cabinet_inspections") or [],
+            video_walkthrough=state.get("video_walkthrough_result"),
+        )
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"No connection '{req.flow_id}' in this plan.")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+    run["review"]["overrides"].append(entry)
+    response: dict[str, Any] = {"override": entry}
+    if new_plan is not None:
+        # The plan changed, so an earlier sign-off no longer covers it
+        run["review"]["signoff"] = None
+        state["architecture_plan"] = new_plan
+        _LATEST_SCENARIO_PLANS[scenario_id] = new_plan
+        switch = scratch.get("switch_audit")
+        cli = generate_switch_cutover_cli(
+            new_plan,
+            switch_hostname=switch.switch_hostname if switch else "OT-CORE-SW01",
+            assets=switch.assets if switch else None,
+        )
+        _LATEST_SCENARIO_CLI[scenario_id] = cli
+        run["manifest"] = build_evidence_manifest(state, scratch)
+        response.update(
+            {
+                "architecture_plan": new_plan.model_dump(),
+                "switch_cutover_cli": cli,
+                "evidence_manifest": run["manifest"],
+                **_measured_payload(state, scratch),
+            }
+        )
+    response["review"] = _review_payload(run)
+    return response
+
+
+@app.post("/api/v1/assessments/{scenario_id}/review/signoff", tags=["Engineer Review"])
+async def sign_off_plan(scenario_id: str, req: SignOffRequest) -> dict[str, Any]:
+    """Record who approved this exact plan; any later override voids it."""
+    run = _run_or_409(scenario_id)
+    run["review"]["signoff"] = sign_off(
+        run["state"]["architecture_plan"], run["review"], reviewer=req.reviewer.strip(), note=req.note.strip()
+    )
+    return {"review": _review_payload(run)}
 
 
 @app.post("/api/v1/assessments/custom/analyze", tags=["Assessments"])
@@ -610,6 +734,9 @@ async def analyze_custom_uploaded_site(
             use_live_llm=live_llm,
         )
         final_state = await compiled_graph.ainvoke(custom_state)
+        merged_state = {**custom_state, **final_state}
+        manifest = build_evidence_manifest(merged_state, scratch)
+        conflicts = find_evidence_conflicts(merged_state, scratch)
 
     plan = final_state["architecture_plan"]
     twin = final_state["twin_verification"]
@@ -630,6 +757,8 @@ async def analyze_custom_uploaded_site(
         "planner_trace": scratch.get("architect_meta", {}).get("planner_trace"),
         "agent_events": final_state.get("agent_events", []),
         **_measured_payload(final_state, scratch),
+        "evidence_manifest": manifest,
+        "evidence_conflicts": conflicts,
     }
 
 
@@ -657,7 +786,14 @@ async def export_scenario_deliverable(
             },
         )
     if fmt == "pdf":
-        pdf_bytes = export_executive_pdf(plan, twin)
+        run = _LATEST_SCENARIO_RUN.get(scenario_id) or {}
+        pdf_bytes = export_executive_pdf(
+            plan,
+            twin,
+            review=_review_payload(run) if run else None,
+            manifest=run.get("manifest"),
+            conflicts=run.get("conflicts"),
+        )
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",
@@ -666,7 +802,15 @@ async def export_scenario_deliverable(
             },
         )
     if fmt == "zip":
-        zip_bytes = export_cutover_zip_bundle(plan, twin, cli_script=_LATEST_SCENARIO_CLI.get(scenario_id))
+        run = _LATEST_SCENARIO_RUN.get(scenario_id) or {}
+        zip_bytes = export_cutover_zip_bundle(
+            plan,
+            twin,
+            cli_script=_LATEST_SCENARIO_CLI.get(scenario_id),
+            review=_review_payload(run) if run else None,
+            manifest=run.get("manifest"),
+            conflicts=run.get("conflicts"),
+        )
         return Response(
             content=zip_bytes,
             media_type="application/zip",

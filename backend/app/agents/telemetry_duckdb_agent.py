@@ -557,6 +557,8 @@ def _merge_flow_group(members: list[dict[str, Any]], peer_side: str) -> dict[str
     peers = sorted({m[peer_side] for m in members})
     rep["bytes"] = sum(m["bytes"] for m in members)
     rep["packet_count"] = sum(m["packet_count"] for m in members)
+    rep["pcap_packets"] = sum(m.get("pcap_packets", 0) for m in members)
+    rep["fw_seen"] = any(m.get("fw_seen") for m in members)
     rep["peak_mbps"] = round(sum(m["peak_mbps"] for m in members), 2)
     rep["fcs"] = sorted({fc for m in members for fc in m["fcs"]})
     rep["has_write"] = any(m["has_write"] for m in members)
@@ -643,6 +645,8 @@ def run_telemetry_duckdb_agent(
             "has_write": bool(pst["has_write"]),
             "ephemeral_dcom": bool(pst["ephemeral_dcom"]),
             "packet_count": int(pst["packets"]),
+            "pcap_packets": int(pst["packets"]),
+            "fw_seen": fw_match is not None,
             "bytes": int(fw_match["bytes"]) if fw_match else int(pst["bytes"]),
             "peak_mbps": float(fw_match["peak_mbps"]) if fw_match else round((pst["bytes"] * 8.0) / 1e6, 2),
             "fw_note": f"{fw_match['service']} {fw_match['rule_name']}" if fw_match else "",
@@ -665,6 +669,9 @@ def run_telemetry_duckdb_agent(
                 "has_write": False,
                 "ephemeral_dcom": 49152 <= svc_port <= 65535,
                 "packet_count": fwf["sessions"] * 12,
+                "pcap_packets": 0,
+                "fw_seen": True,
+                "fw_sessions": fwf["sessions"],
                 "bytes": fwf["bytes"],
                 "peak_mbps": fwf["peak_mbps"],
                 "fw_note": f"{fwf['service']} {fwf['rule_name']}",
@@ -743,6 +750,8 @@ def run_telemetry_duckdb_agent(
                 merged_src_ips=item.get("merged_src_ips", []),
                 merged_dst_ips=item.get("merged_dst_ips", []),
                 packet_count=item["packet_count"],
+                pcap_packets=item.get("pcap_packets", 0),
+                in_firewall_log=bool(item.get("fw_seen")),
                 bytes_transferred=item["bytes"],
                 p95_mbps=round(item["peak_mbps"] * 0.85, 2),
                 peak_mbps=item["peak_mbps"],

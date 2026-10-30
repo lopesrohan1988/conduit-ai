@@ -6,6 +6,7 @@ import html
 import io
 import json
 import zipfile
+from typing import Any
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
@@ -118,6 +119,10 @@ def _plain(value: str) -> str:
 def export_executive_pdf(
     plan: ConduitArchitecturePlan,
     twin: ModalTwinVerificationResult,
+    *,
+    review: dict[str, Any] | None = None,
+    manifest: dict[str, Any] | None = None,
+    conflicts: list[dict[str, Any]] | None = None,
 ) -> bytes:
     """Render an executive & regulatory compliance PDF report via ReportLab."""
     buffer = io.BytesIO()
@@ -176,6 +181,14 @@ def export_executive_pdf(
             body_style,
         )
     )
+    signoff = (review or {}).get("signoff")
+    status = (
+        f"<b>Signed off</b> by {html.escape(signoff['reviewer'])} at {signoff['at']} "
+        f"(plan {signoff['plan_fingerprint']})"
+        if signoff
+        else "<b>DRAFT</b>: not yet signed off by an engineer"
+    )
+    story.append(Paragraph(status, body_style))
     story.append(Spacer(1, 8))
     story.append(Paragraph(html.escape(es.headline_synthesis), body_style))
 
@@ -288,6 +301,83 @@ def export_executive_pdf(
     )
     story.append(comp_tbl)
 
+    def table(data: list[list[Any]], widths: list[int], header: str) -> Table:
+        tbl = Table(data, colWidths=widths, repeatRows=1)
+        tbl.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(header)),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                    ("FONTSIZE", (0, 0), (-1, -1), 8),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+                ]
+            )
+        )
+        return tbl
+
+    if conflicts:
+        story.append(Paragraph("5. Questions for the site (sources disagree)", sec_style))
+        rows: list[list[Any]] = [["Topic", "What each source says", "Question"]]
+        for c in conflicts:
+            said = "; ".join(f"{x['source']}: {x['value']}" for x in c["sources"])
+            rows.append([cell(c["topic"]), cell(said), cell(c["question"])])
+        story.append(table(rows, [100, 215, 220], "#92400e"))
+
+    if review is not None:
+        story.append(Paragraph("6. Engineer review", sec_style))
+        overrides = review.get("overrides") or []
+        if overrides:
+            rows = [["Connection", "Change", "Reason", "Reviewer", "Verifier"]]
+            for o in overrides:
+                rows.append(
+                    [
+                        cell(f"{o['flow_id']}: {o['connection']}"),
+                        cell(f"{_PDF_ACTION.get(o['from_action'], o['from_action'])} to "
+                             f"{_PDF_ACTION.get(o['to_action'], o['to_action'])}"),
+                        cell(o["reason"]),
+                        cell(f"{o['reviewer']} ({o['at']})"),
+                        cell("Accepted" if o["accepted"] else "Refused: " + "; ".join(o["violations"])),
+                    ]
+                )
+            story.append(table(rows, [110, 110, 110, 85, 120], "#334155"))
+        else:
+            story.append(Paragraph("No decisions were changed by an engineer.", body_style))
+        story.append(Spacer(1, 4))
+        story.append(Paragraph(status, body_style))
+
+    if manifest:
+        story.append(Paragraph("7. Evidence and chain of custody", sec_style))
+        story.append(
+            Paragraph(
+                f"Generated {manifest['generated_at']} for plan {manifest.get('plan_fingerprint')}. "
+                "Each input is identified by its SHA-256, so the report can be matched to the exact files supplied.",
+                body_style,
+            )
+        )
+        rows = [["Input", "File", "Bytes", "SHA-256"]]
+        for f in manifest.get("inputs") or []:
+            rows.append([cell(f["role"]), cell(f["file"]), f"{f['bytes']:,}", cell(f["sha256"])])
+        story.append(table(rows, [85, 130, 55, 265], "#1e293b"))
+        story.append(Spacer(1, 6))
+        arch = manifest.get("architect") or {}
+        rows = [["Stage", "Model", "How it ran"]]
+        for m in manifest.get("models") or []:
+            rows.append([cell(m["stage"]), cell(m["model"]), cell(m["source_mode"])])
+        story.append(table(rows, [170, 180, 185], "#1e293b"))
+        story.append(
+            Paragraph(
+                f"Architect: {html.escape(str(arch.get('model')))} ({arch.get('source_mode')}), "
+                f"{arch.get('drafts', 0)} draft(s), {arch.get('drafts_rejected', 0)} rejected by the verifier. "
+                f"Voice transcript source: {manifest.get('voice_transcript_source') or 'none'}.",
+                body_style,
+            )
+        )
+        rows = [["Finding", "What was seen", "Evidence"]]
+        for f in manifest.get("findings") or []:
+            rows.append([f["id"], cell(f["finding"]), cell(f["evidence"])])
+        story.append(table(rows, [60, 265, 210], "#1e293b"))
+
     doc.build(story)
     return buffer.getvalue()
 
@@ -298,6 +388,9 @@ def export_cutover_zip_bundle(
     *,
     switch_hostname: str = "OT-CORE-SW01",
     cli_script: str | None = None,
+    review: dict[str, Any] | None = None,
+    manifest: dict[str, Any] | None = None,
+    conflicts: list[dict[str, Any]] | None = None,
 ) -> bytes:
     """Package Cisco/Hirschmann CLI, TX/RX proxy JSONs, Digital Twin log, and `.drawio` into `.zip`."""
     buf = io.BytesIO()
@@ -348,6 +441,13 @@ def export_cutover_zip_bundle(
             f"{twin.sandbox_stdout_log}\n",
         )
         zf.writestr("06_target_purdue_conduit.drawio", export_drawio_xml(plan))
+        if manifest:
+            zf.writestr("07_evidence_manifest.json", json.dumps(manifest, indent=2))
+        if review is not None or conflicts:
+            zf.writestr(
+                "08_engineer_review.json",
+                json.dumps({"review": review, "questions_for_site": conflicts or []}, indent=2),
+            )
 
     return buf.getvalue()
 

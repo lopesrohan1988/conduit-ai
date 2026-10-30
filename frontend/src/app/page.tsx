@@ -637,6 +637,7 @@ export default function ConduitWorkbenchPage() {
             <CutoverMatrixTab
               scenario={selectedScenario}
               userLens={userLens}
+              onReviewPayload={handleLivePayloadHydrate}
             />
           )}
           {activeTab === "bom_compliance" && (

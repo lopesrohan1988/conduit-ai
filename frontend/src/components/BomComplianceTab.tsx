@@ -16,6 +16,7 @@ import {
 import { ArchetypeId, ScenarioDataset, UserLensMode } from "@/types/conduit";
 import { API_BASE, getExportEndpointUrl } from "@/lib/api";
 import { buildCustomerProposalEmail } from "@/lib/guidedCopy";
+import { EvidenceManifestPanel, SignoffStatus } from "@/components/EngineerReview";
 
 interface BomComplianceTabProps {
   scenario: ScenarioDataset;
@@ -501,6 +502,7 @@ ${scenario.flows
       {/* TAB 2: Engineer Handoff */}
       {subTab === "engineer_kit" && (
         <div className="space-y-4">
+          <SignoffStatus scenario={scenario} />
           {/* 3 Clean Export Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <button
@@ -566,6 +568,8 @@ ${scenario.flows
               <Download className="w-4 h-4 text-blue-600 shrink-0" />
             </button>
           </div>
+
+          <EvidenceManifestPanel manifest={scenario.evidenceManifest} />
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
             {/* Left (7 cols): 4-Model Hardware Spec Table + 1.25x Headroom Bar */}

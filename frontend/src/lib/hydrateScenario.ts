@@ -2,6 +2,8 @@ import {
   ArchetypeId,
   ArchitectTrace,
   VerifierCheck,
+  EngineerReview,
+  EvidenceManifest,
   ComplianceClauseRow,
   ExploitReplayItem,
   FlowTier,
@@ -230,6 +232,68 @@ function hydrateChecks(raw: unknown): VerifierCheck[] {
   }));
 }
 
+export function hydrateReview(raw: Record<string, unknown>): EngineerReview {
+  const s = raw.signoff as Record<string, unknown> | null | undefined;
+  return {
+    planFingerprint: String(raw.plan_fingerprint ?? ""),
+    signoff: s
+      ? {
+          reviewer: String(s.reviewer ?? ""),
+          note: String(s.note ?? ""),
+          at: String(s.at ?? ""),
+          planFingerprint: String(s.plan_fingerprint ?? ""),
+          overridesApplied: Number(s.overrides_applied ?? 0),
+        }
+      : null,
+    overrides: (Array.isArray(raw.overrides) ? (raw.overrides as Array<Record<string, unknown>>) : []).map((o) => ({
+      id: String(o.id ?? ""),
+      flowId: String(o.flow_id ?? ""),
+      connection: String(o.connection ?? ""),
+      fromAction: String(o.from_action ?? ""),
+      toAction: String(o.to_action ?? ""),
+      reason: String(o.reason ?? ""),
+      reviewer: String(o.reviewer ?? ""),
+      at: String(o.at ?? ""),
+      accepted: Boolean(o.accepted),
+      violations: Array.isArray(o.violations) ? o.violations.map(String) : [],
+      checks: hydrateChecks(o.checks),
+    })),
+  };
+}
+
+function hydrateManifest(raw: Record<string, unknown>): EvidenceManifest {
+  const rows = (v: unknown) => (Array.isArray(v) ? (v as Array<Record<string, unknown>>) : []);
+  const a = (raw.architect ?? {}) as Record<string, unknown>;
+  return {
+    generatedAt: String(raw.generated_at ?? ""),
+    planFingerprint: String(raw.plan_fingerprint ?? ""),
+    inputs: rows(raw.inputs).map((i) => ({
+      role: String(i.role ?? ""),
+      file: String(i.file ?? ""),
+      bytes: Number(i.bytes ?? 0),
+      sha256: String(i.sha256 ?? ""),
+    })),
+    voiceTranscriptSource: raw.voice_transcript_source ? String(raw.voice_transcript_source) : null,
+    models: rows(raw.models).map((m) => ({
+      stage: String(m.stage ?? ""),
+      model: String(m.model ?? ""),
+      sourceMode: String(m.source_mode ?? ""),
+    })),
+    architect: {
+      model: String(a.model ?? ""),
+      sourceMode: String(a.source_mode ?? ""),
+      drafts: Number(a.drafts ?? 0),
+      draftsRejected: Number(a.drafts_rejected ?? 0),
+    },
+    findings: rows(raw.findings).map((f) => ({
+      id: String(f.id ?? ""),
+      finding: String(f.finding ?? ""),
+      decision: String(f.decision ?? ""),
+      evidence: String(f.evidence ?? ""),
+    })),
+  };
+}
+
 function hydrateMeasuredCabinets(raw: Array<Record<string, unknown>>): MeasuredCabinet[] {
   return raw.map((c) => ({
     sourceImage: String(c.source_image ?? ""),
@@ -294,6 +358,7 @@ function mapCutoverRows(
       classification,
       catalogProtocolId: proxy ? String(proxy.target_protocol) : protocol,
       prescribedCutoverAction: String(row.engineering_prescription ?? ""),
+      cutoverActionType: String(row.cutover_action_type ?? ""),
       txInnerConfig: proxy
         ? `${String(proxy.tx_operating_mode)} on ${String(proxy.tx_inner_vip)} -> OT ${String(
             proxy.ot_source_ip
@@ -349,8 +414,25 @@ export function hydrateScenarioFromBackendPayload(
     next.architectTrace = hydrateArchitectTrace(
       payload.planner_trace as Record<string, unknown>
     );
-  } else if (payload.architecture_plan) {
+  } else if (payload.architecture_plan && !payload.override) {
+    // An engineer override returns a new plan but keeps the model's trace
     next.architectTrace = null;
+  }
+  if (payload.review && typeof payload.review === "object") {
+    next.review = hydrateReview(payload.review as Record<string, unknown>);
+  }
+  if (payload.evidence_manifest && typeof payload.evidence_manifest === "object") {
+    next.evidenceManifest = hydrateManifest(payload.evidence_manifest as Record<string, unknown>);
+  }
+  if (Array.isArray(payload.evidence_conflicts)) {
+    next.evidenceConflicts = (payload.evidence_conflicts as Array<Record<string, unknown>>).map((c) => ({
+      topic: String(c.topic ?? ""),
+      question: String(c.question ?? ""),
+      sources: (Array.isArray(c.sources) ? (c.sources as Array<Record<string, unknown>>) : []).map((x) => ({
+        source: String(x.source ?? ""),
+        value: String(x.value ?? ""),
+      })),
+    }));
   }
   if (typeof payload.architect_source_mode === "string") {
     next.architectSourceMode = payload.architect_source_mode;

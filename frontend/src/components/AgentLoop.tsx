@@ -20,7 +20,7 @@ function modelName(model: string): string {
 }
 
 /** The rule checker's verdict on one draft, one row per hard rule */
-function Checklist({ checks }: { checks: VerifierCheck[] }) {
+export function Checklist({ checks }: { checks: VerifierCheck[] }) {
   return (
     <ul className="space-y-1">
       {checks.map((c) => {
