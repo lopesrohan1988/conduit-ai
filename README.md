@@ -6,6 +6,8 @@
 
 **Meta Global AI Developer Hackathon 2026** · **Problem Statement:** *Push the Frontier* · **Track:** *Indie Developer*
 
+**[▶ Live demo: conduit-ai-cyan.vercel.app](https://conduit-ai-cyan.vercel.app)** · no sign-in. The hosted demo replays recorded Meta model output so the public link costs nothing; every rule check, packet analysis, attack replay and map runs live.
+
 [![Meta Muse Wonder](https://img.shields.io/badge/Meta%20AI-Muse%20Wonder%20(live%20architect)-0668E1?style=for-the-badge&logo=meta&logoColor=white)](#-how-the-meta-models-are-used)
 [![Meta SAM 3.1](https://img.shields.io/badge/Meta%20AI-SAM%203.1-0668E1?style=for-the-badge&logo=meta&logoColor=white)](#-how-the-meta-models-are-used)
 [![Meta Muse Spark](https://img.shields.io/badge/Meta%20AI-Muse%20Spark-0668E1?style=for-the-badge&logo=meta&logoColor=white)](#-how-the-meta-models-are-used)
