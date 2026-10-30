@@ -66,7 +66,8 @@ function Draft({ a, recorded }: { a: ArchitectAttempt; recorded: boolean }) {
           {recorded && <span className="font-normal text-slate-500">(recorded output)</span>}
         </span>
         <span className="flex items-center gap-2">
-          <span className="font-mono text-slate-500">{(a.latencyMs / 1000).toFixed(1)} s</span>
+          {/* A replayed draft took no time here, so show no timing rather than 0.0 s */}
+          {a.latencyMs > 0 && <span className="font-mono text-slate-500">{(a.latencyMs / 1000).toFixed(1)} s</span>}
           <span
             className={`px-2 py-0.5 rounded-full border ${
               failed ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-emerald-50 text-emerald-700 border-emerald-200"
@@ -197,7 +198,7 @@ export default function AgentLoop({ scenario }: { scenario: ScenarioDataset }) {
         <h3 className="text-sm font-semibold text-slate-900">How the AI agent designed this plan</h3>
         <span className="text-xs text-slate-500">
           {drafts.length > 0
-            ? `${modelName(trace.model)} · ${drafts.length} draft${drafts.length === 1 ? "" : "s"} · ${(trace.totalLatencyMs / 1000).toFixed(1)} s`
+            ? `${modelName(trace.model)} · ${drafts.length} draft${drafts.length === 1 ? "" : "s"}${trace.totalLatencyMs > 0 ? ` · ${(trace.totalLatencyMs / 1000).toFixed(1)} s` : ""}`
             : "Backup rule engine"}
         </span>
       </div>

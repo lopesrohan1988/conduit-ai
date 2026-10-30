@@ -11,10 +11,25 @@
 [![Meta Muse Wonder](https://img.shields.io/badge/Meta%20AI-Muse%20Wonder%20(live%20architect)-0668E1?style=for-the-badge&logo=meta&logoColor=white)](#-how-the-meta-models-are-used)
 [![Meta SAM 3.1](https://img.shields.io/badge/Meta%20AI-SAM%203.1-0668E1?style=for-the-badge&logo=meta&logoColor=white)](#-how-the-meta-models-are-used)
 [![Meta Muse Spark](https://img.shields.io/badge/Meta%20AI-Muse%20Spark-0668E1?style=for-the-badge&logo=meta&logoColor=white)](#-how-the-meta-models-are-used)
+[![Meta Muse Spark Open](https://img.shields.io/badge/Open%20weights-Muse%20Spark%20Open%20(air--gapped%20architect)-0668E1?style=for-the-badge&logo=meta&logoColor=white)](#-how-the-meta-models-are-used)
 [![Meta Muse Voice](https://img.shields.io/badge/Meta%20AI-Muse%20Voice%20Transcribe-0668E1?style=for-the-badge&logo=meta&logoColor=white)](#-how-the-meta-models-are-used)
 [![DuckDB](https://img.shields.io/badge/Scapy%20%2B%20DuckDB-Packet%20%26%20Firewall%20SQL-FFF000?style=for-the-badge&logo=duckdb&logoColor=black)](#-system-architecture)
 
 </div>
+
+---
+
+## ▶ Try it in 2 minutes
+
+On the [live demo](https://conduit-ai-cyan.vercel.app) (no sign-in):
+
+1. Pick **2. AquaPure Water Plant (5G Alert)** in the site list at the top and press **Run Analysis**. It takes a few seconds.
+2. **1. What we found:** every way the office network can reach the plant today, including a cellular modem that bypasses the firewall.
+3. **2. Our fix:** the diode kit, the map after the change, and *How the AI agent designed this plan*. Press **Test the rule checker** to watch it refuse a dangerous change.
+4. **3. Proof:** real attack commands from public industrial captures, replayed down the plant's own paths: **11 of 11** reach the equipment today, **0 of 11** with the plan.
+5. Switch to **Engineer detail** at the top. **2. Space & Risks** opens with *Questions for the site*. In **4. Compatibility**, the *Engineer review* panel lets you try to keep FLOW-01 (the modem's Modbus write) working: the rule checker refuses. Then sign off the plan.
+6. **5. Quote & Kit → Engineer Handoff:** download the PDF, which carries the review, the site questions and the evidence manifest.
+7. Pick any **Capture:** entry in the site list to run a public capture ConduitAI has never seen, from the packets alone.
 
 ---
 
@@ -83,6 +98,8 @@ Every number below is computed by [`backend/scripts/run_eval_benchmark.py`](back
 | Muse Image rack card | ✅ Live endpoint | `POST /api/v1/visuals/rack-card` |
 | Air-gapped mode: Muse Spark Open on Baseten | ✅ Live (`muse-spark-open-1026`) | Architect, drawing reads, rack-gap checks and the reconcile summary run on open weights; a self-hosted Muse Glimmer endpoint is used instead if `MUSE_GLIMMER_ENDPOINT_URL` is set |
 | Socket "digital twin" | ⚠️ Mechanism demo | Real `os.pipe()` one-way relay, but it cannot fail by construction, so it is not counted as evidence of plan correctness |
+
+On the hosted demo no API keys are set: SAM 3.1, Muse Spark and the architects replay output recorded from live runs, and voice transcription and the Muse Image rack card show their samples. A local run with keys calls every model live.
 
 The workbench shows this too. Model pills say *sim* when an integration has no credentials. Every screen is labelled as either reference data or a live pipeline result. The architect panel shows the actual proposal / verdict trace.
 
@@ -201,7 +218,7 @@ uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8008
 cd frontend && npm install && npm run dev
 ```
 
-Open **http://localhost:3000**. Pick one of the three demo plants and press **Run Analysis**. The default **Simple story** view walks through three plain-language steps (*What we found → Our fix → Proof*); **Engineer detail** shows every flow, rule, measurement and file. Alternatively, use **Upload** on each row of the Site Files checklist (traffic logs accept several files at once), then **Analyze Uploaded Files**.
+Open **http://localhost:3000**. Pick one of the three demo plants, or one of the six public captures, and press **Run Analysis**. The default **Simple story** view walks through three plain-language steps (*What we found → Our fix → Proof*); **Engineer detail** shows every flow, rule, measurement and file. Alternatively, use **Upload** on each row of the Site Files checklist (traffic logs accept several files at once), then **Analyze Uploaded Files**. Uploads are capped at 60 MB locally and 4.5 MB on the hosted demo.
 
 **Host it without API keys:** the root `Dockerfile` runs the backend with recorded model output (SAM 3.1, Muse Spark, and the Muse Wonder / Muse Spark Open architect proposals, which the live verifier still checks). See [`docs/DEPLOY.md`](docs/DEPLOY.md).
 

@@ -90,9 +90,11 @@ export default function ArchitectDecisionPanel({ scenario }: ArchitectDecisionPa
           <span className="px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200">
             {rejected} rejected revision{rejected === 1 ? "" : "s"}
           </span>
-          <span className="px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 font-mono">
-            {seconds.toFixed(1)} s
-          </span>
+          {seconds > 0 && (
+            <span className="px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 font-mono">
+              {seconds.toFixed(1)} s
+            </span>
+          )}
           {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
         </div>
       </button>
