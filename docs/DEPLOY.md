@@ -10,19 +10,35 @@ A public demo should not expose API keys or spend model credits on every visitor
 
 The UI labels replayed output as recorded. Recordings are refreshed by any run with keys, for example `uv run python scripts/run_eval_benchmark.py --live --open-weights`.
 
-## Backend (Docker)
+Each browser tab keeps its own runs, reviews and downloads (a random session id on every call), so visitors never see each other's work. Uploads are capped at 60 MB.
 
-The `Dockerfile` at the repository root bundles the backend and `data/`:
+## Backend on a Hugging Face Docker Space
+
+1. Create a Space at https://huggingface.co/new-space: SDK **Docker**, template **Blank**, hardware **CPU basic** (free), visibility **Public**.
+2. Create a token at https://huggingface.co/settings/tokens with **Write** access, then log in from this repository:
+   ```bash
+   uvx --from huggingface_hub hf auth login
+   ```
+3. Upload. Only files git tracks are sent, so `backend/.env` stays on your machine:
+   ```bash
+   uv run --no-project --with huggingface_hub python deploy/push_hf_space.py <user>/<space-name>
+   ```
+4. Wait for the build on the Space page (about 3 to 5 minutes), then check `https://<user>-<space-name>.hf.space/api/v1/health`.
+
+Do not add `META_MODEL_API_KEY` or `BASETEN_API_KEY` as Space secrets for a public demo: every visitor's run would then call the paid models. A free Space sleeps after 48 hours without visits and takes about a minute to wake.
+
+## Backend elsewhere (any Docker host)
 
 ```bash
 docker build -t conduit-ai-backend .
 docker run -p 8008:8008 conduit-ai-backend
 ```
 
-Any container host works (Render, Fly.io, Railway, Cloud Run). It listens on `$PORT` (default 8008). To call the models live instead of replaying, set `META_MODEL_API_KEY` and `BASETEN_API_KEY` in the host's secret settings.
+It listens on `$PORT` (default 8008) and runs as uid 1000.
 
-## Frontend (Vercel)
+## Frontend on Vercel
 
-1. Import the repository and set the root directory to `frontend`.
-2. Set `NEXT_PUBLIC_API_URL` to the backend's public URL.
-3. Deploy. The build is the standard `next build`.
+1. At https://vercel.com/new, import the GitHub repository.
+2. Set **Root Directory** to `frontend`. The framework (Next.js) is detected.
+3. Add the environment variable `NEXT_PUBLIC_API_URL` = `https://<user>-<space-name>.hf.space` (no trailing slash).
+4. Deploy. `NEXT_PUBLIC_` values are built into the page, so redeploy after changing it.

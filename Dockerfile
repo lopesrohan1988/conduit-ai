@@ -5,14 +5,20 @@ FROM python:3.12-slim
 
 COPY --from=ghcr.io/astral-sh/uv:0.5.11 /uv /bin/uv
 
+# Hugging Face Spaces run the container as uid 1000; other hosts are fine with the same user
+RUN useradd -m -u 1000 user
+
 WORKDIR /app/backend
 COPY backend/pyproject.toml backend/uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
 COPY backend/ ./
 COPY data/ /app/data/
+RUN chown -R user:user /app
 
-ENV PORT=8008 \
+USER user
+ENV HOME=/home/user \
+    PORT=8008 \
     PYTHONUNBUFFERED=1
 EXPOSE 8008
-CMD ["sh", "-c", "uv run --no-sync uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"]
+CMD ["sh", "-c", "/app/backend/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"]

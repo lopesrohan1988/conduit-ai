@@ -271,6 +271,7 @@ async def transcribe_voice_field_note(
         "multipart/form-data" in content_type
         or "application/x-www-form-urlencoded" in content_type
     ):
+        _reject_oversized(request)
         form = await request.form()
         form_scenario = form.get("scenario_id")
         if isinstance(form_scenario, str) and form_scenario.strip():
@@ -282,6 +283,7 @@ async def transcribe_voice_field_note(
             if uploaded.filename:
                 filename = uploaded.filename
     elif "application/json" in content_type:
+        _reject_oversized(request)
         body_bytes = await request.body()
         if body_bytes:
             payload = json.loads(body_bytes)
@@ -293,6 +295,20 @@ async def transcribe_voice_field_note(
         filename=filename,
         scenario_id=resolved_scenario_id,
     )
+
+
+# A public demo must not let one upload exhaust memory: the largest sample site is under 15 MB
+MAX_UPLOAD_BYTES = 60 * 1024 * 1024
+
+
+def _reject_oversized(request: Request) -> None:
+    """Refuse a body larger than MAX_UPLOAD_BYTES before parsing it."""
+    declared = request.headers.get("content-length")
+    if declared and declared.isdigit() and int(declared) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Upload is {int(declared) / 1e6:.0f} MB; the limit is {MAX_UPLOAD_BYTES // (1024 * 1024)} MB.",
+        )
 
 
 def _normalize_inference_mode(raw_mode: str | None) -> InferenceMode:
@@ -659,6 +675,7 @@ async def analyze_custom_uploaded_site(
 ) -> dict[str, Any]:
     """Execute the full LangGraph discovery, sizing, and socket twin pipeline on uploaded files."""
     effective_mode = _normalize_inference_mode(inference_mode)
+    _reject_oversized(request)
     form = await request.form()
 
     with tempfile.TemporaryDirectory(prefix="conduitai_intake_") as tmp_str:
@@ -666,6 +683,7 @@ async def analyze_custom_uploaded_site(
         saved_paths: dict[str, Path] = {}
         voice_bytes: bytes | None = None
         voice_name = "custom_walkdown.wav"
+        received = 0
 
         for key in (
             "diagram_file",
@@ -680,6 +698,10 @@ async def analyze_custom_uploaded_site(
             item = form.get(key)
             if isinstance(item, StarletteUploadFile):
                 raw_bytes = await item.read()
+                # A chunked upload has no Content-Length, so the files are counted as they are read
+                received += len(raw_bytes)
+                if received > MAX_UPLOAD_BYTES:
+                    raise HTTPException(status_code=413, detail="Uploaded files exceed the 60 MB limit.")
                 safe_name = Path(item.filename or f"{key}.bin").name
                 if key == "voice_file":
                     voice_bytes = raw_bytes

@@ -337,9 +337,6 @@ ${scenario.flows
                       <span className="text-xs font-medium text-slate-500">
                         Recommended Hardware Quote
                       </span>
-                      <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                        3 Weeks Manual Audit → 60 Seconds
-                      </span>
                     </div>
                     <h3 className="text-base font-semibold text-slate-900">
                       {scenario.facilityName}

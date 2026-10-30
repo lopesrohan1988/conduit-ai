@@ -236,3 +236,17 @@ async def test_live_meta_api_sse_and_rack_card_smoke() -> None:
         assert card_data["model"] == "muse-image-1.0"
         assert card_data["image_url"]
 
+
+
+@pytest.mark.asyncio
+async def test_oversized_upload_is_refused_before_parsing() -> None:
+    from app.main import MAX_UPLOAD_BYTES
+
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        r = await client.post(
+            "/api/v1/assessments/custom/analyze",
+            content=b"x",
+            headers={"content-type": "multipart/form-data; boundary=x", "content-length": str(MAX_UPLOAD_BYTES + 1)},
+        )
+        assert r.status_code == 413
