@@ -27,6 +27,12 @@ def _resolve_repo_or_backend_path(raw: str | Path) -> Path:
     if from_repo.exists():
         return from_repo
 
+    # A serverless bundle (Vercel) ships data/ inside the backend folder instead of beside it
+    if candidate.parts and candidate.parts[0] == "..":
+        bundled = (BACKEND_DIR / Path(*candidate.parts[1:])).resolve()
+        if bundled.exists():
+            return bundled
+
     return from_backend
 
 

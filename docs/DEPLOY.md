@@ -12,7 +12,25 @@ The UI labels replayed output as recorded. Recordings are refreshed by any run w
 
 Each browser tab keeps its own runs, reviews and downloads (a random session id on every call), so visitors never see each other's work. Uploads are capped at 60 MB.
 
-## Backend on a Hugging Face Docker Space
+## Backend and frontend on Vercel (no GitHub access needed)
+
+Both parts deploy from this machine with the Vercel CLI, so Vercel never needs access to the repository. Log in once with `npx vercel login` (email works).
+
+1. Backend, as a Python function (only git-tracked files are staged, so `backend/.env` stays local):
+   ```bash
+   python deploy/stage_vercel_api.py ../conduit-vercel-api
+   npx vercel deploy --prod --yes --cwd ../conduit-vercel-api
+   ```
+   Check `https://<backend-url>/api/v1/health`.
+2. Frontend, pointed at that backend:
+   ```bash
+   cd frontend
+   npx vercel deploy --prod --yes --build-env NEXT_PUBLIC_API_URL=https://<backend-url>
+   ```
+
+On Vercel's free plan, uploads in **Site & Files** are limited to 4.5 MB per request (Vercel's function payload limit). A run's engineer review lives in the serving instance's memory, so it can reset after the backend has been idle; downloads without a remembered run replay the recorded plan, so they still match what the run showed.
+
+## Backend on a Hugging Face Docker Space (needs Hugging Face PRO)
 
 1. Create a Space at https://huggingface.co/new-space: SDK **Docker**, template **Blank**, hardware **CPU basic** (free), visibility **Public**.
 2. Create a token at https://huggingface.co/settings/tokens with **Write** access, then log in from this repository:

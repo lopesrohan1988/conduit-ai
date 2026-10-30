@@ -94,8 +94,11 @@ async def _resolve_run(session: str, scenario_id: str) -> dict[str, Any]:
     run = _RUNS.get(session, scenario_id)
     if run is not None:
         return run
+    # Without keys the models replay their recordings, so this matches what the visitor's run showed
+    # (a serverless host may serve the download from an instance that never saw that run)
+    keyless = not (settings.meta_api_configured or settings.baseten_api_configured)
     compiled_graph, scratch = build_conduit_langgraph(
-        settings=settings, gateway=gateway, use_live_llm=False
+        settings=settings, gateway=gateway, use_live_llm=keyless
     )
     initial_state = build_scenario_initial_state(scenario_id, settings=settings)
     final_state = await compiled_graph.ainvoke(initial_state)

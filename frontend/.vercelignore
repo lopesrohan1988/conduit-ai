@@ -1,0 +1,7 @@
+# Sent by `vercel deploy` from this folder: source only, never local builds or secrets
+node_modules
+.next
+out
+build
+*.tsbuildinfo
+.env*
